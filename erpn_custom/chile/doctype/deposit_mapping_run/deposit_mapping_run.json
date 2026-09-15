@@ -1,0 +1,181 @@
+{
+ "actions": [],
+ "autoname": "DMR-.#####",
+ "creation": "2026-09-15 16:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source",
+  "status",
+  "requested_by",
+  "rule_version",
+  "column_break_meta",
+  "started_at",
+  "finished_at",
+  "duration_ms",
+  "job_id",
+  "section_metrics",
+  "analyzed_count",
+  "mapped_count",
+  "already_mapped_count",
+  "no_match_count",
+  "conflict_count",
+  "error_count",
+  "section_errors",
+  "error_summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source",
+   "options": "Manual\nScheduler",
+   "reqd": 1
+  },
+  {
+   "default": "Queued",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Queued\nRunning\nSuccess\nPartial\nFailed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Data",
+   "label": "Requested By"
+  },
+  {
+   "fieldname": "rule_version",
+   "fieldtype": "Data",
+   "label": "Rule Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At"
+  },
+  {
+   "fieldname": "finished_at",
+   "fieldtype": "Datetime",
+   "label": "Finished At"
+  },
+  {
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "label": "Duration (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_id",
+   "fieldtype": "Data",
+   "label": "Job Id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_metrics",
+   "fieldtype": "Section Break",
+   "label": "Metrics"
+  },
+  {
+   "default": "0",
+   "fieldname": "analyzed_count",
+   "fieldtype": "Int",
+   "label": "Analyzed"
+  },
+  {
+   "default": "0",
+   "fieldname": "mapped_count",
+   "fieldtype": "Int",
+   "label": "Mapped"
+  },
+  {
+   "default": "0",
+   "fieldname": "already_mapped_count",
+   "fieldtype": "Int",
+   "label": "Already Mapped"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_match_count",
+   "fieldtype": "Int",
+   "label": "No Match"
+  },
+  {
+   "default": "0",
+   "fieldname": "conflict_count",
+   "fieldtype": "Int",
+   "label": "Conflicts"
+  },
+  {
+   "default": "0",
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Errors"
+  },
+  {
+   "fieldname": "section_errors",
+   "fieldtype": "Section Break",
+   "label": "Errors"
+  },
+  {
+   "fieldname": "error_summary",
+   "fieldtype": "Small Text",
+   "label": "Error Summary",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-15 16:00:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "Deposit Mapping Run",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "read": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

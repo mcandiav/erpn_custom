@@ -1,0 +1,43 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"sh-pagos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes\",\"col\":4}}]",
+ "creation": "2026-09-15 16:00:00",
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "money-coins-1",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Pagos de Clientes",
+ "links": [],
+ "modified": "2026-09-15 16:00:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "Pagos de Clientes",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 31.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Pagos de Clientes",
+   "link_to": "pagos-de-clientes",
+   "type": "Page"
+  }
+ ],
+ "title": "Pagos de Clientes"
+}

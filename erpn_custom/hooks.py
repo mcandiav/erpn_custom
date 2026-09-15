@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -149,23 +149,13 @@ app_license = "mit"
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"erpn_custom.tasks.all"
-# 	],
-# 	"daily": [
-# 		"erpn_custom.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"erpn_custom.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"erpn_custom.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"erpn_custom.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"cron": {
+		"*/15 * * * *": [
+			"erpn_custom.chile.deposit_mapping.enqueue_from_scheduler"
+		]
+	}
+}
 
 # Testing
 # -------
