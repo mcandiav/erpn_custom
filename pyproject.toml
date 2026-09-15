@@ -3,7 +3,7 @@ name = "erpn_custom"
 authors = [
     { name = "At-Once-Ai", email = "mcchile.cl@gmail.com"}
 ]
-description = "Customizaciones FRAgallardo para ERPNext, normativa Chilee integraciones."
+description = "Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones."
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]

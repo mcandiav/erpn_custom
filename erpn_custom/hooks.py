@@ -1,7 +1,7 @@
 app_name = "erpn_custom"
 app_title = "ERPn Custom"
 app_publisher = "At-Once-Ai"
-app_description = "Customizaciones FRAgallardo para ERPNext, normativa Chilee integraciones."
+app_description = "Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones."
 app_email = "mcchile.cl@gmail.com"
 app_license = "mit"
 
