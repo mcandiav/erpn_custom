@@ -150,11 +150,9 @@ required_apps = ["erpnext"]
 # ---------------
 
 scheduler_events = {
-	"cron": {
-		"*/15 * * * *": [
-			"erpn_custom.chile.deposit_mapping.enqueue_from_scheduler"
-		]
-	}
+	"all": [
+		"erpn_custom.chile.deposit_mapping.tick_from_scheduler"
+	]
 }
 
 # Testing

@@ -5,6 +5,7 @@ from frappe.utils import now_datetime
 
 from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, classify_rut, index_customers_by_normalized_tax_id
 from erpn_custom.chile.rut import normalize_chilean_tax_id
+from erpn_custom.chile.schedule import interval_due
 
 BATCH_SIZE = 200
 LOCK_KEY = "erpn_custom:deposit_mapping_lock"
@@ -18,6 +19,115 @@ ALLOWED_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
 
 def enqueue_from_scheduler():
     enqueue_deposit_mapping(source="Scheduler", requested_by="Scheduler")
+
+
+def tick_from_scheduler():
+    enabled, interval_minutes = _mapping_settings()
+    if not enabled:
+        return {"ok": False, "reason": "disabled"}
+    last = _last_run("Scheduler")
+    if last and last.status in ("Queued", "Running"):
+        return {"ok": False, "reason": "already_running", "run": last.name}
+    last_finished = last.finished_at if last else None
+    if not interval_due(last_finished, interval_minutes, now_datetime()):
+        return {"ok": False, "reason": "interval"}
+    return enqueue_deposit_mapping(source="Scheduler", requested_by="Scheduler")
+
+
+def apply_party_for_bank_transaction(bank_transaction_name):
+    """Idempotent Exact Tax ID mapping for one Bank Transaction.
+
+    Same engine used by the Pagos de Clientes button, the interval job, and
+    Banco de Chile ingestion after the Bank Transaction exists.
+    """
+    if not bank_transaction_name:
+        return {"ok": False, "result": "skipped", "reason": "missing_name"}
+
+    values = frappe.db.get_value(
+        "Bank Transaction",
+        bank_transaction_name,
+        [
+            "name",
+            "party",
+            "party_type",
+            "reference_number",
+            "custom_rut_del_pagador",
+            "bank_party_name",
+            "transaction_id",
+            "deposit",
+            "withdrawal",
+            "status",
+            "docstatus",
+        ],
+        as_dict=True,
+    )
+    if not values:
+        return {"ok": False, "result": "skipped", "reason": "not_found", "name": bank_transaction_name}
+    if values.docstatus == 2 or values.status not in ELIGIBLE_STATUSES or not (values.deposit or 0):
+        return {"ok": True, "result": "skipped_ineligible", "name": bank_transaction_name}
+    if values.party:
+        return {"ok": True, "result": "already_mapped", "party": values.party, "name": bank_transaction_name}
+    if not _acquire_lock():
+        return {"ok": False, "result": "deferred", "reason": "lock", "name": bank_transaction_name}
+
+    run = None
+    try:
+        run = frappe.get_doc(
+            {
+                "doctype": "Deposit Mapping Run",
+                "source": "API",
+                "status": "Running",
+                "requested_by": (getattr(frappe.session, "user", None) or "API"),
+                "rule_version": RULE_VERSION,
+                "started_at": now_datetime(),
+                "job_id": f"{JOB_ID}:api:{bank_transaction_name}",
+            }
+        )
+        run.insert(ignore_permissions=True)
+        frappe.db.commit()
+        customers = frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "tax_id"])
+        customers_by_rut = index_customers_by_normalized_tax_id(customers, normalize_chilean_tax_id)
+        result = _map_one(values, customers_by_rut, run.name)
+        run.update(
+            {
+                "analyzed_count": 1,
+                "mapped_count": int(result == "mapped_count"),
+                "already_mapped_count": int(result == "already_mapped_count"),
+                "no_match_count": int(result == "no_match_count"),
+                "conflict_count": int(result == "conflict_count"),
+                "error_count": 0,
+                "status": "Success",
+                "finished_at": now_datetime(),
+            }
+        )
+        run.save(ignore_permissions=True)
+        frappe.db.commit()
+        return {
+            "ok": True,
+            "result": result.replace("_count", ""),
+            "run": run.name,
+            "name": bank_transaction_name,
+        }
+    except Exception:
+        if run and run.name:
+            frappe.db.set_value(
+                "Deposit Mapping Run",
+                run.name,
+                {
+                    "status": "Failed",
+                    "error_summary": frappe.get_traceback()[:500],
+                    "finished_at": now_datetime(),
+                },
+            )
+            frappe.db.commit()
+        return {
+            "ok": False,
+            "result": "error",
+            "name": bank_transaction_name,
+            "run": run.name if run else None,
+        }
+    finally:
+        _release_lock()
 
 
 def enqueue_deposit_mapping(source="Manual", requested_by=None):
@@ -123,7 +233,9 @@ def get_pagos_clientes_data(exception_start=0, exception_limit=50):
     )
     last_manual = _last_run("Manual")
     last_scheduler = _last_run("Scheduler")
+    last_api = _last_run("API")
     last_any = _last_run(None)
+    enabled, interval_minutes = _mapping_settings()
     exceptions = frappe.get_all(
         "Bank Transaction",
         filters=_eligible_filters(),
@@ -148,6 +260,9 @@ def get_pagos_clientes_data(exception_start=0, exception_limit=50):
         "last_run": last_any,
         "last_manual": last_manual,
         "last_scheduler": last_scheduler,
+        "last_api": last_api,
+        "scheduler_enabled": enabled,
+        "interval_minutes": interval_minutes,
         "exceptions": exceptions,
     }
 
@@ -301,6 +416,20 @@ def _set_normalized(name, normalized):
 
 def _mark_status(name, status):
     frappe.db.set_value("Bank Transaction", name, "custom_mapping_status", status, update_modified=False)
+
+
+def _mapping_settings():
+    if not frappe.db.exists("DocType", "Deposit Mapping Settings"):
+        return True, 15
+    enabled = frappe.db.get_single_value("Deposit Mapping Settings", "enabled")
+    interval = frappe.db.get_single_value("Deposit Mapping Settings", "interval_minutes")
+    if enabled is None:
+        enabled = 1
+    try:
+        minutes = int(interval)
+    except (TypeError, ValueError):
+        minutes = 15
+    return bool(enabled), max(minutes, 1)
 
 
 def _eligible_filters():

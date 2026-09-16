@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"sh-pagos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes\",\"col\":4}}]",
+ "content": "[{\"id\":\"sh-pagos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Deposit Mapping Settings\",\"col\":4}}]",
  "creation": "2026-09-15 16:00:00",
  "doctype": "Workspace",
  "hide_custom": 0,
@@ -37,6 +37,13 @@
    "label": "Pagos de Clientes",
    "link_to": "pagos-de-clientes",
    "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Deposit Mapping Settings",
+   "link_to": "Deposit Mapping Settings",
+   "type": "DocType"
   }
  ],
  "title": "Pagos de Clientes"

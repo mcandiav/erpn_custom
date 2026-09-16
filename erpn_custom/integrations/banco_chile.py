@@ -32,9 +32,9 @@ def oauth_callback(code=None, state=None, error=None, error_description=None):
 def notifications_webhook():
     """Receive Banco de Chile transfer notifications.
 
-    Raw payload processing, signature validation, idempotency and creation of
-    ERPNext Bank Transaction/Payment Entry records will be added after the
-    sandbox contract and sample payload are confirmed.
+    After a Bank Transaction is created from a notification, call
+    resolve_party_for_ingested_transaction(name) so party uses the same Exact
+    Tax ID engine as Pagos de Clientes and the interval job.
     """
     payload = frappe.request.get_json(silent=True) or {}
 
@@ -43,3 +43,10 @@ def notifications_webhook():
         "message": _("Banco de Chile notification received"),
         "received": bool(payload),
     }
+
+
+def resolve_party_for_ingested_transaction(bank_transaction_name):
+    """Call the shared Exact Tax ID engine after a Bank Transaction is created."""
+    from erpn_custom.chile.deposit_mapping import apply_party_for_bank_transaction
+
+    return apply_party_for_bank_transaction(bank_transaction_name)

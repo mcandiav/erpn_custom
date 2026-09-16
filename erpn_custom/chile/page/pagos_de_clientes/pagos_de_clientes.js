@@ -39,7 +39,9 @@ function refresh_dashboard(page) {
 		callback(r) {
 			const data = r.message || {};
 			const running = data.running ? __("Mapeo en ejecucion") : __("Motor en reposo");
-			page.main.find(".pagos-clientes-status").text(running);
+			const interval = data.interval_minutes || 15;
+			const sched = data.scheduler_enabled ? __("cada {0} min", [interval]) : __("job periodico apagado");
+			page.main.find(".pagos-clientes-status").text(`${running} · ${sched}`);
 			const last = data.last_run || {};
 			page.main.find(".pagos-clientes-kpis").html(`
 				${kpi(__("Pendientes"), data.pending)}
@@ -49,6 +51,7 @@ function refresh_dashboard(page) {
 				${kpi(__("Errores"), last.error_count)}
 				${kpi(__("Ultima manual"), format_run(data.last_manual))}
 				${kpi(__("Ultima automatica"), format_run(data.last_scheduler))}
+				${kpi(__("Ultima API banco"), format_run(data.last_api))}
 			`);
 			const rows = (data.exceptions || [])
 				.map(
