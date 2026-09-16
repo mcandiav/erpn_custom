@@ -1,7 +1,7 @@
 {
  "app": "erpn_custom",
  "charts": [],
- "content": "[{\"id\":\"sh-vinculador\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes / Vinculador\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configuraci\\u00f3n del Vinculador\",\"col\":4}},{\"id\":\"sh-historial\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Vinculaci\\u00f3n\",\"col\":4}}]",
+ "content": "[{\"id\":\"sh-vinculador\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes / Vinculador\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configuraci\\u00f3n del Vinculador\",\"col\":4}},{\"id\":\"sh-historial\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Vinculaci\\u00f3n\",\"col\":4}},{\"id\":\"sh-intentos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Intentos\",\"col\":4}}]",
  "creation": "2026-09-15 16:00:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -16,7 +16,7 @@
  "link_to": "pagos-de-clientes",
  "link_type": "Page",
  "links": [],
- "modified": "2026-09-15 22:40:00",
+ "modified": "2026-09-15 22:55:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
@@ -58,6 +58,13 @@
    "label": "Historial de Vinculación",
    "link_to": "Deposit Mapping Run",
    "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Historial de Intentos",
+   "link_to": "Deposit Mapping Attempt",
+   "type": "DocType"
   }
  ],
  "sidebar_items": [
@@ -98,6 +105,20 @@
    "keep_closed": 0,
    "label": "Historial de Vinculación",
    "link_to": "Deposit Mapping Run",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 0,
+   "icon": "history",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Historial de Intentos",
+   "link_to": "Deposit Mapping Attempt",
    "link_type": "DocType",
    "open_in_new_tab": 0,
    "show_arrow": 0,
