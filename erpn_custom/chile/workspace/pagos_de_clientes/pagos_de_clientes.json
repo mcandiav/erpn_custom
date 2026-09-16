@@ -16,7 +16,7 @@
  "link_to": "pagos-de-clientes",
  "link_type": "Page",
  "links": [],
- "modified": "2026-09-15 22:55:00",
+ "modified": "2026-09-15 23:00:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
@@ -68,6 +68,20 @@
   }
  ],
  "sidebar_items": [
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 1,
+   "icon": "circle-dollar-sign",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Pagos de Clientes",
+   "link_to": "Pagos de Clientes",
+   "link_type": "Workspace",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
   {
    "child": 0,
    "collapsible": 0,

@@ -11,6 +11,17 @@
    "collapsible": 0,
    "indent": 0,
    "keep_closed": 0,
+   "label": "Pagos de Clientes",
+   "link_to": "Pagos de Clientes",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Pagos de Clientes / Vinculador",
    "link_to": "pagos-de-clientes",
    "link_type": "Page",
@@ -51,7 +62,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-09-15 22:55:00",
+ "modified": "2026-09-15 23:00:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
