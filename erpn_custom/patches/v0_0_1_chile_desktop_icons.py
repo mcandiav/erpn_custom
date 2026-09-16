@@ -1,15 +1,69 @@
-import os
-
 import frappe
-from frappe.modules.import_file import import_file_by_path
+
+SIDEBAR_NAME = "Pagos de Clientes"
+
+SIDEBAR_ITEMS = [
+    {
+        "type": "Link",
+        "label": "Pagos de Clientes",
+        "link_type": "Workspace",
+        "link_to": "Pagos de Clientes",
+        "child": 0,
+        "collapsible": 0,
+        "indent": 0,
+        "keep_closed": 0,
+        "show_arrow": 0,
+    },
+    {
+        "type": "Link",
+        "label": "Pagos de Clientes / Vinculador",
+        "link_type": "Page",
+        "link_to": "pagos-de-clientes",
+        "child": 0,
+        "collapsible": 0,
+        "indent": 0,
+        "keep_closed": 0,
+        "show_arrow": 0,
+    },
+    {
+        "type": "Link",
+        "label": "Configuración del Vinculador",
+        "link_type": "DocType",
+        "link_to": "Deposit Mapping Settings",
+        "child": 0,
+        "collapsible": 0,
+        "indent": 0,
+        "keep_closed": 0,
+        "show_arrow": 0,
+    },
+    {
+        "type": "Link",
+        "label": "Historial de Vinculación",
+        "link_type": "DocType",
+        "link_to": "Deposit Mapping Run",
+        "child": 0,
+        "collapsible": 0,
+        "indent": 0,
+        "keep_closed": 0,
+        "show_arrow": 0,
+    },
+    {
+        "type": "Link",
+        "label": "Historial de Intentos",
+        "link_type": "DocType",
+        "link_to": "Deposit Mapping Attempt",
+        "child": 0,
+        "collapsible": 0,
+        "indent": 0,
+        "keep_closed": 0,
+        "show_arrow": 0,
+    },
+]
 
 
 def execute():
-    sidebar_path = frappe.get_app_path("erpn_custom", "workspace_sidebar", "pagos_de_clientes.json")
-    if os.path.exists(sidebar_path):
-        import_file_by_path(sidebar_path, force=True, ignore_version=True)
-
-    _upsert(
+    _upsert_sidebar()
+    _upsert_icon(
         {
             "doctype": "Desktop Icon",
             "label": "Chile",
@@ -26,14 +80,14 @@ def execute():
             "restrict_removal": 0,
         }
     )
-    _upsert(
+    _upsert_icon(
         {
             "doctype": "Desktop Icon",
             "label": "Pagos de Clientes",
             "icon": "dollar-sign",
             "icon_type": "Link",
             "idx": 1,
-            "link_to": "Pagos de Clientes",
+            "link_to": SIDEBAR_NAME,
             "link_type": "Workspace Sidebar",
             "parent_icon": "Chile",
             "hidden": 0,
@@ -47,7 +101,27 @@ def execute():
     frappe.cache.delete_key("bootinfo")
 
 
-def _upsert(values):
+def _upsert_sidebar():
+    values = {
+        "doctype": "Workspace Sidebar",
+        "title": SIDEBAR_NAME,
+        "header_icon": "money-coins-1",
+        "module": "Chile",
+        "standard": 1,
+        "app": "erpn_custom",
+    }
+    if frappe.db.exists("Workspace Sidebar", SIDEBAR_NAME):
+        doc = frappe.get_doc("Workspace Sidebar", SIDEBAR_NAME)
+        doc.update(values)
+        doc.set("items", SIDEBAR_ITEMS)
+        doc.save(ignore_permissions=True)
+        return
+    doc = frappe.get_doc(values)
+    doc.set("items", SIDEBAR_ITEMS)
+    doc.insert(ignore_permissions=True)
+
+
+def _upsert_icon(values):
     name = values["label"]
     if frappe.db.exists("Desktop Icon", name):
         doc = frappe.get_doc("Desktop Icon", name)
