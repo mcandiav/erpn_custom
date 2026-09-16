@@ -160,16 +160,20 @@ scheduler_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "erpn_custom.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Bank Statement Import": [
+		"erpn_custom.integrations.banco_chile_import.BancoChileStatementImportMixin"
+	],
+}
 
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "erpn_custom.event.get_events"
-# }
+override_whitelisted_methods = {
+	"erpnext.accounts.doctype.bank_statement_import.bank_statement_import.form_start_import": (
+		"erpn_custom.integrations.banco_chile_import.form_start_import"
+	),
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
