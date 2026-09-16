@@ -4,6 +4,7 @@ from erpn_custom.chile.realize_rules import (
 	allocation_plan,
 	is_eligible_credit,
 	proposed_apply_amount,
+	remaining_order_amount,
 	sql_savepoint_name,
 )
 
@@ -90,6 +91,11 @@ class TestAllocationPlan(unittest.TestCase):
 		)
 		self.assertEqual(plan, [{"name": "PE-15", "amount": 15000}])
 		self.assertEqual(leftover, 1000)
+
+	def test_over_apply_blocked_by_pending(self):
+		self.assertEqual(remaining_order_amount(50000, 150000), 0)
+		self.assertEqual(remaining_order_amount(50000, 0), 50000)
+		self.assertEqual(proposed_apply_amount(791440, remaining_order_amount(50000, 150000)), 0)
 
 	def test_savepoint_strips_hyphens(self):
 		savepoint = sql_savepoint_name("realize", "ACC-BTN-2026-00854")

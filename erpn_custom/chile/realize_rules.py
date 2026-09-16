@@ -37,6 +37,11 @@ def sql_savepoint_name(prefix, docname):
 	return cleaned[:32]
 
 
+def remaining_order_amount(grand_total, already_applied):
+	pending = flt_amount(grand_total) - flt_amount(already_applied)
+	return pending if pending > 0 else 0
+
+
 def proposed_apply_amount(available, pending):
 	available = flt_amount(available)
 	pending = flt_amount(pending)

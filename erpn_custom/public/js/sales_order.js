@@ -74,6 +74,7 @@ function apply_credit_dialog(frm, data) {
 		],
 		primary_action_label: __("Confirmar"),
 		primary_action(values) {
+			dialog.hide();
 			frappe.call({
 				method: "erpn_custom.chile.sales_order_credit.apply_credit",
 				args: {
@@ -83,7 +84,6 @@ function apply_credit_dialog(frm, data) {
 				freeze: true,
 				freeze_message: __("Aplicando saldo a favor"),
 				callback() {
-					dialog.hide();
 					frm.reload_doc();
 				},
 			});
