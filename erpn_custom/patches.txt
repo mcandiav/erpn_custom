@@ -4,3 +4,4 @@
 
 [post_model_sync]
 erpn_custom.patches.v0_0_1_deposit_mapping_fields
+erpn_custom.patches.v0_0_1_chile_desktop_icons
