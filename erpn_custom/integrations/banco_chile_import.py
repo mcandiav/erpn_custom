@@ -1,4 +1,5 @@
 import json
+import time
 
 import frappe
 from frappe import _
@@ -46,7 +47,8 @@ def enqueue_banco_chile_import(doc):
 	run_now = frappe.in_test or frappe.conf.developer_mode
 	job_id = f"bank_statement_import::{doc.name}"
 	if run_now:
-		return run_banco_chile_import_job(doc.name)
+		run_banco_chile_import_job(doc.name)
+		return True
 	if not is_job_enqueued(job_id):
 		enqueue(
 			run_banco_chile_import_job,
@@ -56,7 +58,7 @@ def enqueue_banco_chile_import(doc):
 			job_id=job_id,
 			data_import=doc.name,
 		)
-	return job_id
+	return True
 
 
 def run_banco_chile_import_job(data_import):
@@ -80,12 +82,15 @@ def run_banco_chile_import_job(data_import):
 			doc.bank_account,
 			lambda account, tid: _existing_names(account, tid),
 		)
+		total = len(decisions)
 		if frappe.db.has_column("Bank Statement Import", "payload_count"):
-			doc.db_set("payload_count", max(len(decisions), 0), update_modified=False)
-		for decision in decisions:
+			doc.db_set("payload_count", max(total, 0), update_modified=False)
+		last_eta = 0
+		for index, decision in enumerate(decisions, start=1):
+			started = time.perf_counter()
 			_apply_decision(doc, decision, account_currency, summary)
-		if summary["created"]:
-			_run_vinculador(summary["created"], summary)
+			last_eta = _import_eta(last_eta, time.perf_counter() - started, total - index)
+			_publish_import_progress(doc.name, index, total, decision.get("result"), last_eta)
 		status = _import_status(summary)
 		_store_result(doc, summary, status)
 		return {"ok": True, "status": status, "summary": _public_summary(summary)}
@@ -124,6 +129,7 @@ def _apply_decision(doc, decision, account_currency, summary):
 		decision["name"] = bt.name
 		summary["created"].append(decision)
 		frappe.db.commit()
+		_map_created(decision, summary)
 	except Exception as exc:
 		frappe.db.rollback(save_point=savepoint)
 		message = str(exc)
@@ -134,20 +140,43 @@ def _apply_decision(doc, decision, account_currency, summary):
 		frappe.db.commit()
 
 
-def _run_vinculador(created, summary):
+def _map_created(decision, summary):
 	from erpn_custom.chile.deposit_mapping import apply_party_for_bank_transaction
 
-	for decision in created:
-		name = decision.get("name")
-		if not name:
-			continue
-		try:
-			mapping = apply_party_for_bank_transaction(name)
-			decision["mapping"] = mapping.get("result") if isinstance(mapping, dict) else None
-			summary["mapped"].append({"name": name, "result": decision["mapping"]})
-		except Exception as exc:
-			decision["mapping"] = "error"
-			summary["mapped"].append({"name": name, "result": "error", "reason": str(exc)[:500]})
+	name = decision.get("name")
+	if not name:
+		return
+	try:
+		mapping = apply_party_for_bank_transaction(name)
+		decision["mapping"] = mapping.get("result") if isinstance(mapping, dict) else None
+		summary["mapped"].append({"name": name, "result": decision["mapping"]})
+	except Exception as exc:
+		decision["mapping"] = "error"
+		summary["mapped"].append({"name": name, "result": "error", "reason": str(exc)[:500]})
+
+
+def _import_eta(last_eta, processing_time, remaining):
+	eta = processing_time * remaining
+	if not last_eta or eta < last_eta:
+		return eta
+	return last_eta
+
+
+def _publish_import_progress(data_import, current, total, result, eta):
+	if not total:
+		return
+	frappe.publish_realtime(
+		"data_import_progress",
+		{
+			"current": current,
+			"total": total,
+			"data_import": data_import,
+			"success": result != "skip_duplicate",
+			"skipping": result == "skip_duplicate",
+			"eta": eta,
+		},
+		user=frappe.session.user,
+	)
 
 
 def _store_result(doc, summary, status):

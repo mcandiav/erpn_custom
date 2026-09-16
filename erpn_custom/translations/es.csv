@@ -13,5 +13,6 @@ Ultima API banco,Última API
 transaction_id is required; ingest rejected,transaction_id es obligatorio; ingesta rechazada
 bank_account is required; ingest rejected,bank_account es obligatorio; ingesta rechazada
 duplicate/skipped: Bank Transaction {0} already exists for bank_account + transaction_id,duplicado/omitido: Bank Transaction {0} ya existe para bank_account + transaction_id
+Created {0}, skipped duplicates {1}, errors {2}.,Creados {0}, duplicados omitidos {1}, errores {2}.
 Ingest Key,Clave de ingesta
 Ingest Status,Estado de ingesta
