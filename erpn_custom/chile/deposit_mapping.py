@@ -3,6 +3,7 @@ import time
 import frappe
 from frappe.utils import now_datetime
 
+from erpn_custom.chile.attempt import conflict_reason, serialize_candidates
 from erpn_custom.chile.concurrency import is_stale_run
 from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, classify_rut, index_customers_by_normalized_tax_id
 from erpn_custom.chile.rut import normalize_chilean_tax_id
@@ -95,9 +96,16 @@ def apply_party_for_bank_transaction(bank_transaction_name):
         customers_by_rut = index_customers_by_normalized_tax_id(customers, normalize_chilean_tax_id)
         frappe.db.savepoint("deposit_map_one")
         try:
-            result = _map_one(values, customers_by_rut, run.name)
+            result = _map_one(values, customers_by_rut, run.name, "API")
         except Exception:
             frappe.db.rollback(save_point="deposit_map_one")
+            _record_attempt(
+                run_name=run.name,
+                row=values,
+                trigger="API",
+                resultado="Error",
+                reason=frappe.get_traceback()[:500],
+            )
             raise
         run.update(
             {
@@ -326,7 +334,7 @@ def _process_batches(run):
             metrics["analyzed_count"] += 1
             frappe.db.savepoint("deposit_map_one")
             try:
-                result = _map_one(row, customers_by_rut, run.name)
+                result = _map_one(row, customers_by_rut, run.name, run.source)
                 metrics[result] += 1
             except Exception:
                 frappe.db.rollback(save_point="deposit_map_one")
@@ -334,26 +342,103 @@ def _process_batches(run):
                 err = f"{row.name}: {frappe.get_traceback()}"
                 errors.append(err[:500])
                 _mark_status(row.name, "Error")
+                _record_attempt(
+                    run_name=run.name,
+                    row=row,
+                    trigger=run.source,
+                    resultado="Error",
+                    reason=err[:500],
+                )
         frappe.db.commit()
     if errors:
         metrics["error_summary"] = "\n".join(errors[:20])
     return metrics
 
 
-def _map_one(row, customers_by_rut, run_name):
+def _map_one(row, customers_by_rut, run_name, trigger="Manual"):
     if row.party:
+        _record_attempt(
+            run_name=run_name,
+            row=row,
+            trigger=trigger,
+            resultado="Already Mapped",
+            customer=row.party,
+            reason="Bank Transaction ya tenia party",
+        )
         return "already_mapped_count"
     normalized = normalize_chilean_tax_id(row.custom_rut_del_pagador)
     _set_normalized(row.name, normalized)
     rule, names = classify_rut(normalized, customers_by_rut)
     if rule == EXACT_TAX_ID:
         _apply_customer(row, names[0], run_name)
+        _record_attempt(
+            run_name=run_name,
+            row=row,
+            trigger=trigger,
+            resultado="Mapped",
+            normalized=normalized,
+            customer=names[0],
+            candidates=names,
+            rule=EXACT_TAX_ID,
+        )
         return "mapped_count"
     if rule == CONFLICT:
         _mark_status(row.name, CONFLICT)
+        _record_attempt(
+            run_name=run_name,
+            row=row,
+            trigger=trigger,
+            resultado=CONFLICT,
+            normalized=normalized,
+            candidates=names,
+            rule=EXACT_TAX_ID,
+            reason=conflict_reason(normalized, names),
+        )
         return "conflict_count"
+    reason = "RUT vacio o invalido" if not normalized else f"Sin Customer con RUT {normalized}"
     _mark_status(row.name, NO_MATCH)
+    _record_attempt(
+        run_name=run_name,
+        row=row,
+        trigger=trigger,
+        resultado=NO_MATCH,
+        normalized=normalized,
+        reason=reason,
+    )
     return "no_match_count"
+
+
+def _record_attempt(
+    run_name,
+    row,
+    trigger,
+    resultado,
+    normalized=None,
+    customer=None,
+    candidates=None,
+    rule="",
+    reason="",
+):
+    if not run_name or not frappe.db.exists("DocType", "Deposit Mapping Attempt"):
+        return
+    count, payload = serialize_candidates(candidates)
+    frappe.get_doc(
+        {
+            "doctype": "Deposit Mapping Attempt",
+            "mapping_run": run_name,
+            "bank_transaction": row.name,
+            "attempted_at": now_datetime(),
+            "trigger": trigger or "Manual",
+            "rut_recibido": row.custom_rut_del_pagador or "",
+            "rut_normalizado": normalized or "",
+            "resultado": resultado,
+            "customer": customer or "",
+            "candidate_count": count,
+            "candidate_customers": payload,
+            "rule": rule or "",
+            "reason": (reason or "")[:500],
+        }
+    ).insert(ignore_permissions=True)
 
 
 def _apply_customer(row, customer, run_name):

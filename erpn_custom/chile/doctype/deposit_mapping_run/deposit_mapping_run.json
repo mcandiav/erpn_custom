@@ -135,8 +135,14 @@
  "index_web_pages_for_search": 1,
  "issingle": 0,
  "istable": 0,
- "links": [],
- "modified": "2026-09-15 16:00:00",
+ "links": [
+  {
+   "group": "Vinculador",
+   "link_doctype": "Deposit Mapping Attempt",
+   "link_fieldname": "mapping_run"
+  }
+ ],
+ "modified": "2026-09-15 22:50:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Deposit Mapping Run",

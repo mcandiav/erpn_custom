@@ -1,0 +1,158 @@
+{
+ "actions": [],
+ "autoname": "DMA-.########",
+ "creation": "2026-09-15 22:50:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mapping_run",
+  "bank_transaction",
+  "attempted_at",
+  "trigger",
+  "column_break_ids",
+  "resultado",
+  "customer",
+  "rule",
+  "section_rut",
+  "rut_recibido",
+  "rut_normalizado",
+  "section_conflict",
+  "candidate_count",
+  "candidate_customers",
+  "reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "mapping_run",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Mapping Run",
+   "options": "Deposit Mapping Run",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "bank_transaction",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Bank Transaction",
+   "options": "Bank Transaction",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "attempted_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Attempted At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "trigger",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Trigger",
+   "options": "Manual\nScheduler\nAPI"
+  },
+  {
+   "fieldname": "column_break_ids",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "resultado",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Resultado",
+   "options": "Mapped\nNo Match\nConflict\nError\nAlready Mapped\nSkipped",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Data",
+   "label": "Rule"
+  },
+  {
+   "fieldname": "section_rut",
+   "fieldtype": "Section Break",
+   "label": "RUT"
+  },
+  {
+   "fieldname": "rut_recibido",
+   "fieldtype": "Data",
+   "label": "RUT Recibido"
+  },
+  {
+   "fieldname": "rut_normalizado",
+   "fieldtype": "Data",
+   "label": "RUT Normalizado"
+  },
+  {
+   "fieldname": "section_conflict",
+   "fieldtype": "Section Break",
+   "label": "Candidatos"
+  },
+  {
+   "default": "0",
+   "fieldname": "candidate_count",
+   "fieldtype": "Int",
+   "label": "Candidate Count"
+  },
+  {
+   "fieldname": "candidate_customers",
+   "fieldtype": "Long Text",
+   "label": "Candidate Customers"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-15 22:50:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "Deposit Mapping Attempt",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "read": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "sort_field": "attempted_at",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "bank_transaction",
+ "track_changes": 1
+}
