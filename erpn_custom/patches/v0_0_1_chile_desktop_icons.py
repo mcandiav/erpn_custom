@@ -1,7 +1,14 @@
+import os
+
 import frappe
+from frappe.modules.import_file import import_file_by_path
 
 
 def execute():
+    sidebar_path = frappe.get_app_path("erpn_custom", "workspace_sidebar", "pagos_de_clientes.json")
+    if os.path.exists(sidebar_path):
+        import_file_by_path(sidebar_path, force=True, ignore_version=True)
+
     _upsert(
         {
             "doctype": "Desktop Icon",
