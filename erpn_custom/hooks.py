@@ -136,13 +136,11 @@ add_to_apps_screen = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Bank Transaction": {
+		"validate": "erpn_custom.chile.ingest.validate_ingest",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
