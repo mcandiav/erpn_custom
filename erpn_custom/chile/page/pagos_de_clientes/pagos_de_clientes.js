@@ -4,7 +4,7 @@ frappe.pages["pagos-de-clientes"].on_page_load = function (wrapper) {
 		title: __("Pagos de Clientes"),
 		single_column: true,
 	});
-	page.set_primary_action(__("Ejecutar mapeo"), () => enqueue_mapping(page));
+	page.set_primary_action(__("Vincular pagos"), () => enqueue_mapping(page));
 	page.main.html(`
 		<div class="pagos-clientes-status text-muted"></div>
 		<div class="pagos-clientes-kpis" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0;"></div>
@@ -18,13 +18,13 @@ function enqueue_mapping(page) {
 	frappe.call({
 		method: "erpn_custom.chile.page.pagos_de_clientes.pagos_de_clientes.enqueue_mapping",
 		freeze: true,
-		freeze_message: __("Encolando mapeo"),
+		freeze_message: __("Encolando vinculación"),
 		callback(r) {
 			if (r.message && r.message.ok) {
 				frappe.show_alert({ message: __("Ejecucion iniciada: {0}", [r.message.run]), indicator: "green" });
 			} else {
 				frappe.show_alert({
-					message: __("Ya hay un mapeo en ejecucion"),
+					message: __("Ya hay una vinculación en ejecución"),
 					indicator: "orange",
 				});
 			}
@@ -38,20 +38,22 @@ function refresh_dashboard(page) {
 		method: "erpn_custom.chile.page.pagos_de_clientes.pagos_de_clientes.dashboard",
 		callback(r) {
 			const data = r.message || {};
-			const running = data.running ? __("Mapeo en ejecucion") : __("Motor en reposo");
+			const running = data.running ? __("Vinculación en ejecución") : __("Motor en reposo");
 			const interval = data.interval_minutes || 15;
-			const sched = data.scheduler_enabled ? __("cada {0} min", [interval]) : __("job periodico apagado");
+			const sched = data.scheduler_enabled
+				? __("Scheduler activo · cada {0} min", [interval])
+				: __("Scheduler apagado");
 			page.main.find(".pagos-clientes-status").text(`${running} · ${sched}`);
 			const last = data.last_run || {};
 			page.main.find(".pagos-clientes-kpis").html(`
 				${kpi(__("Pendientes"), data.pending)}
-				${kpi(__("Mapeados ultima ejecucion"), last.mapped_count)}
+				${kpi(__("Vinculados última ejecución"), last.mapped_count)}
 				${kpi(__("Sin coincidencia"), last.no_match_count)}
 				${kpi(__("Conflictos"), last.conflict_count)}
 				${kpi(__("Errores"), last.error_count)}
-				${kpi(__("Ultima manual"), format_run(data.last_manual))}
-				${kpi(__("Ultima automatica"), format_run(data.last_scheduler))}
-				${kpi(__("Ultima API banco"), format_run(data.last_api))}
+				${kpi(__("Última Manual"), format_run(data.last_manual))}
+				${kpi(__("Última Scheduler"), format_run(data.last_scheduler))}
+				${kpi(__("Última API"), format_run(data.last_api))}
 			`);
 			const rows = (data.exceptions || [])
 				.map(

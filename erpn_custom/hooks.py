@@ -10,16 +10,14 @@ app_license = "mit"
 
 required_apps = ["erpnext"]
 
-# Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "erpn_custom",
-# 		"logo": "/assets/erpn_custom/logo.png",
-# 		"title": "ERPn Custom",
-# 		"route": "/erpn_custom",
-# 		"has_permission": "erpn_custom.api.permission.has_app_permission"
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "erpn_custom",
+		"title": "Pagos de Clientes",
+		"route": "/desk/pagos-de-clientes",
+		"has_permission": "erpn_custom.chile.deposit_mapping.has_vinculador_permission",
+	}
+]
 
 # Includes in <head>
 # ------------------

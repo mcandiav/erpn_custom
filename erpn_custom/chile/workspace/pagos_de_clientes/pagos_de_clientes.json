@@ -1,22 +1,29 @@
 {
+ "app": "erpn_custom",
  "charts": [],
- "content": "[{\"id\":\"sh-pagos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Deposit Mapping Settings\",\"col\":4}}]",
+ "content": "[{\"id\":\"sh-vinculador\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes / Vinculador\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configuraci\\u00f3n del Vinculador\",\"col\":4}},{\"id\":\"sh-historial\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Vinculaci\\u00f3n\",\"col\":4}}]",
  "creation": "2026-09-15 16:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
  "doctype": "Workspace",
+ "for_user": "",
  "hide_custom": 0,
  "icon": "money-coins-1",
  "idx": 0,
+ "indicator_color": "green",
  "is_hidden": 0,
  "label": "Pagos de Clientes",
+ "link_to": "pagos-de-clientes",
+ "link_type": "Page",
  "links": [],
- "modified": "2026-09-15 16:00:00",
+ "modified": "2026-09-15 22:40:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
  "number_cards": [],
  "owner": "Administrator",
- "parent_page": "",
  "public": 1,
+ "quick_lists": [],
  "restrict_to_domain": "",
  "roles": [
   {
@@ -29,22 +36,75 @@
    "role": "System Manager"
   }
  ],
- "sequence_id": 31.0,
+ "sequence_id": 2.0,
  "shortcuts": [
   {
    "color": "Blue",
    "doc_view": "",
-   "label": "Pagos de Clientes",
+   "label": "Pagos de Clientes / Vinculador",
    "link_to": "pagos-de-clientes",
    "type": "Page"
   },
   {
    "color": "Grey",
    "doc_view": "",
-   "label": "Deposit Mapping Settings",
+   "label": "Configuración del Vinculador",
    "link_to": "Deposit Mapping Settings",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Historial de Vinculación",
+   "link_to": "Deposit Mapping Run",
    "type": "DocType"
   }
  ],
- "title": "Pagos de Clientes"
+ "sidebar_items": [
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 0,
+   "icon": "circle-dollar-sign",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Pagos de Clientes / Vinculador",
+   "link_to": "pagos-de-clientes",
+   "link_type": "Page",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 0,
+   "icon": "settings",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Configuración del Vinculador",
+   "link_to": "Deposit Mapping Settings",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 0,
+   "icon": "list",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Historial de Vinculación",
+   "link_to": "Deposit Mapping Run",
+   "link_type": "DocType",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "standard": 1,
+ "title": "Pagos de Clientes",
+ "type": "Workspace"
 }

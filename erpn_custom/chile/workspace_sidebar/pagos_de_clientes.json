@@ -1,0 +1,50 @@
+{
+ "app": "erpn_custom",
+ "creation": "2026-09-15 22:40:00",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "money-coins-1",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Pagos de Clientes / Vinculador",
+   "link_to": "pagos-de-clientes",
+   "link_type": "Page",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Configuración del Vinculador",
+   "link_to": "Deposit Mapping Settings",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Historial de Vinculación",
+   "link_to": "Deposit Mapping Run",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-15 22:40:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "Pagos de Clientes",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Pagos de Clientes"
+}

@@ -17,6 +17,10 @@ ELIGIBLE_STATUSES = ("Unreconciled",)
 ALLOWED_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
 
 
+def has_vinculador_permission():
+    return bool(set(frappe.get_roles()) & set(ALLOWED_ROLES))
+
+
 def enqueue_from_scheduler():
     enqueue_deposit_mapping(source="Scheduler", requested_by="Scheduler")
 

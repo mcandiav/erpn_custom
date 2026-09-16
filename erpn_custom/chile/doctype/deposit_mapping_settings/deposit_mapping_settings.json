@@ -13,21 +13,21 @@
    "description": "Si esta desmarcado, el job periodico no encola mapeo. El boton y la API de Banco de Chile siguen disponibles.",
    "fieldname": "enabled",
    "fieldtype": "Check",
-   "label": "Enabled"
+   "label": "Habilitado"
   },
   {
    "default": "15",
    "description": "Minutos minimos entre corridas automaticas. El tick de Frappe (all) consulta este valor; no hay un segundo motor de matching.",
    "fieldname": "interval_minutes",
    "fieldtype": "Int",
-   "label": "Interval Minutes",
+   "label": "Intervalo (minutos)",
    "non_negative": 1,
    "reqd": 1
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-09-15 22:20:00",
+ "modified": "2026-09-15 22:40:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Deposit Mapping Settings",
