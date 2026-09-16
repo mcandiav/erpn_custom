@@ -8,10 +8,12 @@ from erpn_custom.chile.ingest import decide_ingest, make_ingest_key
 HEADER_ALIASES = {
 	"fecha y hora": "fecha_y_hora",
 	"nombre origen": "nombre_origen",
+	"nombre o razon social origen": "nombre_origen",
 	"rut origen": "rut_origen",
 	"banco origen": "banco_origen",
 	"cuenta origen": "cuenta_origen",
 	"tipo operacion": "tipo_operacion",
+	"tipo de operacion": "tipo_operacion",
 	"cuenta destino": "cuenta_destino",
 	"monto": "monto",
 	"id transaccion": "id_transaccion",

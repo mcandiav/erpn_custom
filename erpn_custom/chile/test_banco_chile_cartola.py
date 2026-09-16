@@ -115,6 +115,53 @@ class TestBancoChileCartola(unittest.TestCase):
 		self.assertEqual(second[0]["result"], "skip_duplicate")
 		self.assertEqual(second[0]["existing"], "ACC-BTN-2026-00004")
 
+	def test_official_banco_chile_headers_map_name_and_operation_type(self):
+		headers = [
+			"",
+			"Fecha y hora",
+			"Nombre o razón social origen",
+			"Rut origen",
+			"Banco Origen",
+			"Cuenta Origen",
+			"Tipo de operación",
+			"Cuenta Destino",
+			"Monto",
+			"ID Transacción",
+			"Tipo Moneda",
+			"Tipo Operador",
+			"Comentario",
+		]
+		row = [
+			"",
+			"15-08-2026 23:06",
+			"Cynthia Marcela Contreras Soto",
+			"13.698.154-4",
+			"Mercado Pago",
+			"1058926733",
+			"Transferencia",
+			"2110194503",
+			"$129.980",
+			"C0875000292654062260815230124",
+			"CLP",
+			"CCA",
+			"Pago live",
+		]
+		parsed = parse_cartola_rows([headers, row])
+		self.assertTrue(parsed["ok"])
+		record = parsed["records"][0]
+		self.assertEqual(record["bank_party_name"], "Cynthia Marcela Contreras Soto")
+		self.assertEqual(record["transaction_type"], "Transferencia")
+		self.assertEqual(record["custom_rut_del_pagador"], "13.698.154-4")
+		payload = process_cartola_records(
+			parsed["records"],
+			"Banco de Chile - Banco de Chile",
+			lambda *_: [],
+		)[0]["payload"]
+		self.assertEqual(payload["bank_party_name"], "Cynthia Marcela Contreras Soto")
+		self.assertEqual(payload["transaction_type"], "Transferencia")
+		self.assertNotIn("party", payload)
+		self.assertNotIn("party_type", payload)
+
 
 if __name__ == "__main__":
 	unittest.main()
