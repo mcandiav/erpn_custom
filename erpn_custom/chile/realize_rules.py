@@ -32,6 +32,11 @@ def allocation_plan(payments, amount):
 	return plan, remaining
 
 
+def sql_savepoint_name(prefix, docname):
+	cleaned = "".join(ch if ch.isalnum() else "_" for ch in f"{prefix}_{docname}")
+	return cleaned[:32]
+
+
 def proposed_apply_amount(available, pending):
 	available = flt_amount(available)
 	pending = flt_amount(pending)

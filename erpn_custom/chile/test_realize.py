@@ -1,6 +1,11 @@
 import unittest
 
-from erpn_custom.chile.realize_rules import allocation_plan, is_eligible_credit, proposed_apply_amount
+from erpn_custom.chile.realize_rules import (
+	allocation_plan,
+	is_eligible_credit,
+	proposed_apply_amount,
+	sql_savepoint_name,
+)
 
 
 class TestRealizeEligibility(unittest.TestCase):
@@ -85,6 +90,11 @@ class TestAllocationPlan(unittest.TestCase):
 		)
 		self.assertEqual(plan, [{"name": "PE-15", "amount": 15000}])
 		self.assertEqual(leftover, 1000)
+
+	def test_savepoint_strips_hyphens(self):
+		savepoint = sql_savepoint_name("realize", "ACC-BTN-2026-00854")
+		self.assertNotIn("-", savepoint)
+		self.assertTrue(savepoint.startswith("realize_"))
 
 	def test_fifo_across_two_payments(self):
 		plan, leftover = allocation_plan(

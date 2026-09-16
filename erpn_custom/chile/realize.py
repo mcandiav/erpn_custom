@@ -3,7 +3,7 @@ import time
 import frappe
 from frappe.utils import flt, getdate, now_datetime
 
-from erpn_custom.chile.realize_rules import is_eligible_credit
+from erpn_custom.chile.realize_rules import is_eligible_credit, sql_savepoint_name
 
 BATCH_SIZE = 50
 LOCK_KEY = "erpn_custom:realize_lock"
@@ -120,7 +120,7 @@ def realize_attributed_deposit(bank_transaction_name):
 	)
 
 	posting_date = getdate(row.date) or getdate(now_datetime())
-	savepoint = f"realize_{row.name}"[:50]
+	savepoint = sql_savepoint_name("realize", row.name)
 	frappe.db.savepoint(savepoint)
 	payload = {
 		"bank_transaction_name": row.name,
