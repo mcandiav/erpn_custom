@@ -7,3 +7,4 @@ erpn_custom.patches.v0_0_1_deposit_mapping_fields
 erpn_custom.patches.v0_0_1_chile_desktop_icons
 erpn_custom.patches.v0_0_1_bank_transaction_ingest_key
 erpn_custom.patches.v0_0_2_banco_chile_cartola_fields
+erpn_custom.patches.v0_0_3_realize_payment_fields

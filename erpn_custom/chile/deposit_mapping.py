@@ -73,7 +73,14 @@ def apply_party_for_bank_transaction(bank_transaction_name):
     if values.docstatus == 2 or values.status not in ELIGIBLE_STATUSES or not (values.deposit or 0):
         return {"ok": True, "result": "skipped_ineligible", "name": bank_transaction_name}
     if values.party:
-        return {"ok": True, "result": "already_mapped", "party": values.party, "name": bank_transaction_name}
+        realization = _realize(bank_transaction_name)
+        return {
+            "ok": True,
+            "result": "already_mapped",
+            "party": values.party,
+            "name": bank_transaction_name,
+            "realization": realization,
+        }
     if not _acquire_lock():
         return {"ok": False, "result": "deferred", "reason": "lock", "name": bank_transaction_name}
 
@@ -121,11 +128,13 @@ def apply_party_for_bank_transaction(bank_transaction_name):
         )
         run.save(ignore_permissions=True)
         frappe.db.commit()
+        realization = _realize(bank_transaction_name)
         return {
             "ok": True,
             "result": result.replace("_count", ""),
             "run": run.name,
             "name": bank_transaction_name,
+            "realization": realization,
         }
     except Exception:
         if run and run.name:
@@ -213,6 +222,9 @@ def run_deposit_mapping(run_name=None):
         frappe.db.commit()
 
         metrics = _process_batches(run)
+        from erpn_custom.chile.realize import realize_pending_attributed_deposits
+
+        realize_pending_attributed_deposits()
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if metrics["error_count"] and (metrics["mapped_count"] or metrics["no_match_count"] or metrics["conflict_count"]):
             status = "Partial"
@@ -336,6 +348,8 @@ def _process_batches(run):
             try:
                 result = _map_one(row, customers_by_rut, run.name, run.source)
                 metrics[result] += 1
+                if result in ("mapped_count", "already_mapped_count"):
+                    _realize(row.name)
             except Exception:
                 frappe.db.rollback(save_point="deposit_map_one")
                 metrics["error_count"] += 1
@@ -516,6 +530,15 @@ def _set_normalized(name, normalized):
 
 def _mark_status(name, status):
     frappe.db.set_value("Bank Transaction", name, "custom_mapping_status", status, update_modified=False)
+
+
+def _realize(bank_transaction_name):
+    from erpn_custom.chile.realize import realize_attributed_deposit
+
+    try:
+        return realize_attributed_deposit(bank_transaction_name)
+    except Exception:
+        return {"ok": False, "result": "error", "reason": frappe.get_traceback()[:500]}
 
 
 def _mapping_settings():

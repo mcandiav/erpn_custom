@@ -43,6 +43,7 @@ add_to_apps_screen = [
 # include js in doctype views
 doctype_js = {
 	"Bank Statement Import": "public/js/bank_statement_import.js",
+	"Sales Order": "public/js/sales_order.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -149,7 +150,8 @@ doc_events = {
 
 scheduler_events = {
 	"all": [
-		"erpn_custom.chile.deposit_mapping.tick_from_scheduler"
+		"erpn_custom.chile.deposit_mapping.tick_from_scheduler",
+		"erpn_custom.chile.realize.tick_from_scheduler",
 	]
 }
 

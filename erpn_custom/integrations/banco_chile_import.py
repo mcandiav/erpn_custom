@@ -108,6 +108,7 @@ def _apply_decision(doc, decision, account_currency, summary):
 	result = decision["result"]
 	if result == "skip_duplicate":
 		summary["skipped_duplicate"].append(decision)
+		_realize_existing(decision)
 		return
 	if result != "create":
 		summary["rejected"].append(decision)
@@ -140,6 +141,20 @@ def _apply_decision(doc, decision, account_currency, summary):
 		frappe.db.commit()
 
 
+def _realize_existing(decision):
+	from erpn_custom.chile.realize import realize_attributed_deposit
+
+	name = decision.get("existing")
+	if not name or str(name).startswith("in-file:"):
+		return
+	try:
+		realization = realize_attributed_deposit(name)
+		decision["realization"] = realization.get("result") if isinstance(realization, dict) else None
+	except Exception as exc:
+		decision["realization"] = "error"
+		decision["realization_reason"] = str(exc)[:500]
+
+
 def _map_created(decision, summary):
 	from erpn_custom.chile.deposit_mapping import apply_party_for_bank_transaction
 
@@ -149,7 +164,9 @@ def _map_created(decision, summary):
 	try:
 		mapping = apply_party_for_bank_transaction(name)
 		decision["mapping"] = mapping.get("result") if isinstance(mapping, dict) else None
-		summary["mapped"].append({"name": name, "result": decision["mapping"]})
+		realization = mapping.get("realization") if isinstance(mapping, dict) else None
+		decision["realization"] = realization.get("result") if isinstance(realization, dict) else None
+		summary["mapped"].append({"name": name, "result": decision["mapping"], "realization": decision["realization"]})
 	except Exception as exc:
 		decision["mapping"] = "error"
 		summary["mapped"].append({"name": name, "result": "error", "reason": str(exc)[:500]})
@@ -202,6 +219,7 @@ def _public_summary(summary):
 				"name": item.get("name"),
 				"existing": item.get("existing"),
 				"mapping": item.get("mapping"),
+				"realization": item.get("realization"),
 			}
 			for item in summary["created"] + summary["skipped_duplicate"] + summary["rejected"]
 		],
