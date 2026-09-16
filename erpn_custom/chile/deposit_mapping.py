@@ -3,6 +3,7 @@ import time
 import frappe
 from frappe.utils import now_datetime
 
+from erpn_custom.chile.concurrency import is_stale_run
 from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, classify_rut, index_customers_by_normalized_tax_id
 from erpn_custom.chile.rut import normalize_chilean_tax_id
 from erpn_custom.chile.schedule import interval_due
@@ -26,6 +27,7 @@ def enqueue_from_scheduler():
 
 
 def tick_from_scheduler():
+    _reap_stale_runs()
     enabled, interval_minutes = _mapping_settings()
     if not enabled:
         return {"ok": False, "reason": "disabled"}
@@ -91,7 +93,12 @@ def apply_party_for_bank_transaction(bank_transaction_name):
         frappe.db.commit()
         customers = frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "tax_id"])
         customers_by_rut = index_customers_by_normalized_tax_id(customers, normalize_chilean_tax_id)
-        result = _map_one(values, customers_by_rut, run.name)
+        frappe.db.savepoint("deposit_map_one")
+        try:
+            result = _map_one(values, customers_by_rut, run.name)
+        except Exception:
+            frappe.db.rollback(save_point="deposit_map_one")
+            raise
         run.update(
             {
                 "analyzed_count": 1,
@@ -135,6 +142,7 @@ def apply_party_for_bank_transaction(bank_transaction_name):
 
 
 def enqueue_deposit_mapping(source="Manual", requested_by=None):
+    _reap_stale_runs()
     running = frappe.db.exists("Deposit Mapping Run", {"status": ["in", ["Queued", "Running"]]})
     if running:
         return {"ok": False, "reason": "already_running", "run": running}
@@ -231,6 +239,7 @@ def run_deposit_mapping(run_name=None):
 
 
 def get_pagos_clientes_data(exception_start=0, exception_limit=50):
+    _reap_stale_runs()
     pending = frappe.db.count(
         "Bank Transaction",
         filters=_eligible_filters(),
@@ -315,10 +324,12 @@ def _process_batches(run):
             if not row:
                 continue
             metrics["analyzed_count"] += 1
+            frappe.db.savepoint("deposit_map_one")
             try:
                 result = _map_one(row, customers_by_rut, run.name)
                 metrics[result] += 1
             except Exception:
+                frappe.db.rollback(save_point="deposit_map_one")
                 metrics["error_count"] += 1
                 err = f"{row.name}: {frappe.get_traceback()}"
                 errors.append(err[:500])
@@ -474,11 +485,53 @@ def _last_run(source):
 
 def _acquire_lock():
     cache = frappe.cache()
-    if cache.get_value(LOCK_KEY):
+    key = cache.make_key(LOCK_KEY)
+    try:
+        return bool(cache.set(key, b"1", nx=True, ex=LOCK_TTL))
+    except Exception:
         return False
-    cache.set_value(LOCK_KEY, "1", expires_in_sec=LOCK_TTL)
-    return True
 
 
 def _release_lock():
     frappe.cache().delete_value(LOCK_KEY)
+
+
+def _rq_job_status(job_id):
+    if not job_id:
+        return None
+    try:
+        from frappe.utils.background_jobs import get_redis_conn
+        from rq.job import Job
+
+        job = Job.fetch(job_id, connection=get_redis_conn())
+        return job.get_status(refresh=True)
+    except Exception:
+        return None
+
+
+def _reap_stale_runs():
+    rows = frappe.get_all(
+        "Deposit Mapping Run",
+        filters={"status": ["in", ["Queued", "Running"]]},
+        fields=["name", "status", "started_at", "creation", "job_id"],
+    )
+    if not rows:
+        return
+    now = now_datetime()
+    closed = False
+    for row in rows:
+        job_status = _rq_job_status(row.job_id or JOB_ID)
+        if not is_stale_run(row.status, row.started_at, row.creation, now, LOCK_TTL, job_status):
+            continue
+        frappe.db.set_value(
+            "Deposit Mapping Run",
+            row.name,
+            {
+                "status": "Failed",
+                "finished_at": now,
+                "error_summary": "Stale run: job inactivo o timeout.",
+            },
+        )
+        closed = True
+    if closed:
+        frappe.db.commit()
