@@ -1,7 +1,7 @@
 {
  "app": "erpn_custom",
  "charts": [],
- "content": "[{\"id\":\"sh-vinculador\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes / Vinculador\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configuraci\\u00f3n del Vinculador\",\"col\":4}},{\"id\":\"sh-historial\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Vinculaci\\u00f3n\",\"col\":4}},{\"id\":\"sh-intentos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Intentos\",\"col\":4}}]",
+ "content": "[{\"id\":\"sh-vinculador\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos de Clientes / Vinculador\",\"col\":4}},{\"id\":\"sh-huerfanos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pagos hu\\u00e9rfanos\",\"col\":4}},{\"id\":\"sh-settings\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configuraci\\u00f3n del Vinculador\",\"col\":4}},{\"id\":\"sh-historial\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Vinculaci\\u00f3n\",\"col\":4}},{\"id\":\"sh-intentos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Historial de Intentos\",\"col\":4}}]",
  "creation": "2026-09-15 16:00:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -16,7 +16,7 @@
  "link_to": "pagos-de-clientes",
  "link_type": "Page",
  "links": [],
- "modified": "2026-09-15 23:00:00",
+ "modified": "2026-09-16 22:10:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
@@ -42,6 +42,13 @@
    "color": "Blue",
    "doc_view": "",
    "label": "Pagos de Clientes / Vinculador",
+   "link_to": "pagos-de-clientes",
+   "type": "Page"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "Pagos huérfanos",
    "link_to": "pagos-de-clientes",
    "type": "Page"
   },
@@ -90,6 +97,20 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos de Clientes / Vinculador",
+   "link_to": "pagos-de-clientes",
+   "link_type": "Page",
+   "open_in_new_tab": 0,
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "default_workspace": 0,
+   "icon": "user-round-x",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Pagos huérfanos",
    "link_to": "pagos-de-clientes",
    "link_type": "Page",
    "open_in_new_tab": 0,

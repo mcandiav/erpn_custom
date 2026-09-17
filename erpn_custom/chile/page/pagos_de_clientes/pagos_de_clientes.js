@@ -11,12 +11,20 @@ frappe.pages["pagos-de-clientes"].on_page_load = function (wrapper) {
 		<h5>${__("Pendientes / Excepciones")}</h5>
 		<div class="pagos-clientes-exceptions"></div>
 		<hr>
-		<h5>${__("Pagos huérfanos")}</h5>
-		<p class="text-muted">${__("Depósitos sin Customer. Asigne el beneficiario comercial sin alterar el pagador bancario.")}</p>
-		<div class="pagos-clientes-orphans"></div>
+		<div id="pagos-huerfanos">
+			<h5>${__("Pagos huérfanos")}</h5>
+			<p class="text-muted">${__("Depósitos sin Customer. Asigne el beneficiario comercial sin alterar el pagador bancario.")}</p>
+			<div class="pagos-clientes-orphans"></div>
+		</div>
 	`);
 	page.orphan_controls = {};
 	refresh_dashboard(page);
+	if (window.location.hash === "#pagos-huerfanos") {
+		setTimeout(() => {
+			const el = document.getElementById("pagos-huerfanos");
+			if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+		}, 400);
+	}
 };
 
 function enqueue_mapping(page) {
