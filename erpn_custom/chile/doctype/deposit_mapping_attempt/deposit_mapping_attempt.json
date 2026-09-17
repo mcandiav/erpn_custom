@@ -50,11 +50,13 @@
    "reqd": 1
   },
   {
+   "description": "Auditoría del motor. Editar este DocType no atribuye ni realiza el depósito.",
    "fieldname": "trigger",
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Trigger",
-   "options": "Manual\nScheduler\nAPI"
+   "options": "Manual\nScheduler\nAPI",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_ids",
@@ -67,6 +69,7 @@
    "in_standard_filter": 1,
    "label": "Resultado",
    "options": "Mapped\nNo Match\nConflict\nError\nAlready Mapped\nSkipped",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -74,12 +77,14 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "read_only": 1
   },
   {
    "fieldname": "rule",
    "fieldtype": "Data",
-   "label": "Rule"
+   "label": "Rule",
+   "read_only": 1
   },
   {
    "fieldname": "section_rut",
@@ -110,12 +115,15 @@
   {
    "fieldname": "candidate_customers",
    "fieldtype": "Long Text",
-   "label": "Candidate Customers"
+   "label": "Candidate Customers",
+   "read_only": 1
   },
   {
+   "description": "Solo auditoría. No ejecuta asignación ni Payment Entry.",
    "fieldname": "reason",
    "fieldtype": "Small Text",
-   "label": "Reason"
+   "label": "Reason",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
