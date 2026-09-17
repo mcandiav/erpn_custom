@@ -14,3 +14,4 @@ erpn_custom.patches.v0_0_5_customer_identity_backfill
 erpn_custom.patches.v0_0_5_customer_identity_unique
 erpn_custom.patches.v0_0_5_disable_legacy_rut_server_script
 erpn_custom.patches.v0_0_6_customer_identity_quick_entry
+erpn_custom.patches.v0_0_7_mcv_chile_desktop

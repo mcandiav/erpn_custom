@@ -11,21 +11,23 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** ninguna (cola libre; aguardar asignación explícita de Miguel)
+**Spec activa:** `007-mcv-chile-desktop`
+
+**Estado:** código implementado (`16.0.5`). Pendiente migrate + validación visual en sandbox y cierre formal.
+
+**Objetivo vigente:** normalizar el Desktop de `erpn_custom` a la estructura `MCV Chile` → `Pagos de Clientes` + `Courier`, dejando `Chilexpress Settings` accesible desde `Courier`, mediante un patch nuevo, idempotente y versionado, sin tocar APIs Chilexpress ni perder credenciales.
+
+Documentos rectores: `specs/007-mcv-chile-desktop/spec.md`, `plan.md`, `tasks.md`
 
 **Última Spec cerrada:** `006-customer-multidocument-identity`
 
-**Cierre:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` y aceptada operativamente.
+**Cierre 006:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` y aceptada operativamente.
 
-**Entrega:** identidad documental `Customer` = `custom_tax_id_type` + `custom_tax_id_country` + `tax_id` (tipos `RUT`/`DNI`/`CPF`/`Passport`); validación versionada en `erpn_custom.identity`; Server Script RUT legado desactivado; matching bancario solo RUT/Chile; Quick Entry con tipo/país/número (`allow_in_quick_entry`, Frappe 16).
-
-**Producto en sandbox:** `16.0.4` (código identidad + fix Quick Entry).
-
-Documento rector (histórico): `specs/006-customer-multidocument-identity/spec.md`
+**Producto en sandbox (pre-migrate 007):** `16.0.4`. Tras deploy+migrate de este corte: `16.0.5`.
 
 **Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`.
 
-**No implementar por defecto:** Specs `003`, `004`, `005` o `006`, ni cualquier otro frente, salvo que Miguel lo nombre explícitamente en el hilo.
+**No implementar por defecto:** Specs `003`, `004`, `005` o `006`, ni cualquier otro frente distinto de `007`, salvo que Miguel lo nombre explícitamente en el hilo.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 
