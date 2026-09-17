@@ -4,23 +4,21 @@
 
 **Created**: 2026-09-17
 
-**Status**: Implementada en código (`16.0.5`). Pendiente migrate sandbox + aceptación operativa.
+**Status**: Cerrada / aceptada operativamente (2026-09-17). Producto `16.0.5` en `derp.at-once.cl`.
 
 **Parent context**: `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`
 
 ## 0. Regla de trabajo para el Programador
 
-Esta Spec está activa, pero **NO autoriza a programar inmediatamente**.
+Esta Spec está **cerrada**. No reabrir ni reimplementar salvo instrucción explícita de Miguel.
 
-Flujo obligatorio:
+Flujo histórico que se cumplió:
 
 1. leer este `spec.md` y el código actual relacionado;
 2. contrastar la especificación con el estado real del repositorio y del sandbox;
-3. presentar a Miguel un plan técnico concreto de implementación, indicando archivos a crear/modificar, migración/patch y pruebas;
+3. presentar a Miguel un plan técnico concreto de implementación;
 4. esperar el **OK explícito de Miguel**;
-5. solo después implementar.
-
-No reinterpretar otras Specs como trabajo activo. Esta Spec 007 cubre exclusivamente organización del Desktop/Workspace para funcionalidades MCV Chile.
+5. implementar, migrar y validar.
 
 ## 1. Decisión de producto congelada
 

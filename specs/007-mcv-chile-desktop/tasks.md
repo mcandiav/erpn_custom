@@ -1,5 +1,7 @@
 # Tasks: MCV Chile Desktop
 
+> **Estado de cierre (2026-09-17):** Spec 007 implementada, desplegada (`16.0.5`), migrate OK y topología verificada en sandbox. Esta lista queda como trazabilidad histórica; la cola vigente es `../../README.md`.
+
 **Input**: `specs/007-mcv-chile-desktop/spec.md` + `plan.md`
 
 **Prerequisites**: plan.md aprobado; inspección sandbox 2026-09-17 registrada en plan.md
@@ -10,7 +12,6 @@
 - No modificar Frappe/ERPNext core.
 - No recrear ni mutar Password fields de `Chilexpress Settings`.
 - No editar `patches/v0_0_1_chile_desktop_icons.py` como mecanismo de deploy.
-- Ejecutar implementación solo tras OK explícito de Miguel para programar (además del OK de Speckit ya otorgado).
 
 ## Phase 0 - Evidence (completada)
 

@@ -11,23 +11,19 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `007-mcv-chile-desktop`
+**Spec activa:** ninguna (cola libre). Esperar instrucción explícita de Miguel para la próxima Spec.
 
-**Estado:** código implementado (`16.0.5`). Pendiente migrate + validación visual en sandbox y cierre formal.
+**Última Spec cerrada:** `007-mcv-chile-desktop`
 
-**Objetivo vigente:** normalizar el Desktop de `erpn_custom` a la estructura `MCV Chile` → `Pagos de Clientes` + `Courier`, dejando `Chilexpress Settings` accesible desde `Courier`, mediante un patch nuevo, idempotente y versionado, sin tocar APIs Chilexpress ni perder credenciales.
+**Cierre 007:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` (migrate `v0_0_7_mcv_chile_desktop` OK), topología Desktop verificada y cierre autorizado por Miguel.
 
-Documentos rectores: `specs/007-mcv-chile-desktop/spec.md`, `plan.md`, `tasks.md`
+**Producto en sandbox:** `16.0.5` (Desktop `MCV Chile` → `Pagos de Clientes` + `Courier`).
 
-**Última Spec cerrada:** `006-customer-multidocument-identity`
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`.
 
-**Cierre 006:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` y aceptada operativamente.
+**Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**Producto en sandbox (pre-migrate 007):** `16.0.4`. Tras deploy+migrate de este corte: `16.0.5`.
-
-**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`.
-
-**No implementar por defecto:** Specs `003`, `004`, `005` o `006`, ni cualquier otro frente distinto de `007`, salvo que Miguel lo nombre explícitamente en el hilo.
+**No implementar por defecto:** Specs `003`, `004`, `005`, `006` o `007`, ni cualquier frente no nombrado explícitamente por Miguel en el hilo.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 

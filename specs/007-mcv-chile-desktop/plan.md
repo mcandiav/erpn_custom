@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/007-mcv-chile-desktop/spec.md`
 
-**Estado**: plan técnico aprobado por Miguel tras inspección sandbox. Listo para implementación tras OK explícito de programación (este documento + `tasks.md` + Spec §18).
+**Estado**: plan técnico aprobado por Miguel tras inspección sandbox; **implementado y cerrado** 2026-09-17 (`16.0.5`, migrate OK).
 
 ## Summary
 
