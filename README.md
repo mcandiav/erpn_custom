@@ -11,39 +11,27 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `009-chilexpress-shipment-integration`
+**Spec activa:** *(ninguna)* — cola libre tras cierre de `009`. Activar la siguiente solo con declaración explícita de Miguel.
 
-**Estado:** validada en sandbox Chilexpress Test (`16.0.17`). Pendiente aceptación formal de Miguel para cierre.
+**Última Spec cerrada:** `009-chilexpress-shipment-integration`
 
-**Evidencia Test (SHIPMENT-00001 / Cynthia Contreras Soto):**
+**Cierre 009:** 2026-09-17 — Chilexpress Adapter vinculado a `Shipment` aceptado operativamente (producto hasta `16.0.21`). Evidencia Test en `SHIPMENT-00001` / Cynthia Contreras Soto: preflight/cotización (service `3` CHEX), OT idempotente `712678881073`, tracking `EN PRE-RECEPCION | SANTIAGO CENTRO`, **etiqueta de envío OK** (JPEG en create, File adjunto). Nota no bloqueante: reprint API APIM Test 404; reimpresión desde el adjunto del create. Fuera de alcance: Production, Starken/FAZT, cron tracking.
 
-| Paso | Resultado |
-|---|---|
-| Preflight / cotización / servicio | OK (service `3` CHEX) |
-| Crear OT idempotente | OK — OT `712678881073`, reintento bloqueado |
-| Tracking | OK — `EN PRE-RECEPCION \| SANTIAGO CENTRO` vía `POST .../tracking` |
-| Etiqueta en create | OK — JPEG Base64 (`labelType=2`), adjunto File |
-| Reimpresión API | No disponible en producto APIM Test (404); etiqueta se guarda en create |
+Documento histórico: `specs/009-chilexpress-shipment-integration/spec.md`
 
-**Objetivo vigente:** aceptar Spec 009 o pedir ajuste puntual (p. ej. path oficial de reprint cuando Chilexpress lo publique en Test).
-
-Documento rector: `specs/009-chilexpress-shipment-integration/spec.md`
-
-**Última Spec cerrada:** `008-courier-configuration`
-
-**Siguiente Spec documentada (no activa aún):** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C). Draft en `specs/010-customer-contact-mirror/spec.md`. No entra a cola de código hasta que Miguel lo declare Spec vigente (tras cerrar o pausar 009).
+**Siguiente Spec documentada (no activa aún):** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C). Draft en `specs/010-customer-contact-mirror/spec.md`. No entra a cola de código hasta que Miguel la declare Spec vigente.
 
 **Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), UI aceptada y conectividad Chilexpress Test verificada (coverage/rating/shipping).
 
 **Base previa:** Courier → Configuración de Couriers; Chilexpress Test configurado con 3 servicios + endpoints Desk.
 
-**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`.
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`, `009-chilexpress-shipment-integration`.
 
 **Cierre 007:** 2026-09-17 — Desktop `MCV Chile` verificado.
 
 **Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**No reabrir por defecto:** Specs cerradas `003`–`008`. Spec `009` está en aceptación; no ampliar alcance sin OK de Miguel.
+**No reabrir por defecto:** Specs cerradas `003`–`009`. No ampliar alcance sin OK de Miguel.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 

@@ -2,7 +2,7 @@
 
 **Branch**: `version-16` | **Date**: 2026-09-17 | **Spec**: [`spec.md`](./spec.md)
 
-**Estado**: plan técnico contrastado con Shipment ERPNext v16 + Chilexpress; **implementado en código** `16.0.11` (pendiente migrate + OT Test real).
+**Estado**: cerrado / aceptado (2026-09-17). Plan ejecutado; producto hasta `16.0.21`; OT Test real, no-duplicación y **etiqueta de envío OK**. Nota no bloqueante: reprint API APIM Test 404 — reimpresión desde File del create.
 
 ## Summary
 

@@ -4,22 +4,22 @@
 
 **Created**: 2026-09-17
 
-**Status**: Implementada en código (`16.0.11`). Pendiente migrate sandbox + prueba OT Test + aceptación operativa.
+**Status**: Cerrada / aceptada operativamente (2026-09-17). Producto hasta `16.0.21` en sandbox. Evidencia Chilexpress Test: OT `712678881073`, tracking y **etiqueta de envío OK** (File en create). Nota no bloqueante: reprint API Test 404 (reimpresión desde File del create).
 
 **Parent context**: `008-courier-configuration`, `../despachos_transportistas.md`
 
 ## 0. Regla de trabajo
 
-Esta Spec implementa el primer Adapter real de courier y lo vincula al `Shipment` estándar de ERPNext.
+Esta Spec está **cerrada**. No reabrir ni ampliar alcance salvo instrucción explícita de Miguel.
 
-Flujo cumplido hasta código:
+Flujo histórico que se cumplió:
 
 1. leer `README.md`, esta Spec, Spec 008 y el documento conceptual `despachos_transportistas.md`;
 2. inspeccionar el DocType `Shipment` real de ERPNext v16;
 3. contrastar documentación Chilexpress vigente;
 4. presentar plan técnico a Miguel;
 5. OK explícito de Miguel (`prosiga`);
-6. implementar.
+6. implementar, validar en Chilexpress Test y aceptar cierre.
 
 No se modifica Frappe/ERPNext core.
 

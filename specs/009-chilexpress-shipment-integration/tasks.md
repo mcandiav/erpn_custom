@@ -1,10 +1,10 @@
 # Tasks: Chilexpress vinculado a Shipment
 
-> **Estado (2026-09-17):** código `16.0.11` publicado. Pendiente migrate sandbox + prueba punta a punta Chilexpress Test + aceptación Miguel. No cerrar Spec hasta demostrar no-duplicación de OT.
+> **Estado de cierre (2026-09-17):** Spec 009 implementada (`16.0.11`→`16.0.21`), validada en Chilexpress Test (`SHIPMENT-00001`, OT `712678881073`, tracking, **etiqueta de envío OK**, reintento Crear bloqueado) y aceptada por Miguel. Nota no bloqueante: reprint API Test 404 (File del create). Esta lista queda como trazabilidad histórica; la cola vigente es `../../README.md`.
 
 **Input**: `spec.md`, `plan.md`, `data-model.md`
 
-**Estado**: implementación en curso de validación sandbox.
+**Estado**: cerrado.
 
 ## Phase 1 — Evidence gate
 
