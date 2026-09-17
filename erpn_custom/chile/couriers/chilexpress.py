@@ -428,6 +428,16 @@ class ChilexpressAdapter(CourierAdapter):
 		return origin, dest
 
 	def _coverage_code_for_city(self, config, city_name):
+		"""Map Address.city to Chilexpress countyCode.
+
+		Chilexpress often reuses the same countyName across several coverage
+		points (e.g. countyName=VINA DEL MAR for both VINA and RENA/Renaca;
+		countyName=VALPARAISO for VALP, PLAS, PLAV). The discriminating field
+		is coverageName. Strategy:
+		1) collect areas where countyName OR coverageName equals the city,
+		2) if several codes, prefer exact coverageName match,
+		3) optional preference table / throw with coverage detail.
+		"""
 		needle = self._norm(city_name)
 		regions = self._request(config, "coverage", "GET", "/regions")
 		region_list = (regions or {}).get("regions") or []
@@ -449,31 +459,30 @@ class ChilexpressAdapter(CourierAdapter):
 				code = area.get("countyCode") or area.get("coverageCode") or ""
 				if not code:
 					continue
-				if self._norm(county_name) != needle:
+				n_county = self._norm(county_name)
+				n_coverage = self._norm(coverage_name)
+				if needle not in (n_county, n_coverage):
 					continue
 				candidates.append(
 					{
 						"code": str(code),
 						"county_name": county_name,
 						"coverage_name": coverage_name,
+						"coverage_exact": n_coverage == needle,
 					}
 				)
 		if not candidates:
 			frappe.throw(_("No se resolvió cobertura Chilexpress para comuna '{0}'").format(city_name))
 
-		# 1) Unique countyCode
 		uniq_codes = sorted({c["code"] for c in candidates})
 		if len(uniq_codes) == 1:
 			return uniq_codes[0]
 
-		# 2) Prefer coverageName exact match to the city text (e.g. VALP "VALPARAISO"
-		#    over PLAS "VALPARAISO - PENUELAS" / PLAV "PLACILLA...").
-		exact_cov = [c for c in candidates if self._norm(c["coverage_name"]) == needle]
+		exact_cov = [c for c in candidates if c["coverage_exact"]]
 		exact_codes = sorted({c["code"] for c in exact_cov})
 		if len(exact_codes) == 1:
 			return exact_codes[0]
 
-		# 3) Explicit preference table (normalized city -> countyCode)
 		preferred = _COVERAGE_PREFER.get(needle)
 		if preferred and preferred in uniq_codes:
 			return preferred
