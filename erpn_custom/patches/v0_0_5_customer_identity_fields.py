@@ -13,7 +13,7 @@ def execute():
 					"options": "RUT\nDNI\nCPF\nPassport",
 					"insert_after": "tax_id",
 					"in_standard_filter": 1,
-					"in_quick_entry": 1,
+					"allow_in_quick_entry": 1,
 					"translatable": 0,
 				},
 				{
@@ -23,7 +23,7 @@ def execute():
 					"options": "Country",
 					"insert_after": "custom_tax_id_type",
 					"in_standard_filter": 1,
-					"in_quick_entry": 1,
+					"allow_in_quick_entry": 1,
 				},
 				{
 					"fieldname": "custom_identity_key",
@@ -51,7 +51,7 @@ def execute():
 	_ensure_property_setter(
 		doctype="Customer",
 		fieldname="tax_id",
-		property="in_quick_entry",
+		property="allow_in_quick_entry",
 		value="1",
 		property_type="Check",
 	)
