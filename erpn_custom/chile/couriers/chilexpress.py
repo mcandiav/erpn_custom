@@ -21,6 +21,11 @@ _TRACKING_MAP = {
 	"RETURNED": "Returned",
 	"EXTRAVIADO": "Lost",
 	"LOST": "Lost",
+	"PRE-RECEPCION": "In Progress",
+	"PRERECEPCION": "In Progress",
+	"EN TRANSITO": "In Progress",
+	"EN RUTA": "In Progress",
+	"RECEPCIONADO": "In Progress",
 }
 
 
@@ -360,11 +365,16 @@ class ChilexpressAdapter(CourierAdapter):
 		if isinstance(data, list) and data:
 			data = data[0]
 		data = data or {}
+		order_block = data.get("transportOrderData") or {}
+		if not isinstance(order_block, dict):
+			order_block = {}
 		status_block = data.get("statusData") or data.get("deliveryData") or {}
 		if not isinstance(status_block, dict):
 			status_block = {}
 		raw_status = (
-			status_block.get("statusDescription")
+			order_block.get("status")
+			or order_block.get("locationStatus")
+			or status_block.get("statusDescription")
 			or status_block.get("deliveryStatus")
 			or status_block.get("currentStatus")
 			or status_block.get("status")
@@ -374,6 +384,7 @@ class ChilexpressAdapter(CourierAdapter):
 			or data.get("status")
 			or ""
 		)
+		location = (order_block.get("locationStatus") or "").strip()
 		events = (
 			data.get("trackingEvents")
 			or data.get("events")
@@ -392,15 +403,17 @@ class ChilexpressAdapter(CourierAdapter):
 				)
 			else:
 				last_event = str(last)
+		info_bits = [bit for bit in (str(raw_status).strip(), location, last_event) if bit]
+		info = " | ".join(dict.fromkeys(info_bits))[:140]
 		mapped = "In Progress"
-		upper = str(raw_status).upper()
+		upper = str(raw_status).upper().replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
 		for key, value in _TRACKING_MAP.items():
 			if key in upper:
 				mapped = value
 				break
 		return {
 			"tracking_status": mapped,
-			"tracking_status_info": (last_event or raw_status or "")[:140],
+			"tracking_status_info": info,
 			"raw_status": raw_status,
 		}
 
