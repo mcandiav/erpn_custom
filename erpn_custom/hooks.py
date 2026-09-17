@@ -149,6 +149,8 @@ doc_events = {
 	},
 	"Customer": {
 		"validate": "erpn_custom.identity.customer.validate_customer_identity",
+		"after_insert": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
+		"on_update": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
 	},
 }
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-17
 
-**Status**: Draft — decisión de negocio acordada; pendiente plan técnico + OK de implementación
+**Status**: Active — OK Miguel 2026-09-17; implementación en `erpn_custom` (producto `16.0.22`)
 
 **Parent context**: `006-customer-multidocument-identity`, `009-chilexpress-shipment-integration`, operación Fragallardo B2C
 
@@ -72,7 +72,7 @@ Si el Cliente no tiene email/teléfono al crear, el Contacto igual se crea con e
 ### 3.4 Idempotencia y no pisar Contactos humanos
 
 - Si ya existe un Contacto primario ligado al Cliente Individual, **no** crear otro.
-- Sync solo actualiza el Contacto marcado como espejo/primario gestionado por esta feature (criterio técnico a fijar en plan: p. ej. flag custom mínimo o convención “único primary link”).
+- Sync solo actualiza el Contacto con `custom_is_customer_mirror = 1` (o, si aún no tiene flag, el primary linkado al Cliente — adopción).
 - Si el operador crea un Contacto adicional (ej. “Carlos el marido”), ese Contacto **no** se borra ni se sobrescribe; el espejo primario sigue siendo el del Cliente.
 
 ## 4. User Stories
@@ -117,7 +117,7 @@ Como operador, en un Shipment hacia un Cliente Individual con espejo, quiero sel
 
 - Cliente Individual sin email ni teléfono: crear Contacto solo con nombre; sync completa después.
 - Renombre del Cliente: actualizar nombre del Contacto espejo.
-- Contacto primario existente creado a mano antes de la feature: tratarlo como espejo elegible (no duplicar); sync solo si se acuerda en plan que es seguro.
+- Contacto primario existente creado a mano antes de la feature: adoptarlo (setear flag + sync); no duplicar.
 - Import masivo de Clientes: el hook `after_insert` debe dispararse por fila o el backfill cubre el lote.
 - Deshabilitar Cliente: no borrar Contacto automáticamente en esta Spec.
 
@@ -154,6 +154,6 @@ Como operador, en un Shipment hacia un Cliente Individual con espejo, quiero sel
 
 ## 10. Siguiente acción
 
-1. Speckit: `plan.md` + `tasks.md` de esta feature.
-2. OK de Miguel → implementar en `erpn_custom` + backfill.
-3. Actualizar `README.md` Spec vigente solo cuando Miguel active esta Spec en la cola (hoy Spec vigente sigue siendo `009` hasta su cierre/aceptación).
+1. Migrar site (`bench migrate`) para Custom Field + backfill.
+2. Verificar Desk: alta Individual → Contacto en link Shipment; Company sin espejo.
+3. Aceptación Miguel → cerrar Spec en README.

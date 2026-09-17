@@ -11,15 +11,17 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** *(ninguna)* — cola libre tras cierre de `009`. Activar la siguiente solo con declaración explícita de Miguel.
+**Spec activa:** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C).
+
+Documento: `specs/010-customer-contact-mirror/spec.md`
+
+**Producto en esta Spec:** desde `16.0.22` (hooks + campo `Contact.custom_is_customer_mirror` + backfill).
 
 **Última Spec cerrada:** `009-chilexpress-shipment-integration`
 
 **Cierre 009:** 2026-09-17 — Chilexpress Adapter vinculado a `Shipment` aceptado operativamente (producto hasta `16.0.21`). Evidencia Test en `SHIPMENT-00001` / Cynthia Contreras Soto: preflight/cotización (service `3` CHEX), OT idempotente `712678881073`, tracking `EN PRE-RECEPCION | SANTIAGO CENTRO`, **etiqueta de envío OK** (JPEG en create, File adjunto). Nota no bloqueante: reprint API APIM Test 404; reimpresión desde el adjunto del create. Fuera de alcance: Production, Starken/FAZT, cron tracking.
 
 Documento histórico: `specs/009-chilexpress-shipment-integration/spec.md`
-
-**Siguiente Spec documentada (no activa aún):** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C). Draft en `specs/010-customer-contact-mirror/spec.md`. No entra a cola de código hasta que Miguel la declare Spec vigente.
 
 **Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), UI aceptada y conectividad Chilexpress Test verificada (coverage/rating/shipping).
 
