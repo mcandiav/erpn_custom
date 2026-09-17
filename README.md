@@ -26,7 +26,7 @@ Artefactos obligatorios de diseño e implementación:
 - `specs/006-customer-multidocument-identity/checklists/requirements.md`
 - `specs/006-customer-multidocument-identity/quickstart.md`
 
-**Estado:** código implementado en app (`16.0.3`); pendiente `bench migrate` en sandbox, acceptance manual (quickstart) y commit/push cuando Miguel lo autorice.
+**Estado:** implementado y desplegado en sandbox `derp.at-once.cl` (`16.0.4` @ `21f88df`). Campos de identidad en Customer/Quick Entry; Server Script RUT legado desactivado; matching bancario filtrado a RUT/Chile. Acceptance manual del quickstart en curso/parcial.
 
 **Spec 004:** `004-pagos-clientes-mapeo-depositos` queda cerrada para efectos de cola de programación. La asignación manual de pagos huérfanos y su aceptación operativa ya no son el frente vigente.
 
