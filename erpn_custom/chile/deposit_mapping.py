@@ -9,6 +9,7 @@ from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, classif
 from erpn_custom.chile.orphan_rules import MANUAL_REASON, MANUAL_RULE, assignment_conflict, orphan_eligibility
 from erpn_custom.chile.rut import normalize_chilean_tax_id
 from erpn_custom.chile.schedule import interval_due
+from erpn_custom.identity.customer import get_chile_rut_customers
 
 BATCH_SIZE = 200
 LOCK_KEY = "erpn_custom:deposit_mapping_lock"
@@ -100,7 +101,7 @@ def apply_party_for_bank_transaction(bank_transaction_name):
         )
         run.insert(ignore_permissions=True)
         frappe.db.commit()
-        customers = frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "tax_id"])
+        customers = get_chile_rut_customers(fields=["name", "tax_id"])
         customers_by_rut = index_customers_by_normalized_tax_id(customers, normalize_chilean_tax_id)
         frappe.db.savepoint("deposit_map_one")
         try:
@@ -494,7 +495,7 @@ def _process_batches(run):
         "error_count": 0,
         "error_summary": "",
     }
-    customers = frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "tax_id"])
+    customers = get_chile_rut_customers(fields=["name", "tax_id"])
     customers_by_rut = index_customers_by_normalized_tax_id(customers, normalize_chilean_tax_id)
     eligible_names = frappe.get_all(
         "Bank Transaction",

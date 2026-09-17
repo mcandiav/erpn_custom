@@ -1,0 +1,2 @@
+CHILE = "Chile"
+BRAZIL = "Brazil"

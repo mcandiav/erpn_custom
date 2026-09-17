@@ -43,6 +43,7 @@ add_to_apps_screen = [
 # include js in doctype views
 doctype_js = {
 	"Bank Statement Import": "public/js/bank_statement_import.js",
+	"Customer": "public/js/customer.js",
 	"Sales Order": "public/js/sales_order.js",
 	"Bank Transaction": "public/js/bank_transaction.js",
 }
@@ -143,7 +144,10 @@ doctype_js = {
 doc_events = {
 	"Bank Transaction": {
 		"validate": "erpn_custom.chile.ingest.validate_ingest",
-	}
+	},
+	"Customer": {
+		"validate": "erpn_custom.identity.customer.validate_customer_identity",
+	},
 }
 
 # Scheduled Tasks

@@ -11,15 +11,26 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `004-pagos-clientes-mapeo-depositos`
+**Spec activa:** `006-customer-multidocument-identity`
 
-**Corte actual:** asignación manual de pagos huérfanos (depósito sin RUT de cliente / pagador tercero → Customer beneficiario + saldo vía `realize_attributed_deposit`) y vista operativa **Pagos huérfanos** en `Pagos de Clientes`.
+**Objetivo actual:** generalizar la identidad documental de `Customer` para soportar `RUT`, `DNI`, `CPF` y `Passport`, manteniendo `Customer.tax_id` como campo canónico del número de documento y agregando tipo de documento + país emisor como contexto obligatorio de identidad.
 
-Documento rector del corte: `specs/004-pagos-clientes-mapeo-depositos/manual-orphan-payment-assignment.md`
+Documento rector: `specs/006-customer-multidocument-identity/spec.md`
 
-**Estado implementación (código):** `assign_orphan_deposit` + sección UI **Pagos huérfanos** + auditoría `Deposit Mapping Attempt` (trigger Manual / rule `manual-attribution-v1`). Pendiente aceptación operativa con `ACC-BTN-2026-01705`.
+Artefactos obligatorios de diseño e implementación:
 
-**No implementar por defecto:** Spec `005-banco-chile-tiempo-real` ni el MVP comercial `003`, salvo que Miguel lo nombre explícitamente en el hilo.
+- `specs/006-customer-multidocument-identity/data-model.md`
+- `specs/006-customer-multidocument-identity/contracts/customer-identity.md`
+- `specs/006-customer-multidocument-identity/plan.md`
+- `specs/006-customer-multidocument-identity/tasks.md`
+- `specs/006-customer-multidocument-identity/checklists/requirements.md`
+- `specs/006-customer-multidocument-identity/quickstart.md`
+
+**Estado:** código implementado en app (`16.0.3`); pendiente `bench migrate` en sandbox, acceptance manual (quickstart) y commit/push cuando Miguel lo autorice.
+
+**Spec 004:** `004-pagos-clientes-mapeo-depositos` queda cerrada para efectos de cola de programación. La asignación manual de pagos huérfanos y su aceptación operativa ya no son el frente vigente.
+
+**No implementar por defecto:** Specs `003`, `004` o `005`, ni cualquier otro frente, salvo que Miguel lo nombre explícitamente en el hilo.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 
