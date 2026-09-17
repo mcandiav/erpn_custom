@@ -96,26 +96,27 @@ Incluye como mínimo:
 
 Debe permitir coexistencia de configuraciones Test y Producción para el mismo provider.
 
-### 3.3 `.env`
+### 3.3 Endpoints (misma pantalla que credenciales)
 
-Representa **dónde están los servicios externos**.
+Representa **dónde están los servicios externos** para ese provider + environment.
 
-Los endpoints/base URLs de cada courier y ambiente deben venir desde variables de entorno y no quedar hardcodeados en adapters ni almacenados como URLs editables de negocio dentro del DocType.
+Los endpoints **no** viven en `.env` como contrato obligatorio de Spec 008. Quedan en `Courier Configuration`, en la misma child table de servicios, emparejados con su API key:
 
-El repositorio debe documentar los nombres esperados mediante `.env.example` sin secretos.
+| Servicio | API Key (Password) | Endpoint URL (Data) |
+|---|---|---|
+| coverage_api_key | … | … |
+| rating_api_key | … | … |
+| shipping_api_key | … | … |
 
-Ejemplo conceptual:
+Reglas:
 
-```text
-CHILEXPRESS_TEST_COVERAGE_URL
-CHILEXPRESS_TEST_RATING_URL
-CHILEXPRESS_TEST_SHIPPING_URL
-CHILEXPRESS_PROD_COVERAGE_URL
-CHILEXPRESS_PROD_RATING_URL
-CHILEXPRESS_PROD_SHIPPING_URL
-```
+- contrato fijo de 3 roles (Cobertura / Cotización / Envío) para todos los couriers;
+- al crear Configuration se precargan las 3 filas;
+- courier con una sola API/URL → mismo secret y misma URL en las 3 filas (sin excepciones de esquema);
+- URLs no son secretos; no van a Git ni a logs con valores de ambiente real en fixtures;
+- adapters leen Desk (`Courier Configuration`), no variables de entorno, para resolver endpoint + key.
 
-Cuando se incorpore Starken se agregarán sus variables equivalentes según su documentación real.
+`.env.example` puede documentar nombres históricos como referencia, pero **no** es la fuente de verdad operativa.
 
 ### 3.4 Courier Adapter
 
@@ -199,60 +200,41 @@ provider + environment
 
 salvo que el plan técnico demuestre necesidad real de múltiples cuentas simultáneas del mismo provider/ambiente. En ese caso la clave deberá incluir alias/cuenta y quedar explícitamente documentada antes de implementar.
 
-### 5.3 Credenciales
+### 5.3 Credenciales + Endpoints (misma child table)
 
-El modelo debe soportar claves variables por proveedor sin agregar columnas nuevas al DocType por cada courier.
-
-Conceptualmente:
+Contrato estándar multi-courier (3 roles fijos, sin columnas nuevas por courier):
 
 ```text
-Courier Credential
-├── credential_key
-└── secret_value
+Courier Credential (child)
+├── credential_key   Select: coverage_api_key | rating_api_key | shipping_api_key
+├── secret_value     Password (API key)
+└── endpoint_url     Data (URL del servicio; no es secreto)
 ```
 
-`secret_value` debe usar almacenamiento seguro compatible con Password/Encrypted Password de Frappe 16.
+Al crear `Courier Configuration` se precargan las 3 filas.
 
-Ejemplo Chilexpress:
+Courier con una sola API/URL: mismo `secret_value` y misma `endpoint_url` en las 3 filas. Sin excepciones de esquema.
 
-```text
-coverage_api_key
-rating_api_key
-shipping_api_key
-```
+`secret_value` usa Password de Frappe 16. `endpoint_url` es Data editable en Desk.
 
-Ejemplo Starken futuro:
+## 6. Endpoints en Desk (no `.env` obligatorio)
 
-```text
-token
-customer_code
-...
-```
-
-El Programador debe confirmar el patrón Frappe 16 más seguro para secretos en child table antes de implementar. Si Frappe no soporta de forma segura el patrón esperado, debe proponer una alternativa genérica sin volver a crear un Settings DocType por proveedor.
-
-## 6. Endpoints y `.env`
-
-Los endpoints no son credenciales y no pertenecen al DocType de configuración de negocio.
-
-Regla congelada:
+Regla congelada (enmienda 2026-09-17):
 
 ```text
 Adapter = cómo hablar
-.env    = dónde hablar
-ERPNext = con qué provider/cuenta/credenciales hablar
+ERPNext = con qué provider/ambiente/credenciales/endpoints hablar
 ```
 
-La Spec 008 debe dejar preparado el contrato de nombres de variables para Chilexpress en `.env.example`.
+Test y Producción ya separan ambientes en `Courier Configuration`; cada registro tiene sus keys **y** sus URLs en la misma pantalla.
 
-Los valores reales:
+Los valores reales de URL:
 
-- no se versionan;
-- no se copian a documentación;
-- no se imprimen en logs;
-- permanecen en el `.env`/mecanismo runtime aprobado del servidor.
+- no se versionan en Git/fixtures;
+- no se imprimen en logs de forma innecesaria;
+- se editan en UI junto a las API keys.
 
-El plan técnico debe verificar cómo `erpn_custom`/bench carga actualmente variables de entorno y no asumir un loader inexistente. Si se requiere una integración mínima para leer `.env`, debe documentarse y quedar limitada a configuración, sin llamadas API.
+`.env` / `.env.example` dejan de ser la fuente de verdad de endpoints de courier. El resolver futuro lee `Courier Configuration`.
 
 ## 7. Migración desde `Chilexpress Settings`
 
@@ -334,7 +316,7 @@ No recrear ni renombrar innecesariamente `MCV Chile`, `Pagos de Clientes` o el i
 - selección automática de courier;
 - cambiar Shipment/Delivery Note;
 - borrar físicamente `Chilexpress Settings` sin aceptación posterior;
-- guardar endpoints reales en Git o en el DocType;
+- guardar endpoints reales en Git/fixtures;
 - crear un adapter universal basado en metadata dinámica.
 
 ## 11. Reglas de seguridad
@@ -383,15 +365,16 @@ Como configurador quiero entrar a Courier y administrar proveedores desde un ún
 3. Ya no muestra `Chilexpress Settings` como acceso principal.
 4. Pagos de Clientes no cambia.
 
-### US4 - Endpoints desacoplados del código (P1)
+### US4 - Endpoints editables por ambiente (P1)
 
-Como operador de infraestructura quiero poder cambiar una URL de Test/Producción sin editar el adapter.
+Como configurador quiero cargar la URL de cada servicio (Cobertura / Cotización / Envío) en la misma pantalla que la API key, sin editar adapters ni `.env`.
 
 **Acceptance**:
 
-1. `.env.example` documenta las variables esperadas.
-2. El código futuro tendrá un punto único para resolver esas variables.
+1. Cada fila de servicio tiene `secret_value` y `endpoint_url`.
+2. Test y Producción pueden tener URLs distintas en registros distintos.
 3. No existen URLs de servicio Chilexpress hardcodeadas como contrato definitivo del adapter.
+4. El futuro adapter resuelve endpoint desde `Courier Configuration`.
 
 ### US5 - Preparado para nuevos couriers (P2)
 
@@ -400,9 +383,9 @@ Como administrador quiero incorporar un nuevo provider sin cambiar el esquema de
 **Acceptance**:
 
 1. Provider es Link a maestro, no Select fijo.
-2. Las credenciales pueden variar por provider sin nuevas columnas específicas.
+2. Las credenciales/endpoints usan el contrato de 3 roles sin nuevas columnas específicas.
 3. Un provider puede desactivarse sin borrarse.
-4. Agregar soporte técnico de una nueva API queda limitado al futuro adapter y variables `.env` correspondientes.
+4. Agregar soporte técnico de una nueva API queda limitado al futuro adapter.
 
 ## 13. Functional Requirements
 
@@ -412,9 +395,9 @@ Como administrador quiero incorporar un nuevo provider sin cambiar el esquema de
 - **FR-004**: MUST soportar `Test` y `Producción` separadamente.
 - **FR-005**: MUST permitir credenciales variables por provider sin columnas nuevas por courier.
 - **FR-006**: secretos MUST usar mecanismo cifrado/Password de Frappe 16 validado.
-- **FR-007**: endpoints MUST provenir de variables de entorno, no del DocType de negocio.
-- **FR-008**: `.env.example` MUST documentar nombres de variables sin valores secretos.
-- **FR-009**: la lógica del futuro adapter MUST resolver endpoint por provider + environment.
+- **FR-007**: endpoints MUST persistirse en `Courier Configuration` (campo `endpoint_url` por servicio), no como contrato obligatorio de `.env`.
+- **FR-008**: la child table de servicios MUST incluir las 3 filas estándar con API key + endpoint emparejados.
+- **FR-009**: la lógica del futuro adapter MUST resolver endpoint por provider + environment + servicio desde Desk.
 - **FR-010**: Spec 008 MUST migrar la configuración heredada de Chilexpress.
 - **FR-011**: MUST preservar `coverage_api_key`, `rating_api_key`, `shipping_api_key` durante migración.
 - **FR-012**: migración MUST ser idempotente.
@@ -468,46 +451,33 @@ Como administrador quiero incorporar un nuevo provider sin cambiar el esquema de
 
 1. Spec 007 permanece cerrada e histórica.
 2. La corrección se hace en Spec 008.
-3. No habrá `Starken Settings`, `FAZT Settings`, etc. como modelo arquitectónico definitivo.
-4. `Courier Provider` será maestro, no Select hardcodeado.
-5. `Courier Configuration` será genérico y no Single.
-6. Endpoints viven en variables de entorno.
+3. No habrá Starken Settings, FAZT Settings, etc. como modelo arquitectónico definitivo.
+4. Courier Provider será maestro, no Select hardcodeado.
+5. Courier Configuration será genérico y no Single.
+6. Endpoints viven en Courier Configuration (misma pantalla que API keys), emparejados por servicio.
 7. Credenciales viven en ERPNext con almacenamiento seguro.
 8. Adapters son específicos por courier y programables.
 9. No se construirá un adapter universal configurable.
-10. `MCV Chile -> Courier` se conserva.
+10. MCV Chile -> Courier se conserva.
 11. Spec 008 no consume ninguna API.
+12. Contrato fijo de 3 roles: coverage / rating / shipping; courier de una sola API/URL repite el mismo valor en las 3 filas.
+13. .env no es fuente de verdad de endpoints de courier.
 
-## 18. Decisiones técnicas que el Plan debe cerrar antes de implementar
+## 18. Decisiones técnicas cerradas para el corte endpoints
 
-- patrón exacto de Password/encrypted secret en child table Frappe 16;
-- naming definitivo de DocTypes y campos;
-- mecanismo de unicidad provider + environment;
-- cómo leer de forma segura valores Password del Single legado y volver a persistirlos cifrados;
-- cómo detectar que la migración fue exitosa sin imprimir secretos;
-- cómo se cargan variables `.env` en el runtime real de bench/ERPNext;
-- ruta/naming de `.env.example` dentro del repo;
-- fixtures vs patch para seed de `Courier Provider = Chilexpress`;
-- comportamiento si falta alguna credencial heredada;
-- si Starken/FAZT se crean como providers inactivos ahora o solo cuando se incorporen;
-- forma exacta de abrir la lista/form de `Courier Configuration` desde Workspace Sidebar.
+- Password en child table (confirmado).
+- Naming: credential_key, secret_value, endpoint_url.
+- Unicidad provider + environment.
+- Precarga de 3 filas default.
+- Resolver futuro de endpoint desde Desk.
 
-## 19. Orden esperado después del OK
+## 19. Orden esperado del corte endpoints
 
-1. inspección read-only del site y código heredado;
-2. confirmar mecanismo seguro de secretos;
-3. cerrar plan/data model;
-4. crear tests de migración y modelo;
-5. crear DocTypes genéricos;
-6. crear seed Chilexpress;
-7. crear patch de migración heredada;
-8. crear/actualizar `.env.example`;
-9. cambiar sidebar Courier;
-10. ejecutar tests;
-11. desplegar sandbox;
-12. ejecutar migrate;
-13. verificar nuevo modelo y navegación;
-14. verificar que secretos destino están seteados sin mostrarlos;
-15. conservar legado fuera de navegación;
-16. aceptación Miguel;
-17. cerrar Spec 008.
+1. ajustar DocType Courier Credential con endpoint_url;
+2. actualizar defaults/tests/resolver;
+3. patch idempotente que asegure 3 filas con endpoint vacío;
+4. tests;
+5. deploy + migrate sandbox;
+6. verificación UI (API + endpoint por fila);
+7. aceptación Miguel;
+8. cerrar Spec 008.

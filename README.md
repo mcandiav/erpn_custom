@@ -13,9 +13,9 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 **Spec activa:** `008-courier-configuration`
 
-**Estado:** implementado en código (`16.0.7`). Pendiente deploy/migrate en sandbox y aceptación operativa de Miguel. No cierra hasta validación UI + modelo.
+**Estado:** enmienda arquitectónica 2026-09-17 — endpoints en Desk (misma child table que API keys). Implementación del corte endpoints pendiente de Programador. Sandbox en `16.0.8` con keys estándar; falta `endpoint_url` en UI.
 
-**Objetivo vigente:** modelo multi-courier genérico (`Courier Provider` + `Courier Configuration` + credenciales variables), endpoints en `.env`, sin APIs. Chilexpress Settings legado eliminable; navegación `Courier -> Configuración de Couriers`.
+**Objetivo vigente:** modelo multi-courier (`Courier Provider` + `Courier Configuration`) con contrato fijo de 3 servicios (coverage/rating/shipping), cada uno con API key + endpoint en la misma pantalla. Sin APIs HTTP. Navegación `Courier -> Configuración de Couriers`.
 
 Documento rector: `specs/008-courier-configuration/spec.md`
 
@@ -23,7 +23,7 @@ Documento rector: `specs/008-courier-configuration/spec.md`
 
 **Cierre 007:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` (migrate `v0_0_7_mcv_chile_desktop` OK), topología Desktop verificada y cierre autorizado por Miguel.
 
-**Producto en sandbox:** `16.0.5` (Desktop `MCV Chile` → `Pagos de Clientes` + `Courier`).
+**Producto en sandbox:** `16.0.8` previo; corte endpoints documentado para `16.0.9` (API key + Endpoint URL por servicio).
 
 **Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`.
 

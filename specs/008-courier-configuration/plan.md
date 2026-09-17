@@ -4,7 +4,7 @@
 
 **Input**: `specs/008-courier-configuration/spec.md`
 
-**Estado**: borrador técnico para revisión del Programador; no autoriza implementación sin inspección real + OK explícito de Miguel.
+**Estado**: enmienda 2026-09-17 — endpoints en Desk. Corte `endpoint_url` autorizado tras documentación Arquitecto.
 
 ## Summary
 
@@ -21,9 +21,9 @@ con:
 - `Courier Provider` como maestro;
 - `Courier Configuration` como DocType normal;
 - credenciales variables por provider en estructura genérica segura;
-- endpoints externos fuera del modelo de datos, resueltos desde `.env`;
-- adapters futuros específicos por courier, fuera de alcance de Spec 008;
-- migración conservadora desde `Chilexpress Settings` sin eliminar el legado.
+- endpoints externos en la misma `Courier Configuration` (API key + URL por servicio);
+- adapters futuros específicos por courier, fuera de alcance de Spec 008 HTTP;
+- migración conservadora desde `Chilexpress Settings` sin eliminar el legado (ya ejecutada).
 
 ## Technical Context
 
