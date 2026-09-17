@@ -336,11 +336,11 @@ class ChilexpressAdapter(CourierAdapter):
 			if last_error:
 				msg = f"{msg}. {last_error}"
 			frappe.throw(msg)
-		content = base64.b64decode(label_b64)
+		content, mime, ext = self._decode_label_content(label_b64)
 		return {
-			"file_name": f"{shipment.name}-{ot}-chilexpress-label.pdf",
+			"file_name": f"{shipment.name}-{ot}-chilexpress-label.{ext}",
 			"content": content,
-			"content_type": "application/pdf",
+			"content_type": mime,
 		}
 
 	def consultar_tracking(self, shipment, config):
@@ -629,12 +629,55 @@ class ChilexpressAdapter(CourierAdapter):
 		return re.sub(r"\s+", " ", text)
 
 	@staticmethod
+	def _decode_label_content(label_b64):
+		"""Decode Chilexpress label Base64 (usually JPEG, sometimes PDF)."""
+		import base64 as b64mod
+		import re as rem
+
+		if label_b64 is None:
+			return b"", "application/octet-stream", "bin"
+		if isinstance(label_b64, dict):
+			label_b64 = (
+				label_b64.get("labelData")
+				or label_b64.get("LabelData")
+				or label_b64.get("label")
+				or label_b64.get("data")
+				or ""
+			)
+		text = str(label_b64).strip()
+		# data URI support
+		m = rem.match(r"^data:([^;]+);base64,(.+)$", text, rem.DOTALL)
+		if m:
+			mime = m.group(1).strip().lower()
+			text = m.group(2)
+		else:
+			mime = ""
+		# whitespace/newlines sometimes present in API payloads
+		text = rem.sub(r"\s+", "", text)
+		content = b64mod.b64decode(text)
+		if not mime:
+			if content.startswith(b"%PDF"):
+				mime = "application/pdf"
+			elif content[:3] == b"\xff\xd8\xff":
+				mime = "image/jpeg"
+			elif content[:8] == b"\x89PNG\r\n\x1a\n":
+				mime = "image/png"
+			else:
+				mime = "application/octet-stream"
+		ext = {
+			"application/pdf": "pdf",
+			"image/jpeg": "jpg",
+			"image/jpg": "jpg",
+			"image/png": "png",
+		}.get(mime, "bin")
+		return content, mime, ext
+
+	@staticmethod
 	def _extract_label_b64(node, _depth=0):
 		"""Walk nested Chilexpress payloads looking for label Base64."""
 		if _depth > 8 or node is None:
 			return ""
 		if isinstance(node, str):
-			# Heuristic: PDF/base64 payloads are long.
 			text = node.strip()
 			if len(text) > 200 and not text.startswith("{"):
 				return text

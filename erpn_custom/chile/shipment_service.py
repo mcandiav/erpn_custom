@@ -180,24 +180,33 @@ def create_courier_shipment(shipment_name):
 	frappe.db.commit()
 
 	label_attached = False
+	label_error = ""
 	label_b64 = result.get("label_base64")
 	if label_b64:
 		try:
+			from erpn_custom.chile.couriers.chilexpress import ChilexpressAdapter
+
+			content, _mime, ext = ChilexpressAdapter._decode_label_content(label_b64)
 			_attach_label_bytes(
 				shipment.name,
-				f"{shipment.name}-{ot}-chilexpress-label.pdf",
-				__import__("base64").b64decode(label_b64),
+				f"{shipment.name}-{ot}-chilexpress-label.{ext}",
+				content,
 			)
 			label_attached = True
-		except Exception:
+		except Exception as exc:
 			label_attached = False
+			label_error = str(exc)[:180]
+			frappe.log_error(title="Chilexpress label attach failed", message=str(exc))
 
-	return {
+	out = {
 		"ok": True,
 		"shipment_id": ot,
 		"awb_number": values["awb_number"],
 		"label_attached": label_attached,
 	}
+	if label_error:
+		out["label_error"] = label_error
+	return out
 
 
 @frappe.whitelist()
