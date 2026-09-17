@@ -290,58 +290,43 @@ class ChilexpressAdapter(CourierAdapter):
 		ot = (shipment.shipment_id or shipment.awb_number or "").strip()
 		if not ot:
 			frappe.throw(_("No hay OT/tracking para obtener etiqueta"))
-		# Prefer reprint endpoint when available; fall back to create-time label storage.
-		label_b64 = ""
-		last_error = ""
-		try:
-			ot_value = int(float(ot))
-		except (TypeError, ValueError):
-			ot_value = ot
-		candidates = [
-			(
-				"/transport-orders/labels",
-				{
-					"transportOrderNumber": ot_value,
-					"labelType": 2,
-					"customerCardNumber": (config.account_reference or "").strip(),
-				},
-			),
-			(
-				"/reprint",
-				{
-					"transportOrderNumber": ot_value,
-					"labelType": 2,
-					"customerCardNumber": (config.account_reference or "").strip(),
-				},
-			),
-			(
-				f"/transport-orders/{ot}/labels",
-				{
-					"labelType": 2,
-					"customerCardNumber": (config.account_reference or "").strip(),
-				},
-			),
-		]
-		for path, body in candidates:
-			try:
-				data = self._request(config, "shipping", "POST", path, json_body=body)
-				label_b64 = self._extract_label_b64(data)
-				if label_b64:
-					break
-			except Exception as exc:
-				last_error = str(exc)[:180]
-				continue
-		if not label_b64:
-			msg = _("Chilexpress no devolvió etiqueta para OT {0}").format(ot)
-			if last_error:
-				msg = f"{msg}. {last_error}"
-			frappe.throw(msg)
-		content, mime, ext = self._decode_label_content(label_b64)
-		return {
-			"file_name": f"{shipment.name}-{ot}-chilexpress-label.{ext}",
-			"content": content,
-			"content_type": mime,
-		}
+		# Chilexpress returns JPEG/PDF Base64 on OT create (labelType=2).
+		# Official "reprint" operation exists in product docs, but the Test APIM
+		# product currently exposes create+tracking under /transport-orders/api/v1.0
+		# and returns HTTP 404 for probed reprint paths. Prefer existing File
+		# attachment; otherwise ask operator to recreate in Test or print from
+		# Portal Empresa.
+		existing = frappe.get_all(
+			"File",
+			filters={
+				"attached_to_doctype": "Shipment",
+				"attached_to_name": shipment.name,
+				"file_name": ("like", f"%{ot}-chilexpress-label%"),
+			},
+			fields=["name", "file_url", "file_name"],
+			order_by="creation desc",
+			limit=1,
+		)
+		if existing:
+			file_doc = frappe.get_doc("File", existing[0].name)
+			content = file_doc.get_content()
+			name = file_doc.file_name or f"{shipment.name}-{ot}-chilexpress-label.jpg"
+			ext = name.rsplit(".", 1)[-1].lower() if "." in name else "jpg"
+			mime = {
+				"pdf": "application/pdf",
+				"jpg": "image/jpeg",
+				"jpeg": "image/jpeg",
+				"png": "image/png",
+			}.get(ext, "application/octet-stream")
+			return {"file_name": name, "content": content, "content_type": mime}
+
+		frappe.throw(
+			_(
+				"No hay etiqueta adjunta para OT {0}. Chilexpress Test entrega la etiqueta "
+				"en la creación (labelType=2); la reimpresión API no está publicada en este "
+				"producto APIM (404). Genere de nuevo en Test o imprima desde Portal Empresa."
+			).format(ot)
+		)
 
 	def consultar_tracking(self, shipment, config):
 		number = (shipment.awb_number or shipment.shipment_id or "").strip()
