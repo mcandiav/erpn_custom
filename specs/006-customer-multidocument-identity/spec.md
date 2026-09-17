@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-17
 
-**Status**: Approved requirement / pendiente de planificación e implementación
+**Status**: Closed / implementada y aceptada en sandbox (2026-09-17)
 
 **Parent context**: `001-fragallardo-erpnext-foundation`, `003-fragallardo-mvp-operativo`, `004-pagos-clientes-mapeo-depositos`, `005-banco-chile-tiempo-real`
 

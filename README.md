@@ -11,26 +11,21 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `006-customer-multidocument-identity`
+**Spec activa:** ninguna (cola libre; aguardar asignación explícita de Miguel)
 
-**Objetivo actual:** generalizar la identidad documental de `Customer` para soportar `RUT`, `DNI`, `CPF` y `Passport`, manteniendo `Customer.tax_id` como campo canónico del número de documento y agregando tipo de documento + país emisor como contexto obligatorio de identidad.
+**Última Spec cerrada:** `006-customer-multidocument-identity`
 
-Documento rector: `specs/006-customer-multidocument-identity/spec.md`
+**Cierre:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` y aceptada operativamente.
 
-Artefactos obligatorios de diseño e implementación:
+**Entrega:** identidad documental `Customer` = `custom_tax_id_type` + `custom_tax_id_country` + `tax_id` (tipos `RUT`/`DNI`/`CPF`/`Passport`); validación versionada en `erpn_custom.identity`; Server Script RUT legado desactivado; matching bancario solo RUT/Chile; Quick Entry con tipo/país/número (`allow_in_quick_entry`, Frappe 16).
 
-- `specs/006-customer-multidocument-identity/data-model.md`
-- `specs/006-customer-multidocument-identity/contracts/customer-identity.md`
-- `specs/006-customer-multidocument-identity/plan.md`
-- `specs/006-customer-multidocument-identity/tasks.md`
-- `specs/006-customer-multidocument-identity/checklists/requirements.md`
-- `specs/006-customer-multidocument-identity/quickstart.md`
+**Producto en sandbox:** `16.0.4` (código identidad + fix Quick Entry).
 
-**Estado:** implementado y desplegado en sandbox `derp.at-once.cl` (`16.0.4` @ `21f88df`). Campos de identidad en Customer/Quick Entry; Server Script RUT legado desactivado; matching bancario filtrado a RUT/Chile. Acceptance manual del quickstart en curso/parcial.
+Documento rector (histórico): `specs/006-customer-multidocument-identity/spec.md`
 
-**Spec 004:** `004-pagos-clientes-mapeo-depositos` queda cerrada para efectos de cola de programación. La asignación manual de pagos huérfanos y su aceptación operativa ya no son el frente vigente.
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`.
 
-**No implementar por defecto:** Specs `003`, `004` o `005`, ni cualquier otro frente, salvo que Miguel lo nombre explícitamente en el hilo.
+**No implementar por defecto:** Specs `003`, `004`, `005` o `006`, ni cualquier otro frente, salvo que Miguel lo nombre explícitamente en el hilo.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 
