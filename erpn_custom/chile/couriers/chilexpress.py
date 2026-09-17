@@ -28,6 +28,16 @@ _TRACKING_MAP = {
 	"RECEPCIONADO": "In Progress",
 }
 
+# Prefer a single Chilexpress countyCode when city text matches more than one area.
+_COVERAGE_PREFER = {
+	"VINA DEL MAR": "VINA",
+	"VINA": "VINA",
+	"RENACA": "RENA",
+	"REÑACA": "RENA",
+	"ESTACION CENTRAL": "ECEN",
+	"SANTIAGO CENTRO": "STGO",
+}
+
 
 class ChilexpressAdapter(CourierAdapter):
 	provider_code = "chilexpress"
@@ -440,6 +450,12 @@ class ChilexpressAdapter(CourierAdapter):
 		if not uniq:
 			frappe.throw(_("No se resolvió cobertura Chilexpress para comuna '{0}'").format(city_name))
 		if len(uniq) > 1:
+			preferred = _COVERAGE_PREFER.get(needle)
+			if preferred and preferred in uniq:
+				return preferred
+			# Prefer countyCode equal to needle (operator typed the code).
+			if needle in uniq:
+				return needle
 			frappe.throw(
 				_("Cobertura ambigua para comuna '{0}': {1}").format(city_name, ", ".join(uniq))
 			)
