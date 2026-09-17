@@ -37,7 +37,9 @@ def _ensure_chilexpress_provider():
 def _delete_legacy_chilexpress_settings():
 	if not frappe.db.exists("DocType", CHILEXPRESS_SETTINGS):
 		return
-	frappe.db.delete(CHILEXPRESS_SETTINGS)
+	# Metadata can exist without a physical table (orphan from Spec 007).
+	if frappe.db.table_exists(CHILEXPRESS_SETTINGS):
+		frappe.db.delete(CHILEXPRESS_SETTINGS)
 	frappe.delete_doc("DocType", CHILEXPRESS_SETTINGS, force=1, ignore_permissions=True)
 
 
