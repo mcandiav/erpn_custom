@@ -13,7 +13,7 @@
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "Pagos de Clientes",
- "link_to": "pagos-de-clientes",
+ "link_to": "vinculador-pagos",
  "link_type": "Page",
  "links": [],
  "modified": "2026-09-16 22:10:00",
@@ -42,14 +42,14 @@
    "color": "Blue",
    "doc_view": "",
    "label": "Pagos de Clientes / Vinculador",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "type": "Page"
   },
   {
    "color": "Orange",
    "doc_view": "",
    "label": "Pagos huérfanos",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "type": "Page"
   },
   {
@@ -97,7 +97,7 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos de Clientes / Vinculador",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "link_type": "Page",
    "open_in_new_tab": 0,
    "show_arrow": 0,
@@ -111,7 +111,7 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos huérfanos",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "link_type": "Page",
    "open_in_new_tab": 0,
    "show_arrow": 0,

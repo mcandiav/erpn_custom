@@ -1,4 +1,4 @@
-frappe.pages["pagos-de-clientes"].on_page_load = function (wrapper) {
+frappe.pages["vinculador-pagos"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: __("Pagos de Clientes"),
@@ -8,28 +8,22 @@ frappe.pages["pagos-de-clientes"].on_page_load = function (wrapper) {
 	page.main.html(`
 		<div class="pagos-clientes-status text-muted"></div>
 		<div class="pagos-clientes-kpis" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0;"></div>
-		<h5>${__("Pendientes / Excepciones")}</h5>
-		<div class="pagos-clientes-exceptions"></div>
-		<hr>
 		<div id="pagos-huerfanos">
 			<h5>${__("Pagos huérfanos")}</h5>
 			<p class="text-muted">${__("Depósitos sin Customer. Asigne el beneficiario comercial sin alterar el pagador bancario.")}</p>
 			<div class="pagos-clientes-orphans"></div>
 		</div>
+		<hr>
+		<h5>${__("Pendientes / Excepciones")}</h5>
+		<div class="pagos-clientes-exceptions"></div>
 	`);
 	page.orphan_controls = {};
 	refresh_dashboard(page);
-	if (window.location.hash === "#pagos-huerfanos") {
-		setTimeout(() => {
-			const el = document.getElementById("pagos-huerfanos");
-			if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-		}, 400);
-	}
 };
 
 function enqueue_mapping(page) {
 	frappe.call({
-		method: "erpn_custom.chile.page.pagos_de_clientes.pagos_de_clientes.enqueue_mapping",
+		method: "erpn_custom.chile.page.vinculador_pagos.vinculador_pagos.enqueue_mapping",
 		freeze: true,
 		freeze_message: __("Encolando vinculación"),
 		callback(r) {
@@ -48,7 +42,7 @@ function enqueue_mapping(page) {
 
 function refresh_dashboard(page) {
 	frappe.call({
-		method: "erpn_custom.chile.page.pagos_de_clientes.pagos_de_clientes.dashboard",
+		method: "erpn_custom.chile.page.vinculador_pagos.vinculador_pagos.dashboard",
 		callback(r) {
 			const data = r.message || {};
 			const running = data.running ? __("Vinculación en ejecución") : __("Motor en reposo");
@@ -173,7 +167,7 @@ function render_orphans(page, orphans) {
 			return;
 		}
 		frappe.call({
-			method: "erpn_custom.chile.page.pagos_de_clientes.pagos_de_clientes.assign_orphan",
+			method: "erpn_custom.chile.page.vinculador_pagos.vinculador_pagos.assign_orphan",
 			args: { bank_transaction: bt, customer },
 			freeze: true,
 			freeze_message: __("Asignando depósito"),

@@ -14,7 +14,7 @@ add_to_apps_screen = [
 	{
 		"name": "erpn_custom",
 		"title": "Pagos de Clientes",
-		"route": "/desk/pagos-de-clientes",
+		"route": "/app/vinculador-pagos",
 		"has_permission": "erpn_custom.chile.deposit_mapping.has_vinculador_permission",
 	}
 ]

@@ -23,7 +23,7 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos de Clientes / Vinculador",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "link_type": "Page",
    "show_arrow": 0,
    "type": "Link"
@@ -34,7 +34,7 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos huérfanos",
-   "link_to": "pagos-de-clientes",
+   "link_to": "vinculador-pagos",
    "link_type": "Page",
    "show_arrow": 0,
    "type": "Link"
