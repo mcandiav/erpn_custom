@@ -31,6 +31,8 @@ Documento rector: `specs/009-chilexpress-shipment-integration/spec.md`
 
 **Última Spec cerrada:** `008-courier-configuration`
 
+**Siguiente Spec documentada (no activa aún):** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C). Draft en `specs/010-customer-contact-mirror/spec.md`. No entra a cola de código hasta que Miguel lo declare Spec vigente (tras cerrar o pausar 009).
+
 **Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), UI aceptada y conectividad Chilexpress Test verificada (coverage/rating/shipping).
 
 **Base previa:** Courier → Configuración de Couriers; Chilexpress Test configurado con 3 servicios + endpoints Desk.
