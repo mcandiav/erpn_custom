@@ -1,7 +1,7 @@
 import frappe
 
 from erpn_custom.chile.mcv_desktop_contract import (
-	CHILEXPRESS_SETTINGS,
+	COURIER_CONFIGURATION,
 	COURIER_ITEMS,
 	COURIER_SIDEBAR,
 	LEGACY_FOLDER,
@@ -102,10 +102,10 @@ def _cleanup_manual_mcv_chile():
 
 def _upsert_courier_sidebar():
 	items = list(COURIER_ITEMS)
-	if not frappe.db.exists("DocType", CHILEXPRESS_SETTINGS):
+	if not frappe.db.exists("DocType", COURIER_CONFIGURATION):
 		frappe.log_error(
-			title="Spec 007: Chilexpress Settings missing",
-			message="DocType Chilexpress Settings not found; Courier sidebar created without items.",
+			title="Spec 007: Courier Configuration missing",
+			message="DocType Courier Configuration not found; Courier sidebar created without items.",
 		)
 		items = []
 

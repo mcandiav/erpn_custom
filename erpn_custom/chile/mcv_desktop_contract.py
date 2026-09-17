@@ -2,15 +2,16 @@ ROOT_FOLDER = "MCV Chile"
 MANUAL_MCV = "MCV CHILE"
 PAGOS_SIDEBAR = "Pagos de Clientes"
 COURIER_SIDEBAR = "Courier"
+COURIER_CONFIGURATION = "Courier Configuration"
 CHILEXPRESS_SETTINGS = "Chilexpress Settings"
 LEGACY_FOLDER = "Chile"
 
 COURIER_ITEMS = [
 	{
 		"type": "Link",
-		"label": "Chilexpress Settings",
+		"label": "Configuración de Couriers",
 		"link_type": "DocType",
-		"link_to": CHILEXPRESS_SETTINGS,
+		"link_to": COURIER_CONFIGURATION,
 		"child": 0,
 		"collapsible": 0,
 		"indent": 0,

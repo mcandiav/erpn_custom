@@ -11,7 +11,13 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** ninguna (cola libre). Esperar instrucción explícita de Miguel para la próxima Spec.
+**Spec activa:** `008-courier-configuration`
+
+**Estado:** implementado en código (`16.0.6`). Pendiente deploy/migrate en sandbox y aceptación operativa de Miguel. No cierra hasta validación UI + modelo.
+
+**Objetivo vigente:** modelo multi-courier genérico (`Courier Provider` + `Courier Configuration` + credenciales variables), endpoints en `.env`, sin APIs. Chilexpress Settings legado eliminable; navegación `Courier -> Configuración de Couriers`.
+
+Documento rector: `specs/008-courier-configuration/spec.md`
 
 **Última Spec cerrada:** `007-mcv-chile-desktop`
 

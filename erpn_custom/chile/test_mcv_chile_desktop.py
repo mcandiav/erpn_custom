@@ -24,8 +24,8 @@ class TestMCVChileDesktopHelpers(unittest.TestCase):
 		item = COURIER_ITEMS[0]
 		self.assertEqual(item["type"], "Link")
 		self.assertEqual(item["link_type"], "DocType")
-		self.assertEqual(item["link_to"], "Chilexpress Settings")
-		self.assertEqual(item["label"], "Chilexpress Settings")
+		self.assertEqual(item["link_to"], "Courier Configuration")
+		self.assertEqual(item["label"], "Configuración de Couriers")
 
 	def test_workspace_placeholder_detection(self):
 		self.assertTrue(is_workspace_placeholder(None))
@@ -154,7 +154,8 @@ if FrappeTestCase is not None:
 			self.assertEqual(courier.app, "erpn_custom")
 			self.assertEqual(len(courier.items), 1)
 			self.assertEqual(courier.items[0].link_type, "DocType")
-			self.assertEqual(courier.items[0].link_to, "Chilexpress Settings")
+			self.assertEqual(courier.items[0].link_to, "Courier Configuration")
+			self.assertEqual(courier.items[0].label, "Configuración de Couriers")
 
 			if frappe.db.exists("Desktop Icon", LEGACY_FOLDER):
 				legacy = frappe.get_doc("Desktop Icon", LEGACY_FOLDER)

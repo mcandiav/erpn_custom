@@ -11,14 +11,14 @@
    "collapsible": 0,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Chilexpress Settings",
-   "link_to": "Chilexpress Settings",
+   "label": "Configuración de Couriers",
+   "link_to": "Courier Configuration",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-09-17 12:00:00",
+ "modified": "2026-09-17 15:00:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Courier",
