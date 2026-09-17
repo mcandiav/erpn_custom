@@ -2,6 +2,13 @@
 
 Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
+### Versionado de producto
+
+- Fuente: `erpn_custom/__init__.py` → `__version__` (semver `MAJOR.MINOR.PATCH`).
+- Major `16` alinea con ERPNext/Frappe 16; la rama Git `version-16` no es la versión de producto.
+- Cada push a deploy sube el **PATCH** (`16.0.1` → `16.0.2` …). MINOR solo al cerrar un corte mayor.
+- Subject de commit: `[16.0.N] …`
+
 ### Spec vigente del Programador
 
 **Spec activa:** `004-pagos-clientes-mapeo-depositos`
