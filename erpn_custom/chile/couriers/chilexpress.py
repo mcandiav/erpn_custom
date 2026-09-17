@@ -431,7 +431,7 @@ class ChilexpressAdapter(CourierAdapter):
 		needle = self._norm(city_name)
 		regions = self._request(config, "coverage", "GET", "/regions")
 		region_list = (regions or {}).get("regions") or []
-		matches = []
+		candidates = []
 		for region in region_list:
 			region_id = region.get("regionId")
 			if not region_id:
@@ -444,24 +444,47 @@ class ChilexpressAdapter(CourierAdapter):
 			)
 			coverage_areas = (areas or {}).get("coverageAreas") or (areas or {}).get("coverages") or []
 			for area in coverage_areas:
-				name = area.get("countyName") or area.get("coverageName") or ""
+				county_name = area.get("countyName") or ""
+				coverage_name = area.get("coverageName") or county_name
 				code = area.get("countyCode") or area.get("coverageCode") or ""
-				if self._norm(name) == needle and code:
-					matches.append(str(code))
-		uniq = sorted(set(matches))
-		if not uniq:
+				if not code:
+					continue
+				if self._norm(county_name) != needle:
+					continue
+				candidates.append(
+					{
+						"code": str(code),
+						"county_name": county_name,
+						"coverage_name": coverage_name,
+					}
+				)
+		if not candidates:
 			frappe.throw(_("No se resolvió cobertura Chilexpress para comuna '{0}'").format(city_name))
-		if len(uniq) > 1:
-			preferred = _COVERAGE_PREFER.get(needle)
-			if preferred and preferred in uniq:
-				return preferred
-			# Prefer countyCode equal to needle (operator typed the code).
-			if needle in uniq:
-				return needle
-			frappe.throw(
-				_("Cobertura ambigua para comuna '{0}': {1}").format(city_name, ", ".join(uniq))
-			)
-		return uniq[0]
+
+		# 1) Unique countyCode
+		uniq_codes = sorted({c["code"] for c in candidates})
+		if len(uniq_codes) == 1:
+			return uniq_codes[0]
+
+		# 2) Prefer coverageName exact match to the city text (e.g. VALP "VALPARAISO"
+		#    over PLAS "VALPARAISO - PENUELAS" / PLAV "PLACILLA...").
+		exact_cov = [c for c in candidates if self._norm(c["coverage_name"]) == needle]
+		exact_codes = sorted({c["code"] for c in exact_cov})
+		if len(exact_codes) == 1:
+			return exact_codes[0]
+
+		# 3) Explicit preference table (normalized city -> countyCode)
+		preferred = _COVERAGE_PREFER.get(needle)
+		if preferred and preferred in uniq_codes:
+			return preferred
+		if needle in uniq_codes:
+			return needle
+
+		detail = ", ".join(
+			sorted({f"{c['code']} ({c['coverage_name']})" for c in candidates})
+		)
+		frappe.throw(_("Cobertura ambigua para comuna '{0}': {1}").format(city_name, detail))
+
 
 	def _request(self, config, service, method, path, json_body=None):
 		base = self._endpoint(config, service).rstrip("/") + "/"
