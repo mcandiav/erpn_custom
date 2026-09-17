@@ -263,14 +263,17 @@ class ChilexpressAdapter(CourierAdapter):
 			or detail.get("trackingNumber")
 			or ""
 		)
-		tracking = detail.get("trackingNumber") or ot
+		ot = self._as_ot_str(ot)
+		tracking = self._as_ot_str(detail.get("trackingNumber") or ot)
 		label_b64 = detail.get("labelData") or detail.get("label") or ""
+		if isinstance(label_b64, dict):
+			label_b64 = label_b64.get("labelData") or ""
 		return {
 			"provider": self.provider_code,
-			"external_shipment_id": str(ot),
-			"transport_order_number": str(ot),
-			"tracking_number": str(tracking) if tracking else "",
-			"awb_number": str(tracking) if tracking else str(ot),
+			"external_shipment_id": ot,
+			"transport_order_number": ot,
+			"tracking_number": tracking,
+			"awb_number": tracking or ot,
 			"service_code": service_code,
 			"service_name": shipment.carrier_service or service_code,
 			"amount": flt(shipment.shipment_amount),
@@ -543,6 +546,15 @@ class ChilexpressAdapter(CourierAdapter):
 			digits = re.sub(r"[^\d]", "", parts[1]) or "0"
 			return int(digits)
 		return 0
+
+	@staticmethod
+	def _as_ot_str(value):
+		if value in (None, ""):
+			return ""
+		try:
+			return str(int(float(value)))
+		except (TypeError, ValueError):
+			return str(value).strip()
 
 	@staticmethod
 	def _fmt_num(value):
