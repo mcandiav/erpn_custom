@@ -11,25 +11,21 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `008-courier-configuration`
+**Spec activa:** ninguna (cola libre). Esperar instrucción explícita de Miguel para la próxima Spec.
 
-**Estado:** enmienda arquitectónica 2026-09-17 — endpoints en Desk (misma child table que API keys). Implementación del corte endpoints pendiente de Programador. Sandbox en `16.0.8` con keys estándar; falta `endpoint_url` en UI.
+**Última Spec cerrada:** `008-courier-configuration`
 
-**Objetivo vigente:** modelo multi-courier (`Courier Provider` + `Courier Configuration`) con contrato fijo de 3 servicios (coverage/rating/shipping), cada uno con API key + endpoint en la misma pantalla. Sin APIs HTTP. Navegación `Courier -> Configuración de Couriers`.
+**Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), desplegado en sandbox `derp.at-once.cl` (`16.0.9`), UI aceptada, conectividad Chilexpress Test verificada (coverage/rating/shipping) y cierre autorizado por Miguel.
 
-Documento rector: `specs/008-courier-configuration/spec.md`
+**Producto en sandbox:** `16.0.9` (Courier → Configuración de Couriers; Chilexpress Test con 3 servicios + endpoints Desk).
 
-**Última Spec cerrada:** `007-mcv-chile-desktop`
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`.
 
-**Cierre 007:** 2026-09-17 — implementada, desplegada en sandbox `derp.at-once.cl` (migrate `v0_0_7_mcv_chile_desktop` OK), topología Desktop verificada y cierre autorizado por Miguel.
-
-**Producto en sandbox:** `16.0.8` previo; corte endpoints documentado para `16.0.9` (API key + Endpoint URL por servicio).
-
-**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`.
+**Cierre 007:** 2026-09-17 — Desktop `MCV Chile` verificado.
 
 **Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**No implementar por defecto:** Specs `003`, `004`, `005`, `006` o `007`, ni cualquier frente no nombrado explícitamente por Miguel en el hilo.
+**No implementar por defecto:** Specs `003`, `004`, `005`, `006`, `007` o `008`, ni cualquier frente no nombrado explícitamente por Miguel en el hilo.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 

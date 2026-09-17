@@ -4,7 +4,7 @@
 
 **Input**: `specs/008-courier-configuration/spec.md`
 
-**Estado**: enmienda 2026-09-17 — endpoints en Desk. Corte `endpoint_url` autorizado tras documentación Arquitecto.
+**Estado**: plan técnico aprobado e **implementado y cerrado** 2026-09-17 (`16.0.9`, migrate OK, UI + conectividad Chilexpress Test OK).
 
 ## Summary
 

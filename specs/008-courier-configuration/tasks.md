@@ -1,8 +1,10 @@
 # Tasks: Courier Configuration multi-provider
 
+> **Estado de cierre (2026-09-17):** Spec 008 implementada (`16.0.6`→`16.0.9`), desplegada en `derp.at-once.cl`, UI aceptada y conectividad Chilexpress Test (coverage/rating/shipping) verificada. Esta lista queda como trazabilidad histórica; la cola vigente es `../../README.md`.
+
 **Input**: `spec.md`, `plan.md`, `data-model.md`
 
-**Estado**: preparado para ejecución después de inspección técnica y OK explícito de Miguel.
+**Estado**: cerrado.
 
 ## Phase 1 — Evidence gate / inspección
 

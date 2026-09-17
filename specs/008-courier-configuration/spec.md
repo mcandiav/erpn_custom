@@ -4,25 +4,23 @@
 
 **Created**: 2026-09-17
 
-**Status**: Ready for planning / pendiente de revisión técnica y OK de Miguel
+**Status**: Cerrada / aceptada operativamente (2026-09-17). Producto `16.0.9` en `derp.at-once.cl`. Conectividad Chilexpress Test (coverage/rating/shipping) verificada.
 
 **Parent context**: `007-mcv-chile-desktop`, `despachos_transportistas.md`
 
 ## 0. Regla de trabajo para el Programador
 
-Esta Spec corrige una decisión filosófica detectada después del cierre de Spec 007.
+Esta Spec está **cerrada**. No reabrir ni reimplementar salvo instrucción explícita de Miguel.
 
-La Spec 007 queda histórica y no debe reescribirse para ocultar el diseño anterior.
-
-Flujo obligatorio:
+Flujo histórico que se cumplió:
 
 1. leer esta Spec, `README.md`, el código de Spec 007 y el estado real del sandbox;
-2. inspeccionar cómo está implementado `Chilexpress Settings`, qué datos/credenciales existen y cómo Frappe 16 persiste Password fields;
-3. presentar a Miguel el plan técnico concreto de migración y los archivos a crear/modificar;
-4. esperar el OK explícito de Miguel;
-5. solo después implementar.
+2. inspeccionar Password fields / modelo heredado (no existía `Chilexpress Settings` en app);
+3. presentar plan técnico a Miguel y esperar OK;
+4. implementar modelo multi-courier + endpoints en Desk;
+5. migrar sandbox y validar UI + conectividad Test de los 3 servicios.
 
-No implementar llamadas reales a APIs de couriers en esta Spec.
+No implementó adapters ni consumo operativo de APIs (solo pings de aceptación).
 
 ## 1. Pifia filosófica detectada
 
