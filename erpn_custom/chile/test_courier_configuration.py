@@ -15,6 +15,14 @@ class TestCourierEndpointNaming(unittest.TestCase):
 			"CHILEXPRESS_PROD_SHIPPING_URL",
 		)
 
+	def test_standard_credential_keys(self):
+		from erpn_custom.chile.courier_credentials import STANDARD_COURIER_CREDENTIAL_KEYS
+
+		self.assertEqual(
+			STANDARD_COURIER_CREDENTIAL_KEYS,
+			("coverage_api_key", "rating_api_key", "shipping_api_key"),
+		)
+
 	def test_env_example_documents_expected_keys(self):
 		root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 		path = os.path.join(root, ".env.example")
@@ -89,6 +97,18 @@ if FrappeTestCase is not None:
 				}
 			).insert(ignore_permissions=True)
 			self.assertNotEqual(cfg.name, prod.name)
+			prod_keys = {row.credential_key for row in prod.credentials}
+			self.assertEqual(
+				prod_keys,
+				{"coverage_api_key", "rating_api_key", "shipping_api_key"},
+			)
+
+			loaded = frappe.get_doc("Courier Configuration", cfg.name)
+			keys = {row.credential_key for row in loaded.credentials}
+			self.assertEqual(
+				keys,
+				{"coverage_api_key", "rating_api_key", "shipping_api_key"},
+			)
 
 			dup = frappe.get_doc(
 				{
@@ -101,10 +121,10 @@ if FrappeTestCase is not None:
 			with self.assertRaises(frappe.ValidationError):
 				dup.insert(ignore_permissions=True)
 
-			loaded = frappe.get_doc("Courier Configuration", cfg.name)
-			keys = {row.credential_key for row in loaded.credentials}
-			self.assertIn("coverage_api_key", keys)
-			secret = loaded.credentials[0].get_password("secret_value", raise_exception=False)
+			secret_row = next(
+				row for row in loaded.credentials if row.credential_key == "coverage_api_key"
+			)
+			secret = secret_row.get_password("secret_value", raise_exception=False)
 			self.assertTrue(bool(secret))
 			self.assertNotEqual(secret, "******")
 
