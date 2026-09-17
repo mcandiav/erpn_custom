@@ -199,12 +199,13 @@ class ChilexpressAdapter(CourierAdapter):
 						"height": self._fmt_num(parcel.height),
 						"width": self._fmt_num(parcel.width),
 						"length": self._fmt_num(parcel.length),
-						"serviceDeliveryCode": str(service_code),
-						"productCode": "3",
+						"serviceDeliveryCode": int(str(service_code)),
+						"productCode": 3,
 						"deliveryReference": creation_key,
 						"groupReference": shipment.name,
-						"declaredValue": self._fmt_num(shipment.value_of_goods),
-						"declaredContent": (shipment.description_of_content or "")[:80],
+						"declaredValue": int(flt(shipment.value_of_goods)),
+						# Chilexpress expects numeric content classification; 0 is rejected.
+						"declaredContent": 1,
 						"extendedCoverageAreaIndicator": False,
 					}
 				)
@@ -521,7 +522,7 @@ class ChilexpressAdapter(CourierAdapter):
 			phone = frappe.db.get_value("Address", shipment.delivery_address_name, "phone") or ""
 		return {
 			"name": (full_name or "Contacto")[:80],
-			"phoneNumber": (phone or "000000000")[:20],
+			"phoneNumber": (phone or "912345678")[:20],
 			"mail": (mail or "noreply@example.com")[:80],
 			"contactType": contact_type,
 		}
@@ -539,8 +540,9 @@ class ChilexpressAdapter(CourierAdapter):
 		line = (address.get("address_line1") or "").strip()
 		parts = line.rsplit(" ", 1)
 		if len(parts) == 2 and re.search(r"\d", parts[1]):
-			return re.sub(r"[^\d]", "", parts[1]) or "0"
-		return "0"
+			digits = re.sub(r"[^\d]", "", parts[1]) or "0"
+			return int(digits)
+		return 0
 
 	@staticmethod
 	def _fmt_num(value):
