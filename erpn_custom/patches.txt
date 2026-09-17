@@ -18,3 +18,4 @@ erpn_custom.patches.v0_0_7_mcv_chile_desktop
 erpn_custom.patches.v0_0_8_courier_configuration
 erpn_custom.patches.v0_0_9_standard_courier_credentials
 erpn_custom.patches.v0_0_10_courier_endpoint_url
+erpn_custom.patches.v0_0_11_shipment_courier_fields

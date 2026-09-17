@@ -11,13 +11,19 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** ninguna (cola libre). Esperar instrucción explícita de Miguel para la próxima Spec.
+**Spec activa:** `009-chilexpress-shipment-integration`
+
+**Estado:** código implementado (`16.0.11`). Pendiente deploy/migrate en sandbox + prueba punta a punta Chilexpress Test y aceptación de Miguel.
+
+**Objetivo vigente:** vincular `Shipment` estándar con `Courier Configuration`, implementar `ChilexpressAdapter` para ambiente Test y completar preflight → cobertura → cotización → selección de servicio → creación OT idempotente → etiqueta → tracking, persistiendo el resultado en Shipment.
+
+Documento rector: `specs/009-chilexpress-shipment-integration/spec.md`
 
 **Última Spec cerrada:** `008-courier-configuration`
 
-**Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), desplegado en sandbox `derp.at-once.cl` (`16.0.9`), UI aceptada, conectividad Chilexpress Test verificada (coverage/rating/shipping) y cierre autorizado por Miguel.
+**Cierre 008:** 2026-09-17 — modelo multi-courier (`Courier Provider` + `Courier Configuration` + `endpoint_url`), UI aceptada y conectividad Chilexpress Test verificada (coverage/rating/shipping).
 
-**Producto en sandbox:** `16.0.9` (Courier → Configuración de Couriers; Chilexpress Test con 3 servicios + endpoints Desk).
+**Base previa:** Courier → Configuración de Couriers; Chilexpress Test configurado con 3 servicios + endpoints Desk. Verificar versión realmente desplegada antes del siguiente migrate; el código del repo puede haber avanzado respecto del texto histórico de cierre.
 
 **Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`.
 
@@ -25,7 +31,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 **Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**No implementar por defecto:** Specs `003`, `004`, `005`, `006`, `007` o `008`, ni cualquier frente no nombrado explícitamente por Miguel en el hilo.
+**No implementar por defecto:** Specs cerradas `003`–`008` no se reabren. La Spec `009` está activa pero **no autoriza código** hasta que el Programador presente su plan técnico definitivo y Miguel dé OK explícito.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 

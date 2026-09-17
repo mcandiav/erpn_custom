@@ -73,3 +73,29 @@ def get_courier_api_key(provider_code, environment, service):
 			)
 		)
 	return secret
+
+
+def get_config_endpoint(config_doc, service):
+	"""Resolve endpoint from a specific Courier Configuration document."""
+	key = _service_key(service)
+	for row in config_doc.credentials or []:
+		if (row.credential_key or "").strip() == key:
+			url = (row.endpoint_url or "").strip()
+			if not url:
+				frappe.throw(
+					_("Missing endpoint_url for {0} / {1}").format(config_doc.name, key)
+				)
+			return url
+	frappe.throw(_("Missing service row {0} on Courier Configuration {1}").format(key, config_doc.name))
+
+
+def get_config_api_key(config_doc, service):
+	"""Resolve API key from a specific Courier Configuration document."""
+	key = _service_key(service)
+	for row in config_doc.credentials or []:
+		if (row.credential_key or "").strip() == key:
+			secret = row.get_password("secret_value", raise_exception=False)
+			if not secret:
+				frappe.throw(_("Missing API key for {0} / {1}").format(config_doc.name, key))
+			return secret
+	frappe.throw(_("Missing service row {0} on Courier Configuration {1}").format(key, config_doc.name))
