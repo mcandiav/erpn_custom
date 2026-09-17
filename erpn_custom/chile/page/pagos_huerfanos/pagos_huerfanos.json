@@ -1,0 +1,26 @@
+{
+ "creation": "2026-09-16 22:30:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-09-16 22:30:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "pagos-huerfanos",
+ "owner": "Administrator",
+ "page_name": "pagos-huerfanos",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Pagos huérfanos"
+}

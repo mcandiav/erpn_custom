@@ -34,7 +34,7 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Pagos huérfanos",
-   "link_to": "vinculador-pagos",
+   "link_to": "pagos-huerfanos",
    "link_type": "Page",
    "show_arrow": 0,
    "type": "Link"
@@ -73,7 +73,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-09-16 22:10:00",
+ "modified": "2026-09-16 22:35:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Pagos de Clientes",
