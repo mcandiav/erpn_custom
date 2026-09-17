@@ -265,9 +265,7 @@ class ChilexpressAdapter(CourierAdapter):
 		)
 		ot = self._as_ot_str(ot)
 		tracking = self._as_ot_str(detail.get("trackingNumber") or ot)
-		label_b64 = detail.get("labelData") or detail.get("label") or ""
-		if isinstance(label_b64, dict):
-			label_b64 = label_b64.get("labelData") or ""
+		label_b64 = self._extract_label_b64(detail) or self._extract_label_b64(data)
 		return {
 			"provider": self.provider_code,
 			"external_shipment_id": ot,
@@ -288,24 +286,51 @@ class ChilexpressAdapter(CourierAdapter):
 		if not ot:
 			frappe.throw(_("No hay OT/tracking para obtener etiqueta"))
 		# Prefer reprint endpoint when available; fall back to create-time label storage.
+		label_b64 = ""
+		last_error = ""
 		try:
-			data = self._request(
-				config,
-				"shipping",
-				"POST",
-				"/transport-orders/reprint",
-				json_body={
-					"transportOrderNumber": ot,
+			ot_value = int(float(ot))
+		except (TypeError, ValueError):
+			ot_value = ot
+		candidates = [
+			(
+				"/transport-orders/labels",
+				{
+					"transportOrderNumber": ot_value,
 					"labelType": 2,
 					"customerCardNumber": (config.account_reference or "").strip(),
 				},
-			)
-			detail = self._first_detail(data) or (data.get("data") if isinstance(data, dict) else {}) or {}
-			label_b64 = detail.get("labelData") or detail.get("label") or ""
-		except Exception:
-			label_b64 = ""
+			),
+			(
+				"/reprint",
+				{
+					"transportOrderNumber": ot_value,
+					"labelType": 2,
+					"customerCardNumber": (config.account_reference or "").strip(),
+				},
+			),
+			(
+				f"/transport-orders/{ot}/labels",
+				{
+					"labelType": 2,
+					"customerCardNumber": (config.account_reference or "").strip(),
+				},
+			),
+		]
+		for path, body in candidates:
+			try:
+				data = self._request(config, "shipping", "POST", path, json_body=body)
+				label_b64 = self._extract_label_b64(data)
+				if label_b64:
+					break
+			except Exception as exc:
+				last_error = str(exc)[:180]
+				continue
 		if not label_b64:
-			frappe.throw(_("Chilexpress no devolvió etiqueta para OT {0}").format(ot))
+			msg = _("Chilexpress no devolvió etiqueta para OT {0}").format(ot)
+			if last_error:
+				msg = f"{msg}. {last_error}"
+			frappe.throw(msg)
 		content = base64.b64decode(label_b64)
 		return {
 			"file_name": f"{shipment.name}-{ot}-chilexpress-label.pdf",
@@ -317,40 +342,54 @@ class ChilexpressAdapter(CourierAdapter):
 		number = (shipment.awb_number or shipment.shipment_id or "").strip()
 		if not number:
 			frappe.throw(_("No hay número de tracking/OT para consultar"))
-		base = self._endpoint(config, "shipping").rstrip("/")
-		# Tracking product lives under /tracking/...; derive host from shipping endpoint.
-		host = re.sub(r"/transport-orders/api/v1\.0.*$", "", base)
-		if host == base:
-			host = "https://testservices.wschilexpress.com"
-		url = f"{host}/tracking/api/v1.0/tracking/{number}"
-		headers = {
-			"Content-Type": "application/json",
-			"Ocp-Apim-Subscription-Key": self._api_key(config, "shipping"),
+		# Official Chilexpress Envíos API (same product as OT create):
+		# POST /transport-orders/api/v1.0/tracking
+		try:
+			ot_value = int(float(number))
+		except (TypeError, ValueError):
+			ot_value = number
+		payload = {
+			"transportOrderNumber": ot_value,
+			"reference": (shipment.custom_courier_creation_key or shipment.name or "").strip(),
+			"rut": int(TEST_MARKETPLACE_RUT),
+			"showTrackingEvents": 1,
 		}
-		response = requests.get(url, headers=headers, timeout=30)
-		text = response.text or ""
-		if response.status_code in (401, 403):
-			frappe.throw(_("Chilexpress tracking rechazó la credencial (HTTP {0})").format(response.status_code))
-		if response.status_code >= 400:
-			frappe.throw(_("Chilexpress tracking error HTTP {0}: {1}").format(response.status_code, text[:180]))
-		payload = response.json() if text else {}
-		data = payload.get("data") if isinstance(payload, dict) else payload
+		data = self._request(config, "shipping", "POST", "/tracking", json_body=payload)
+		if isinstance(data, dict) and "data" in data:
+			data = data.get("data") or {}
 		if isinstance(data, list) and data:
 			data = data[0]
 		data = data or {}
+		status_block = data.get("statusData") or data.get("deliveryData") or {}
+		if not isinstance(status_block, dict):
+			status_block = {}
 		raw_status = (
-			data.get("statusDescription")
+			status_block.get("statusDescription")
+			or status_block.get("deliveryStatus")
+			or status_block.get("currentStatus")
+			or status_block.get("status")
+			or data.get("statusDescription")
 			or data.get("deliveryStatus")
 			or data.get("currentStatus")
 			or data.get("status")
 			or ""
 		)
-		events = data.get("trackingEvents") or data.get("events") or []
+		events = (
+			data.get("trackingEvents")
+			or data.get("events")
+			or status_block.get("trackingEvents")
+			or []
+		)
 		last_event = ""
 		if events:
 			last = events[-1] if isinstance(events, list) else events
 			if isinstance(last, dict):
-				last_event = last.get("description") or last.get("eventDescription") or str(last)
+				last_event = (
+					last.get("description")
+					or last.get("eventDescription")
+					or last.get("statusDescription")
+					or str(last)
+				)
 			else:
 				last_event = str(last)
 		mapped = "In Progress"
@@ -577,6 +616,38 @@ class ChilexpressAdapter(CourierAdapter):
 		return re.sub(r"\s+", " ", text)
 
 	@staticmethod
+	def _extract_label_b64(node, _depth=0):
+		"""Walk nested Chilexpress payloads looking for label Base64."""
+		if _depth > 8 or node is None:
+			return ""
+		if isinstance(node, str):
+			# Heuristic: PDF/base64 payloads are long.
+			text = node.strip()
+			if len(text) > 200 and not text.startswith("{"):
+				return text
+			return ""
+		if isinstance(node, dict):
+			for key in ("labelData", "LabelData", "label", "labelBase64", "base64", "binary"):
+				val = node.get(key)
+				if isinstance(val, str) and len(val.strip()) > 40:
+					return val.strip()
+				if isinstance(val, dict):
+					found = ChilexpressAdapter._extract_label_b64(val, _depth + 1)
+					if found:
+						return found
+			for val in node.values():
+				found = ChilexpressAdapter._extract_label_b64(val, _depth + 1)
+				if found:
+					return found
+			return ""
+		if isinstance(node, list):
+			for item in node:
+				found = ChilexpressAdapter._extract_label_b64(item, _depth + 1)
+				if found:
+					return found
+		return ""
+
+	@staticmethod
 	def _first_detail(payload):
 		if not isinstance(payload, dict):
 			return {}
@@ -585,9 +656,11 @@ class ChilexpressAdapter(CourierAdapter):
 			first = data[0]
 			return first if isinstance(first, dict) else {}
 		if isinstance(data, dict):
-			details = data.get("detail") or data.get("details") or data.get("transportOrders")
+			details = data.get("detail") or data.get("details") or data.get("transportOrders") or data.get("detailData")
 			if isinstance(details, list) and details:
 				first = details[0]
 				return first if isinstance(first, dict) else data
+			if isinstance(details, dict):
+				return details
 			return data
 		return {}
