@@ -4,6 +4,7 @@
  * Workaround for Frappe v16 Desktop / default-workspace routing gaps:
  * - https://github.com/frappe/frappe/issues/41702
  * - https://github.com/frappe/frappe/issues/40517
+ * - https://github.com/frappe/frappe/issues/24249
  * - https://github.com/frappe/frappe/pull/39927
  *
  * Security stays in Role Permissions. This file only redirects Desk root
@@ -20,9 +21,11 @@ frappe.provide("erpn_custom.operational_navigation");
 	};
 
 	const ADMIN_ROLES = ["Administrator", "System Manager"];
+	const RETRY_MS = [0, 50, 150, 400, 1000];
 
 	let redirecting = false;
 	let initialized = false;
+	let attempts = 0;
 
 	function get_default_workspace_name() {
 		const dw = frappe.boot && frappe.boot.user && frappe.boot.user.default_workspace;
@@ -72,41 +75,75 @@ frappe.provide("erpn_custom.operational_navigation");
 			return true;
 		}
 
-		const route = frappe.get_route() || [];
+		const route = (frappe.get_route && frappe.get_route()) || [];
 		return !route.length || !route[0];
 	}
 
+	function workspace_slug(workspace_name) {
+		if (frappe.router && typeof frappe.router.slug === "function") {
+			return frappe.router.slug(workspace_name);
+		}
+		return String(workspace_name || "")
+			.toLowerCase()
+			.replace(/ /g, "-");
+	}
+
 	function workspace_route_available(workspace_name) {
-		if (!frappe.workspaces || !frappe.router || !frappe.router.slug) {
+		if (!frappe.workspaces) {
 			return false;
 		}
-		const slug = frappe.router.slug(workspace_name);
+		const slug = workspace_slug(workspace_name);
 		return Boolean(frappe.workspaces[slug]);
 	}
 
 	function redirect_operational_home_if_needed() {
 		if (redirecting) {
-			return;
+			return false;
 		}
 		if (!is_operational_user()) {
-			return;
+			return false;
 		}
 		if (!is_desk_root_route()) {
-			return;
+			return false;
 		}
 
 		const target = get_operational_target_workspace();
 		if (!target) {
-			return;
+			return false;
 		}
+		// Boot may populate workspaces slightly after ready; retry instead of giving up.
 		if (!workspace_route_available(target)) {
-			return;
+			return false;
 		}
 
 		redirecting = true;
-		const slug = frappe.router.slug(target);
-		Promise.resolve(frappe.set_route(slug)).finally(() => {
-			redirecting = false;
+		const slug = workspace_slug(target);
+		frappe.route_flags = frappe.route_flags || {};
+		frappe.route_flags.replace_route = true;
+
+		Promise.resolve(frappe.set_route(slug))
+			.catch(() => {
+				// Last-resort navigation if router rejects the transition.
+				if (is_desk_root_route()) {
+					window.location.replace("/desk/" + encodeURIComponent(slug));
+				}
+			})
+			.finally(() => {
+				redirecting = false;
+			});
+
+		return true;
+	}
+
+	function schedule_retries() {
+		RETRY_MS.forEach((delay) => {
+			setTimeout(() => {
+				if (!is_desk_root_route()) {
+					return;
+				}
+				attempts += 1;
+				redirect_operational_home_if_needed();
+			}, delay);
 		});
 	}
 
@@ -117,6 +154,7 @@ frappe.provide("erpn_custom.operational_navigation");
 		initialized = true;
 
 		redirect_operational_home_if_needed();
+		schedule_retries();
 
 		if (frappe.router && typeof frappe.router.on === "function") {
 			frappe.router.on("change", () => {
@@ -134,6 +172,9 @@ frappe.provide("erpn_custom.operational_navigation");
 		init,
 	};
 
+	if (frappe.boot) {
+		init();
+	}
 	frappe.ready(() => {
 		init();
 	});

@@ -15,7 +15,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Estado:** código implementado 2026-09-19 (`operational_navigation.js` + `app_include_js`); pendiente build/cache en sitio, pruebas operativas y bump/commit. No modificar Frappe/ERPNext core.
+**Estado:** código `16.0.24` — guard con reintentos post-boot; Workspace `ComercialFRA` sin module (config site). Pendiente revalidación operativa Amaranta.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 
