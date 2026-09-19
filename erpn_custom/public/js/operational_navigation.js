@@ -70,13 +70,25 @@ frappe.provide("erpn_custom.operational_navigation");
 	}
 
 	function is_desk_root_route() {
+		// Exact Desktop Icons home (/desk) and Frappe v16 logo/Home target (/desk/home).
 		const path = (window.location.pathname || "").replace(/\/+$/, "") || "/desk";
-		if (path === "/desk") {
+		if (path === "/desk" || path === "/desk/home") {
 			return true;
 		}
 
 		const route = (frappe.get_route && frappe.get_route()) || [];
-		return !route.length || !route[0];
+		if (!route.length || !route[0]) {
+			return true;
+		}
+		// Standard route form for public Home workspace.
+		if (
+			route[0] === "Workspaces" &&
+			route.length === 2 &&
+			String(route[1] || "").toLowerCase() === "home"
+		) {
+			return true;
+		}
+		return false;
 	}
 
 	function workspace_slug(workspace_name) {
