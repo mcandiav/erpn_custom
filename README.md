@@ -11,11 +11,13 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `010-customer-contact-mirror` — espejo silencioso Cliente Individual → Contacto primario (B2C).
+**Spec activa:** `011-vendedorfra-operational-navigation` — navegación operacional para VendedorFRA/ComercialFRA, evitando el Desktop general `/desk` y usando `ComercialFRA` como punto de entrada/Home.
 
-Documento: `specs/010-customer-contact-mirror/spec.md`
+Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Producto en esta Spec:** desde `16.0.22` (hooks + campo `Contact.custom_is_customer_mirror` + backfill).
+**Estado:** código implementado 2026-09-19 (`operational_navigation.js` + `app_include_js`); pendiente build/cache en sitio, pruebas operativas y bump/commit. No modificar Frappe/ERPNext core.
+
+**Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 
 **Última Spec cerrada:** `009-chilexpress-shipment-integration`
 

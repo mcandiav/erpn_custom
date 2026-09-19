@@ -24,7 +24,7 @@ add_to_apps_screen = [
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/erpn_custom/css/erpn_custom.css"
-# app_include_js = "/assets/erpn_custom/js/erpn_custom.js"
+app_include_js = "/assets/erpn_custom/js/operational_navigation.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpn_custom/css/erpn_custom.css"
