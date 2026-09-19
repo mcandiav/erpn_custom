@@ -26,6 +26,10 @@ add_to_apps_screen = [
 # app_include_css = "/assets/erpn_custom/css/erpn_custom.css"
 app_include_js = "/assets/erpn_custom/js/operational_navigation.js"
 
+# Desk boot: filter Desktop Icons for operational FRA roles (Spec 011).
+# Does not alter Administrator / System Manager boot.
+extend_bootinfo = "erpn_custom.navigation.operational.extend_bootinfo"
+
 # include js, css files in header of web template
 # web_include_css = "/assets/erpn_custom/css/erpn_custom.css"
 # web_include_js = "/assets/erpn_custom/js/erpn_custom.js"

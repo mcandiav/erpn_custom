@@ -15,7 +15,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Estado:** código `16.0.24` — guard con reintentos post-boot; Workspace `ComercialFRA` sin module (config site). Pendiente revalidación operativa Amaranta.
+**Estado:** `16.0.27` — `extend_bootinfo` filtra Desktop Icons para ComercialFRA; JS mínimo redirige `/desk`. Workspace sin module en site. Pendiente aceptación operativa.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 
