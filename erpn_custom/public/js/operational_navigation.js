@@ -10,6 +10,7 @@
  *
  * Server-side extend_bootinfo filters Desktop Icons for the same users.
  * This client guard redirects Desk/Home/Desktop root to the operational Workspace.
+ * Never inject synthetic Desktop Icons (Frappe v16 requires Workspace Sidebar).
  */
 frappe.provide("erpn_custom.operational_navigation");
 
@@ -20,7 +21,7 @@ frappe.provide("erpn_custom.operational_navigation");
 		ComercialFRA: "ComercialFRA",
 	};
 	const ADMIN_ROLES = ["Administrator", "System Manager"];
-	const RETRY_MS = [0, 50, 150, 400, 1000];
+	const RETRY_MS = [0, 50, 150, 400, 1000, 2000];
 
 	let redirecting = false;
 	let initialized = false;
@@ -111,12 +112,9 @@ frappe.provide("erpn_custom.operational_navigation");
 		if (!first) {
 			return true;
 		}
-		// Frappe v16 Desktop (icon board), not a named Workspace.
 		if (first === "Workspaces" && !second) {
 			return true;
 		}
-		// Sidebar/Home often lands on the generic Home workspace — for operational
-		// users that must become ComercialFRA (Spec 011), not the empty Desktop.
 		if (first === "Workspaces" && (second === "home" || second === "Home")) {
 			return true;
 		}
@@ -124,6 +122,23 @@ frappe.provide("erpn_custom.operational_navigation");
 			return true;
 		}
 		return false;
+	}
+
+	function go_operational_home(target) {
+		const slug = workspace_slug(target);
+		frappe.route_flags = frappe.route_flags || {};
+		frappe.route_flags.replace_route = true;
+		try {
+			frappe.set_route("Workspaces", target);
+		} catch (e) {
+			// fall through to hard navigation
+		}
+		// Hard fallback: set_route can no-op while Desktop is mounting.
+		setTimeout(() => {
+			if (!is_already_on_operational_home(target) && is_desk_root_route()) {
+				window.location.replace(`/desk/${slug}`);
+			}
+		}, 250);
 	}
 
 	function redirect_operational_home_if_needed() {
@@ -140,16 +155,13 @@ frappe.provide("erpn_custom.operational_navigation");
 		}
 
 		redirecting = true;
-		frappe.route_flags = frappe.route_flags || {};
-		frappe.route_flags.replace_route = true;
 		setTimeout(() => {
 			try {
-				// Explicit Workspaces route is stable on Frappe v16 Desk.
-				frappe.set_route("Workspaces", target);
+				go_operational_home(target);
 			} finally {
 				setTimeout(() => {
 					redirecting = false;
-				}, 300);
+				}, 400);
 			}
 		}, 0);
 		return true;
@@ -157,6 +169,7 @@ frappe.provide("erpn_custom.operational_navigation");
 
 	function init() {
 		if (initialized) {
+			redirect_operational_home_if_needed();
 			return;
 		}
 		initialized = true;
