@@ -55,7 +55,7 @@ Nota T028–T030: `ComercialFRA` ya está en `ALLOWED` de `sales_order_credit.py
 ## Phase 8 — Release
 - [x] T037 Bump PATCH.
 - [x] T038 Actualizar README con estado real.
-- [ ] T039 Commit.
-- [ ] T040 Push version-16.
+- [x] T039 Commit.
+- [x] T040 Push version-16.
 - [ ] T041 Confirmar despliegue.
 - [ ] T042 Aceptación de Miguel.
