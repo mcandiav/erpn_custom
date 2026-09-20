@@ -15,7 +15,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Estado:** `16.0.33` — Spec 011: Home hard-redirect a ComercialFRA; nunca Desktop en blanco (si no hay icono, no se vacía el boot). Admin intacto.
+**Estado:** `16.0.34` — Spec 011 **pausada en Desktop**: se deja el zoo nativo de Frappe v16. Desactivados `app_include_js` / `extend_bootinfo` de navegación operacional (demasiada fricción). Login sigue pudiendo usar `default_workspace = ComercialFRA`. Código retenido en `navigation/` sin enganche.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 

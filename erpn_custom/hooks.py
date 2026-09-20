@@ -24,11 +24,13 @@ add_to_apps_screen = [
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/erpn_custom/css/erpn_custom.css"
-app_include_js = "/assets/erpn_custom/js/operational_navigation.js"
+# Spec 011 Desktop filter/redirect disabled: role-clean Desktop had too much
+# friction on Frappe v16 (Workspace Sidebar / blank board). Keep zoo + native
+# default_workspace landing. Files remain under navigation/ for a future cut.
+# app_include_js = "/assets/erpn_custom/js/operational_navigation.js"
 
-# Desk boot: filter Desktop Icons for operational FRA roles (Spec 011).
-# Does not alter Administrator / System Manager boot.
-extend_bootinfo = "erpn_custom.navigation.operational.extend_bootinfo"
+# Desk boot: Spec 011 icon filter disabled (see above).
+# extend_bootinfo = "erpn_custom.navigation.operational.extend_bootinfo"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpn_custom/css/erpn_custom.css"
