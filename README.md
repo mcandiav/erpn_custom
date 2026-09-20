@@ -11,11 +11,13 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `011-vendedorfra-operational-navigation` — navegación operacional para VendedorFRA/ComercialFRA, evitando el Desktop general `/desk` y usando `ComercialFRA` como punto de entrada/Home.
+**Spec activa:** `012-sales-person-auto-commission` — atribución automática del vendedor creador de una Sales Order al `Sales Team`, reutilizando `Sales Person` y el cálculo estándar de comisión/incentivos de ERPNext.
 
-Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
+Documento: `specs/012-sales-person-auto-commission/spec.md`
 
-**Estado:** `16.0.34` — Spec 011 **pausada en Desktop**: se deja el zoo nativo de Frappe v16. Desactivados `app_include_js` / `extend_bootinfo` de navegación operacional (demasiada fricción). Login sigue pudiendo usar `default_workspace = ComercialFRA`. Código retenido en `navigation/` sin enganche.
+**Estado:** implementada en código (`16.0.35`); hook `Sales Order.before_validate` → `erpn_custom.selling.sales_person_assignment.assign_sales_person`. Pendiente aceptación operativa en sandbox (Amaranta: Contribution 100%, Commission Rate 1%, venta neta CLP 50.000 → incentivo CLP 500).
+
+**Spec 011:** `011-vendedorfra-operational-navigation` queda **pausada** en `16.0.34`. Se mantiene el Desktop nativo de Frappe v16 y no debe retomarse por defecto.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 

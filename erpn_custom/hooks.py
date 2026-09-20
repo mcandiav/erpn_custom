@@ -158,6 +158,9 @@ doc_events = {
 		"after_insert": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
 		"on_update": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
 	},
+	"Sales Order": {
+		"before_validate": "erpn_custom.selling.sales_person_assignment.assign_sales_person",
+	},
 }
 
 # Scheduled Tasks
