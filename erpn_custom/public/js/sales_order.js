@@ -38,6 +38,9 @@ frappe.ui.form.on("Sales Order", {
 					frm.add_custom_button(__("Aplicar saldo a favor"), () => apply_credit_dialog(frm, data));
 				}
 			},
+			error() {
+				// Roles fuera de ALLOWED u OV sin crédito: no bloquear el formulario.
+			},
 		});
 	},
 });

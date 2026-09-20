@@ -10,6 +10,7 @@ ALLOWED = (
 	"Accounts User",
 	"Sales Manager",
 	"Sales User",
+	"ComercialFRA",
 )
 
 
