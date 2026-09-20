@@ -4,6 +4,10 @@ Frappe v16 treats Desktop as a first-class screen; default Workspace only
 affects login landing (frappe#38691). Module Profile does not hide Desktop
 Icons (frappe#41702). This module filters boot desktop_icons for eligible
 operational users so /desk is not a module zoo, without touching Admin.
+
+Never inject synthetic Desktop Icons (v16 requires a real Workspace Sidebar).
+If no matching icon exists, keep the original icon list as a safety net so
+Home is never a blank board; the client hard-redirects to the Workspace.
 """
 
 from __future__ import annotations
@@ -51,19 +55,20 @@ def _icon_matches_workspace(icon: dict, workspace: str) -> bool:
 
 
 def apply_operational_desktop(bootinfo) -> None:
-	"""Keep only the operational Workspace icon on Desktop for eligible users.
+	"""Filter Desktop Icons only when a real matching icon exists.
 
-	Do not inject synthetic Desktop Icons: Frappe v16 requires a real
-	Workspace Sidebar link (otherwise Desk shows "icon not configured").
-	Home/Desktop blank board is handled by the client redirect to the
-	operational Workspace. Admin / System Manager never enter this path.
+	If none match, leave icons untouched (never blank Desktop). Admin /
+	System Manager never enter this path.
 	"""
 	workspace = get_operational_target_workspace()
 	if not workspace:
 		return
 
 	icons = list(bootinfo.get("desktop_icons") or [])
-	bootinfo["desktop_icons"] = [icon for icon in icons if _icon_matches_workspace(icon, workspace)]
+	filtered = [icon for icon in icons if _icon_matches_workspace(icon, workspace)]
+	if filtered:
+		bootinfo["desktop_icons"] = filtered
+		# else: keep original icons — blank board is worse than a temporary zoo
 
 
 def extend_bootinfo(bootinfo) -> None:

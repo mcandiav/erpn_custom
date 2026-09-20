@@ -15,7 +15,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Estado:** `16.0.32` — Spec 011: Home → ComercialFRA sin icono sintético (v16 exige Workspace Sidebar); Admin intacto. Pendiente aceptación.
+**Estado:** `16.0.33` — Spec 011: Home hard-redirect a ComercialFRA; nunca Desktop en blanco (si no hay icono, no se vacía el boot). Admin intacto.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 

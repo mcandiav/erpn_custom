@@ -8,9 +8,8 @@
  *
  * Other profiles keep stock Frappe Home/Desktop behavior.
  *
- * Server-side extend_bootinfo filters Desktop Icons for the same users.
- * This client guard redirects Desk/Home/Desktop root to the operational Workspace.
- * Never inject synthetic Desktop Icons (Frappe v16 requires Workspace Sidebar).
+ * Strategy: hard-redirect Home/Desktop/`/desk` to the operational Workspace
+ * via location.replace (reliable on Frappe v16). No synthetic Desktop Icons.
  */
 frappe.provide("erpn_custom.operational_navigation");
 
@@ -21,7 +20,7 @@ frappe.provide("erpn_custom.operational_navigation");
 		ComercialFRA: "ComercialFRA",
 	};
 	const ADMIN_ROLES = ["Administrator", "System Manager"];
-	const RETRY_MS = [0, 50, 150, 400, 1000, 2000];
+	const RETRY_MS = [0, 100, 300, 800];
 
 	let redirecting = false;
 	let initialized = false;
@@ -88,7 +87,7 @@ frappe.provide("erpn_custom.operational_navigation");
 		if (first === "Workspaces" && second === target) {
 			return true;
 		}
-		if (first.toLowerCase() === slug) {
+		if (String(first).toLowerCase() === slug) {
 			return true;
 		}
 		return false;
@@ -124,23 +123,6 @@ frappe.provide("erpn_custom.operational_navigation");
 		return false;
 	}
 
-	function go_operational_home(target) {
-		const slug = workspace_slug(target);
-		frappe.route_flags = frappe.route_flags || {};
-		frappe.route_flags.replace_route = true;
-		try {
-			frappe.set_route("Workspaces", target);
-		} catch (e) {
-			// fall through to hard navigation
-		}
-		// Hard fallback: set_route can no-op while Desktop is mounting.
-		setTimeout(() => {
-			if (!is_already_on_operational_home(target) && is_desk_root_route()) {
-				window.location.replace(`/desk/${slug}`);
-			}
-		}, 250);
-	}
-
 	function redirect_operational_home_if_needed() {
 		if (redirecting || !is_operational_user()) {
 			return false;
@@ -149,31 +131,22 @@ frappe.provide("erpn_custom.operational_navigation");
 			return false;
 		}
 		const target = get_operational_target_workspace();
-		const slug = workspace_slug(target);
-		if (!target || !frappe.workspaces || !frappe.workspaces[slug]) {
+		if (!target) {
 			return false;
 		}
-
+		const slug = workspace_slug(target);
+		// Prefer hard navigation: frappe.set_route is unreliable while Desktop mounts.
 		redirecting = true;
-		setTimeout(() => {
-			try {
-				go_operational_home(target);
-			} finally {
-				setTimeout(() => {
-					redirecting = false;
-				}, 400);
-			}
-		}, 0);
+		window.location.replace(`/desk/${slug}`);
 		return true;
 	}
 
 	function init() {
+		redirect_operational_home_if_needed();
 		if (initialized) {
-			redirect_operational_home_if_needed();
 			return;
 		}
 		initialized = true;
-		redirect_operational_home_if_needed();
 		RETRY_MS.forEach((delay) => {
 			setTimeout(redirect_operational_home_if_needed, delay);
 		});
