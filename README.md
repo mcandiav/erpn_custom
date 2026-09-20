@@ -15,7 +15,7 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 Documento: `specs/011-vendedorfra-operational-navigation/spec.md`
 
-**Estado:** `16.0.27` — `extend_bootinfo` filtra Desktop Icons para ComercialFRA; JS mínimo redirige `/desk`. Workspace sin module en site. Pendiente aceptación operativa.
+**Estado:** `16.0.28` — `extend_bootinfo` filtra Desktop Icons para ComercialFRA; JS mínimo redirige `/desk`. Workspace sin module en site. Pendiente aceptación operativa (smoke webhook `16.0.28`).
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
 
