@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import frappe
 
-# Role → Workspace name. Extend later for PagosFRA / DespachoFRA / etc.
+# Role → Workspace name. Extend later for EmpaqueFRA / RecepcionFRA / etc.
 OPERATIONAL_HOME_BY_ROLE = {
 	"ComercialFRA": "ComercialFRA",
 }
@@ -51,13 +51,35 @@ def _icon_matches_workspace(icon: dict, workspace: str) -> bool:
 
 
 def apply_operational_desktop(bootinfo) -> None:
-	"""Keep only the operational Workspace icon on Desktop for eligible users."""
+	"""Keep only the operational Workspace icon on Desktop for eligible users.
+
+	If no matching Desktop Icon exists, inject a single Workspace shortcut so
+	Home never lands on a blank Desktop when the client redirect is delayed.
+	Administrator / System Manager never enter this path (see get_operational_target_workspace).
+	"""
 	workspace = get_operational_target_workspace()
 	if not workspace:
 		return
 
 	icons = list(bootinfo.get("desktop_icons") or [])
-	bootinfo["desktop_icons"] = [icon for icon in icons if _icon_matches_workspace(icon, workspace)]
+	filtered = [icon for icon in icons if _icon_matches_workspace(icon, workspace)]
+	if filtered:
+		bootinfo["desktop_icons"] = filtered
+		return
+
+	bootinfo["desktop_icons"] = [
+		{
+			"name": f"erpn-op-{workspace}",
+			"label": workspace,
+			"link_type": "Workspace",
+			"link_to": workspace,
+			"logo": None,
+			"logo_url": None,
+			"parent_icon": "",
+			"hidden": 0,
+			"idx": 0,
+		}
+	]
 
 
 def extend_bootinfo(bootinfo) -> None:

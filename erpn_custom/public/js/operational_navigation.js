@@ -1,15 +1,15 @@
 /**
  * Operational navigation guard for FRAgallardo Desk UX (Spec 011).
  *
- * Server-side extend_bootinfo filters Desktop Icons for operational users.
- * This client guard only redirects exact Desk root (/desk) to the user's
- * default operational Workspace. Administrator / System Manager are excluded.
+ * Applies ONLY when:
+ * - user has a mapped operational role (e.g. ComercialFRA), and
+ * - User.default_workspace matches that role's workspace, and
+ * - user is NOT Administrator / System Manager.
  *
- * Upstream context:
- * - https://github.com/frappe/frappe/issues/41702
- * - https://github.com/frappe/frappe/issues/38691
- * - https://github.com/frappe/frappe/issues/24249
- * - https://github.com/frappe/frappe/pull/39927
+ * Other profiles keep stock Frappe Home/Desktop behavior.
+ *
+ * Server-side extend_bootinfo filters Desktop Icons for the same users.
+ * This client guard redirects Desk/Home/Desktop root to the operational Workspace.
  */
 frappe.provide("erpn_custom.operational_navigation");
 
@@ -20,7 +20,7 @@ frappe.provide("erpn_custom.operational_navigation");
 		ComercialFRA: "ComercialFRA",
 	};
 	const ADMIN_ROLES = ["Administrator", "System Manager"];
-	const RETRY_MS = [0, 100, 400];
+	const RETRY_MS = [0, 50, 150, 400, 1000];
 
 	let redirecting = false;
 	let initialized = false;
@@ -63,15 +63,6 @@ frappe.provide("erpn_custom.operational_navigation");
 		return Boolean(get_operational_target_workspace());
 	}
 
-	function is_desk_root_route() {
-		const path = (window.location.pathname || "").replace(/\/+$/, "") || "/desk";
-		if (path === "/desk") {
-			return true;
-		}
-		const route = (frappe.get_route && frappe.get_route()) || [];
-		return !route.length || !route[0];
-	}
-
 	function workspace_slug(workspace_name) {
 		if (frappe.router && typeof frappe.router.slug === "function") {
 			return frappe.router.slug(workspace_name);
@@ -81,12 +72,70 @@ frappe.provide("erpn_custom.operational_navigation");
 			.replace(/ /g, "-");
 	}
 
+	function is_already_on_operational_home(target) {
+		if (!target) {
+			return false;
+		}
+		const slug = workspace_slug(target);
+		const path = (window.location.pathname || "").replace(/\/+$/, "") || "/desk";
+		if (path === `/desk/${slug}`) {
+			return true;
+		}
+		const route = (frappe.get_route && frappe.get_route()) || [];
+		const first = route[0] || "";
+		const second = route[1] || "";
+		if (first === "Workspaces" && second === target) {
+			return true;
+		}
+		if (first.toLowerCase() === slug) {
+			return true;
+		}
+		return false;
+	}
+
+	function is_desk_root_route() {
+		const target = get_operational_target_workspace();
+		if (is_already_on_operational_home(target)) {
+			return false;
+		}
+
+		const path = (window.location.pathname || "").replace(/\/+$/, "") || "/desk";
+		if (path === "/desk" || path === "/desk/home") {
+			return true;
+		}
+
+		const route = (frappe.get_route && frappe.get_route()) || [];
+		const first = route[0] || "";
+		const second = route[1] || "";
+
+		if (!first) {
+			return true;
+		}
+		// Frappe v16 Desktop (icon board), not a named Workspace.
+		if (first === "Workspaces" && !second) {
+			return true;
+		}
+		// Sidebar/Home often lands on the generic Home workspace — for operational
+		// users that must become ComercialFRA (Spec 011), not the empty Desktop.
+		if (first === "Workspaces" && (second === "home" || second === "Home")) {
+			return true;
+		}
+		if (first === "desktop" || first === "Desktop") {
+			return true;
+		}
+		return false;
+	}
+
 	function redirect_operational_home_if_needed() {
-		if (redirecting || !is_operational_user() || !is_desk_root_route()) {
+		if (redirecting || !is_operational_user()) {
+			return false;
+		}
+		if (!is_desk_root_route()) {
 			return false;
 		}
 		const target = get_operational_target_workspace();
-		if (!target || !frappe.workspaces || !frappe.workspaces[workspace_slug(target)]) {
+		const slug = workspace_slug(target);
+		if (!target || !frappe.workspaces || !frappe.workspaces[slug]) {
 			return false;
 		}
 
@@ -95,9 +144,12 @@ frappe.provide("erpn_custom.operational_navigation");
 		frappe.route_flags.replace_route = true;
 		setTimeout(() => {
 			try {
-				frappe.set_route(workspace_slug(target));
+				// Explicit Workspaces route is stable on Frappe v16 Desk.
+				frappe.set_route("Workspaces", target);
 			} finally {
-				redirecting = false;
+				setTimeout(() => {
+					redirecting = false;
+				}, 300);
 			}
 		}, 0);
 		return true;
