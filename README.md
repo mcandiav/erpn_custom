@@ -11,17 +11,17 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** `012-sales-person-auto-commission` — atribución automática del vendedor creador de una Sales Order al `Sales Team`, reutilizando `Sales Person` y el cálculo estándar de comisión/incentivos de ERPNext.
+**Spec activa:** ninguna — cola libre tras cierre de `012`.
+
+**Última Spec cerrada:** `012-sales-person-auto-commission` — 2026-09-23. Atribución automática User → Employee → Sales Person → Sales Team en Sales Order (`before_validate`). Producto desde `16.0.35`.
+
+**Evidencia aceptación sandbox:** `SAL-ORD-2026-00015` (owner `amaranta@fragallardo.com`, submitted): Sales Team = `Amaranta Fernandez`, Contribution 100%, Commission Rate 1%, allocated_amount CLP 50.000, **Incentives CLP 500**. Caso histórico `SAL-ORD-2026-00014` permanece sin Sales Team (sin reescritura retroactiva).
 
 Documento: `specs/012-sales-person-auto-commission/spec.md`
-
-**Estado:** implementada en código (`16.0.35`); hook `Sales Order.before_validate` → `erpn_custom.selling.sales_person_assignment.assign_sales_person`. Pendiente aceptación operativa en sandbox (Amaranta: Contribution 100%, Commission Rate 1%, venta neta CLP 50.000 → incentivo CLP 500).
 
 **Spec 011:** `011-vendedorfra-operational-navigation` queda **pausada** en `16.0.34`. Se mantiene el Desktop nativo de Frappe v16 y no debe retomarse por defecto.
 
 **Spec anterior implementada:** `010-customer-contact-mirror` — producto desde `16.0.22`; pendiente su cierre/aceptación documental final si aún corresponde.
-
-**Última Spec cerrada:** `009-chilexpress-shipment-integration`
 
 **Cierre 009:** 2026-09-17 — Chilexpress Adapter vinculado a `Shipment` aceptado operativamente (producto hasta `16.0.21`). Evidencia Test en `SHIPMENT-00001` / Cynthia Contreras Soto: preflight/cotización (service `3` CHEX), OT idempotente `712678881073`, tracking `EN PRE-RECEPCION | SANTIAGO CENTRO`, **etiqueta de envío OK** (JPEG en create, File adjunto). Nota no bloqueante: reprint API APIM Test 404; reimpresión desde el adjunto del create. Fuera de alcance: Production, Starken/FAZT, cron tracking.
 
@@ -31,13 +31,13 @@ Documento histórico: `specs/009-chilexpress-shipment-integration/spec.md`
 
 **Base previa:** Courier → Configuración de Couriers; Chilexpress Test configurado con 3 servicios + endpoints Desk.
 
-**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`, `009-chilexpress-shipment-integration`.
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`, `009-chilexpress-shipment-integration`, `012-sales-person-auto-commission`.
 
 **Cierre 007:** 2026-09-17 — Desktop `MCV Chile` verificado.
 
 **Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**No reabrir por defecto:** Specs cerradas `003`–`009`. No ampliar alcance sin OK de Miguel.
+**No reabrir por defecto:** Specs cerradas `003`–`009` y `012`. No ampliar alcance sin OK de Miguel.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 

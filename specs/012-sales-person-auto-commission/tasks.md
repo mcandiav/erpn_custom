@@ -45,17 +45,19 @@
 Nota T028–T030: `ComercialFRA` ya está en `ALLOWED` de `sales_order_credit.py`; no se requirió cambio en este corte.
 
 ## Phase 7 — Sandbox
-- [ ] T031 Deploy sandbox.
-- [ ] T032 Amaranta crea OV sin tocar Sales Team.
-- [ ] T033 Verificar Amaranta 100% / 1%.
-- [ ] T034 Verificar incentivo estándar.
-- [ ] T035 Submit y reabrir.
-- [ ] T036 Verificar ausencia de duplicación.
+- [x] T031 Deploy sandbox.
+- [x] T032 Amaranta crea OV sin tocar Sales Team.
+- [x] T033 Verificar Amaranta 100% / 1%.
+- [x] T034 Verificar incentivo estándar.
+- [x] T035 Submit y reabrir.
+- [x] T036 Verificar ausencia de duplicación.
 
 ## Phase 8 — Release
 - [x] T037 Bump PATCH.
 - [x] T038 Actualizar README con estado real.
 - [x] T039 Commit.
 - [x] T040 Push version-16.
-- [ ] T041 Confirmar despliegue.
-- [ ] T042 Aceptación de Miguel.
+- [x] T041 Confirmar despliegue.
+- [x] T042 Aceptación de Miguel.
+
+**Cierre 2026-09-23:** `SAL-ORD-2026-00015` — Amaranta Fernandez / 100% / 1% / Incentives 500. Histórico `SAL-ORD-2026-00014` sin Sales Team (sin migración retroactiva).
