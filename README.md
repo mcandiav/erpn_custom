@@ -11,15 +11,31 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 ### Spec vigente del Programador
 
-**Spec activa:** ninguna — cola libre tras cierre de `012`.
+**Spec activa:** `013-encargo-preventa-recepcion` — modelo ENC para separar demanda pendiente de stock físico, generar encargos desde Sales Order, entregar una lista mínima al shopper Miami y conciliar el producto real en recepción Chile.
+
+Documento: `specs/013-encargo-preventa-recepcion/spec.md`
+
+**Estado 013:** planificación técnica autorizada. El Programador debe leer README + Spec 013, inspeccionar ERPNext/Frappe v16 instalado, revisar hooks existentes de Sales Order, presentar plan de archivos/idempotencia/concurrencia/pruebas y **esperar OK explícito de Miguel antes de escribir código**.
+
+**Decisiones principales 013:**
+
+- ENC **no** es Warehouse ni stock virtual; es una cola de abastecimiento comprometido.
+- Item conocido: la OV conserva el Item real y ENC cubre sólo el faltante.
+- Producto desconocido: utilizar un único Item técnico no-stock `ENCARGO-PENDIENTE`, siempre vinculado a un ENC.
+- No crear Items ficticios por foto/descripción.
+- La porción disponible debe reutilizar Stock Reservation estándar de ERPNext; no crear un motor custom de reservas.
+- Shopper externo: página Website/Portal mínima, sin Desk, para ver pendientes y marcar `COMPRADO` / `NO ENCONTRADO`.
+- La identidad definitiva del Item se resuelve bajo control FRA en recepción Chile.
+- Compra equivocada no devuelta → stock normal; el ENC original continúa pendiente.
+- No reescribir destructivamente una Sales Order submitted al resolver el Item real.
 
 **Última Spec cerrada:** `012-sales-person-auto-commission` — 2026-09-23. Atribución automática User → Employee → Sales Person → Sales Team en Sales Order (`before_validate`). Producto desde `16.0.35`.
 
-**Evidencia aceptación sandbox:** `SAL-ORD-2026-00015` (owner `amaranta@fragallardo.com`, submitted): Sales Team = `Amaranta Fernandez`, Contribution 100%, Commission Rate 1%, allocated_amount CLP 50.000, **Incentives CLP 500**. Caso histórico `SAL-ORD-2026-00014` permanece sin Sales Team (sin reescritura retroactiva).
+**Evidencia aceptación sandbox 012:** `SAL-ORD-2026-00015` (owner `amaranta@fragallardo.com`, submitted): Sales Team = `Amaranta Fernandez`, Contribution 100%, Commission Rate 1%, allocated_amount CLP 50.000, **Incentives CLP 500**. Caso histórico `SAL-ORD-2026-00014` permanece sin Sales Team (sin reescritura retroactiva).
 
-**Decisión de negocio (2026-09-23):** la comisión se **anota** en la OV al crearla (Sales Team). Queda **a firme para pago** solo al liquidar remuneraciones, filtrando OVs **entregadas**. El pago no es parte de Spec 012.
+**Decisión de negocio 012 (2026-09-23):** la comisión se **anota** en la OV al crearla (Sales Team). Queda **a firme para pago** solo al liquidar remuneraciones, filtrando OVs **entregadas**. El pago no es parte de Spec 012.
 
-Documento: `specs/012-sales-person-auto-commission/spec.md`
+Documento histórico 012: `specs/012-sales-person-auto-commission/spec.md`
 
 **Spec 011:** `011-vendedorfra-operational-navigation` queda **pausada** en `16.0.34`. Se mantiene el Desktop nativo de Frappe v16 y no debe retomarse por defecto.
 
