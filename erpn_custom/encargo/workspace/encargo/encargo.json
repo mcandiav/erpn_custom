@@ -1,0 +1,134 @@
+{
+ "app": "erpn_custom",
+ "charts": [],
+ "content": "[{\"id\":\"sh-tienda\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tienda Encargo\",\"col\":4}},{\"id\":\"sh-par\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Marca / Tienda Encargo\",\"col\":4}},{\"id\":\"sh-encargo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Encargo\",\"col\":4}},{\"id\":\"sh-marca\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Marca\",\"col\":4}}]",
+ "creation": "2026-09-23 15:25:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "shopping-bag",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Encargo",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuración",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tienda Encargo",
+   "link_count": 0,
+   "link_to": "Encargo Store",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Marca / Tienda Encargo",
+   "link_count": 0,
+   "link_to": "Encargo Brand Store",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Marca",
+   "link_count": 0,
+   "link_to": "Brand",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operación",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Encargo",
+   "link_count": 0,
+   "link_to": "Encargo",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-23 15:25:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Sales User"
+  }
+ ],
+ "sequence_id": 5.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Tienda Encargo",
+   "link_to": "Encargo Store",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Marca / Tienda Encargo",
+   "link_to": "Encargo Brand Store",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Encargo",
+   "link_to": "Encargo",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Marca",
+   "link_to": "Brand",
+   "type": "DocType"
+  }
+ ],
+ "standard": 1,
+ "title": "Encargo",
+ "type": "Workspace"
+}

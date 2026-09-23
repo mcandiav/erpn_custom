@@ -1,0 +1,61 @@
+{
+ "app": "erpn_custom",
+ "creation": "2026-09-23 15:25:00",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "shopping-bag",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Tienda Encargo",
+   "link_to": "Encargo Store",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Marca / Tienda Encargo",
+   "link_to": "Encargo Brand Store",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Encargo",
+   "link_to": "Encargo",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Marca",
+   "link_to": "Brand",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-23 15:25:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Encargo"
+}

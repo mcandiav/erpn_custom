@@ -25,3 +25,25 @@ Realization Status,Estado de realización
 Realization Error,Error de realización
 Ingest Key,Clave de ingesta
 Ingest Status,Estado de ingesta
+Encargo Store,Tienda Encargo
+Encargo Brand Store,Marca / Tienda Encargo
+Encargo,Encargo
+Store Name,Nombre de tienda
+Suggested Store,Tienda
+Brand / Store,Marca / Tienda
+Reference Image,Imagen de referencia
+Requested Qty,Cantidad solicitada
+Sale Rate,Precio de venta
+Purchase Status,Estado de compra
+Reception Status,Estado de recepción
+Expected Item,Producto esperado
+Resolved Item,Producto resuelto
+Source Type,Tipo de origen
+Agregar Encargo,Agregar Encargo
+Crear Encargo,Crear Encargo
+Pegue una imagen (Ctrl+V) o adjunte un archivo.,Pegue una imagen (Ctrl+V) o adjunte un archivo.
+Imagen lista para adjuntar: {0},Imagen lista para adjuntar: {0}
+Brand / Store pair is required,El par Marca / Tienda es obligatorio
+Marca / Tienda,Marca / Tienda
+Origen Encargo,Origen Encargo
+Row #{0}: Item {1} requires Marca / Tienda (par Encargo) before creating Encargo. Set it on the Item.,Fila #{0}: el producto {1} requiere Marca / Tienda (par Encargo) antes de crear el Encargo. Configúralo en el Producto.

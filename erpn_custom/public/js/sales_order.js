@@ -119,7 +119,7 @@ function open_encargo_dialog(frm) {
 			{ fieldname: "description", label: __("Descripción"), fieldtype: "Small Text", reqd: 1 },
 			{
 				fieldname: "encargo_brand_store",
-				label: __("Brand / Store"),
+				label: __("Marca / Tienda"),
 				fieldtype: "Link",
 				options: "Encargo Brand Store",
 				reqd: 1,

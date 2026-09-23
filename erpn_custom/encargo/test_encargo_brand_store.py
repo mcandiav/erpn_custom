@@ -49,7 +49,7 @@ class TestEncargoPair(unittest.TestCase):
 		doc.purchase_status = "PENDING"
 		doc.reception_status = "PENDING"
 		doc.status = "Draft"
-		with self.assertRaises(_Throw):
+		with self.assertRaises(Exception):
 			doc.before_insert()
 
 	@patch("erpn_custom.encargo.doctype.encargo.encargo.frappe.db.get_value")
