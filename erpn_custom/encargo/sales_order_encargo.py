@@ -80,21 +80,21 @@ def ensure_encargos_for_known_shortfalls(doc):
 		encargo_qty = flt(item.get("custom_encargo_qty"))
 		if encargo_qty <= 0:
 			continue
-		pair = _item_brand_store_pair(item.item_code)
-		if not pair:
+		origin = _item_brand_supplier(item.item_code)
+		if not origin:
 			frappe.throw(
 				_(
-					"Row #{0}: Item {1} requires Marca / Tienda (par Encargo) before creating Encargo. Set it on the Item."
+					"Row #{0}: Item {1} requires Brand and Supplier before creating Encargo. Set them on the Item."
 				).format(item.idx, item.item_code)
 			)
 		existing = item.get("custom_encargo")
 		if existing and frappe.db.exists("Encargo", existing):
-			_sync_known_encargo(existing, doc, item, encargo_qty, sales_person, pair)
+			_sync_known_encargo(existing, doc, item, encargo_qty, sales_person, origin)
 			continue
 		by_row = frappe.db.get_value("Encargo", {"sales_order_item": item.name}, "name")
 		if by_row:
 			item.custom_encargo = by_row
-			_sync_known_encargo(by_row, doc, item, encargo_qty, sales_person, pair)
+			_sync_known_encargo(by_row, doc, item, encargo_qty, sales_person, origin)
 			continue
 		enc = frappe.get_doc(
 			{
@@ -108,9 +108,8 @@ def ensure_encargos_for_known_shortfalls(doc):
 				"sales_person": sales_person,
 				"description": item.description or item.item_name or item.item_code,
 				"expected_item": item.item_code,
-				"encargo_brand_store": pair["name"],
-				"brand": pair["brand"],
-				"suggested_store": pair["store"],
+				"brand": origin["brand"],
+				"supplier": origin["supplier"],
 				"requested_qty": encargo_qty,
 				"sale_rate": item.rate,
 				"purchase_status": "PENDING",
@@ -121,24 +120,21 @@ def ensure_encargos_for_known_shortfalls(doc):
 		item.custom_encargo = enc.name
 
 
-def _item_brand_store_pair(item_code):
-	pair_name = frappe.db.get_value("Item", item_code, "custom_encargo_brand_store")
-	if not pair_name:
-		return None
-	pair = frappe.db.get_value(
-		"Encargo Brand Store",
-		pair_name,
-		["name", "brand", "store", "enabled"],
+def _item_brand_supplier(item_code):
+	row = frappe.db.get_value(
+		"Item",
+		item_code,
+		["brand", "custom_brand_supplier"],
 		as_dict=True,
 	)
-	if not pair or not pair.get("enabled"):
+	if not row or not row.get("brand") or not row.get("custom_brand_supplier"):
 		return None
-	if frappe.db.get_value("Encargo Store", pair.get("store"), "enabled") == 0:
+	if not frappe.db.exists("Supplier", row.custom_brand_supplier):
 		return None
-	return pair
+	return {"brand": row.brand, "supplier": row.custom_brand_supplier}
 
 
-def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, pair=None):
+def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None):
 	values = {
 		"sales_order": doc.name,
 		"customer": doc.customer,
@@ -149,10 +145,9 @@ def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, pair=None):
 		"description": item.description or item.item_name or item.item_code,
 		"source_type": "KNOWN_ITEM",
 	}
-	if pair:
-		values["encargo_brand_store"] = pair["name"]
-		values["brand"] = pair["brand"]
-		values["suggested_store"] = pair["store"]
+	if origin:
+		values["brand"] = origin["brand"]
+		values["supplier"] = origin["supplier"]
 	frappe.db.set_value("Encargo", name, values, update_modified=False)
 
 

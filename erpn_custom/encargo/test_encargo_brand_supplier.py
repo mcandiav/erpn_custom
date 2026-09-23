@@ -1,6 +1,6 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 _frappe = MagicMock()
 _frappe._ = lambda msg: msg
@@ -40,31 +40,29 @@ sys.modules.setdefault("frappe.model.document", _doc_mod)
 from erpn_custom.encargo.doctype.encargo.encargo import Encargo  # noqa: E402
 
 
-class TestEncargoPair(unittest.TestCase):
-	def test_unknown_insert_requires_pair(self):
+class TestEncargoBrandSupplier(unittest.TestCase):
+	def test_unknown_insert_requires_brand_supplier(self):
 		doc = Encargo()
 		doc._is_new = True
 		doc.source_type = "UNKNOWN_ITEM"
-		doc.encargo_brand_store = None
+		doc.brand = None
+		doc.supplier = None
 		doc.purchase_status = "PENDING"
 		doc.reception_status = "PENDING"
 		doc.status = "Draft"
 		with self.assertRaises(Exception):
 			doc.before_insert()
 
-	@patch("erpn_custom.encargo.doctype.encargo.encargo.frappe.db.get_value")
-	def test_apply_pair_sets_brand_store(self, get_value):
-		get_value.side_effect = [
-			{"brand": "Michael Kors", "store": "Outlet", "enabled": 1},
-			1,
-		]
+	def test_unknown_insert_ok_with_brand_supplier(self):
 		doc = Encargo()
-		doc.encargo_brand_store = "Michael Kors — Outlet"
-		doc.brand = None
-		doc.suggested_store = None
-		doc._apply_brand_store_pair()
-		self.assertEqual(doc.brand, "Michael Kors")
-		self.assertEqual(doc.suggested_store, "Outlet")
+		doc._is_new = True
+		doc.source_type = "UNKNOWN_ITEM"
+		doc.brand = "Michael Kors"
+		doc.supplier = "MK Outlet"
+		doc.purchase_status = "PENDING"
+		doc.reception_status = "PENDING"
+		doc.status = "Draft"
+		doc.before_insert()
 
 
 if __name__ == "__main__":

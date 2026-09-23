@@ -23,3 +23,4 @@ erpn_custom.patches.v0_0_12_contact_mirror_field
 erpn_custom.patches.v0_0_12_customer_contact_mirror_backfill
 erpn_custom.patches.v0_0_13_encargo_foundation
 erpn_custom.patches.v0_0_14_encargo_desktop
+erpn_custom.patches.v0_0_15_brand_supplier

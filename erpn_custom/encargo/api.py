@@ -11,7 +11,8 @@ from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for
 def create_unknown_encargo(
 	sales_order,
 	description,
-	encargo_brand_store,
+	brand,
+	supplier,
 	qty=1,
 	rate=0,
 	model=None,
@@ -30,7 +31,7 @@ def create_unknown_encargo(
 	if so.is_new() or not so.name:
 		frappe.throw(_("Save the Sales Order before adding Encargo"))
 
-	pair = _require_enabled_pair(encargo_brand_store)
+	brand, supplier = _require_brand_supplier(brand, supplier)
 
 	_ensure_pending_item()
 	qty = flt(qty)
@@ -75,9 +76,8 @@ def create_unknown_encargo(
 			"customer": so.customer,
 			"sales_person": sales_person,
 			"description": description,
-			"encargo_brand_store": pair.name,
-			"brand": pair.brand,
-			"suggested_store": pair.store,
+			"brand": brand,
+			"supplier": supplier,
 			"model": model,
 			"size": size,
 			"color": color,
@@ -107,45 +107,16 @@ def attach_reference_image(encargo, filename, content_b64):
 	return file_url
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def encargo_brand_store_query(doctype, txt, searchfield, start, page_len, filters):
-	"""Link query: only enabled Brand+Store pairs whose store is enabled."""
-	return frappe.db.sql(
-		"""
-		select ebs.name, ebs.brand, ebs.store
-		from `tabEncargo Brand Store` ebs
-		inner join `tabEncargo Store` es on es.name = ebs.store
-		where ebs.enabled = 1
-			and es.enabled = 1
-			and (ebs.name like %(txt)s or ebs.brand like %(txt)s or ebs.store like %(txt)s)
-		order by ebs.brand, ebs.store
-		limit %(start)s, %(page_len)s
-		""",
-		{
-			"txt": f"%{txt}%",
-			"start": start,
-			"page_len": page_len,
-		},
-	)
-
-
-def _require_enabled_pair(encargo_brand_store):
-	if not encargo_brand_store:
-		frappe.throw(_("Brand / Store pair is required"))
-	pair = frappe.db.get_value(
-		"Encargo Brand Store",
-		encargo_brand_store,
-		["name", "brand", "store", "enabled"],
-		as_dict=True,
-	)
-	if not pair:
-		frappe.throw(_("Brand / Store pair not found"))
-	if not pair.enabled:
-		frappe.throw(_("Brand / Store pair {0} is disabled").format(encargo_brand_store))
-	if frappe.db.get_value("Encargo Store", pair.store, "enabled") == 0:
-		frappe.throw(_("Store {0} is disabled").format(pair.store))
-	return pair
+def _require_brand_supplier(brand, supplier):
+	brand = (brand or "").strip()
+	supplier = (supplier or "").strip()
+	if not brand or not supplier:
+		frappe.throw(_("Brand and Supplier are required"))
+	if not frappe.db.exists("Brand", brand):
+		frappe.throw(_("Brand {0} not found").format(brand))
+	if not frappe.db.exists("Supplier", supplier):
+		frappe.throw(_("Supplier {0} not found").format(supplier))
+	return brand, supplier
 
 
 def _attach_image(encargo, filename, content_b64):

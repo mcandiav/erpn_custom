@@ -118,16 +118,18 @@ function open_encargo_dialog(frm) {
 		fields: [
 			{ fieldname: "description", label: __("Descripción"), fieldtype: "Small Text", reqd: 1 },
 			{
-				fieldname: "encargo_brand_store",
-				label: __("Marca / Tienda"),
+				fieldname: "brand",
+				label: __("Marca"),
 				fieldtype: "Link",
-				options: "Encargo Brand Store",
+				options: "Brand",
 				reqd: 1,
-				get_query() {
-					return {
-						query: "erpn_custom.encargo.api.encargo_brand_store_query",
-					};
-				},
+			},
+			{
+				fieldname: "supplier",
+				label: __("Proveedor"),
+				fieldtype: "Link",
+				options: "Supplier",
+				reqd: 1,
 			},
 			{ fieldname: "qty", label: __("Cantidad"), fieldtype: "Float", default: 1, reqd: 1 },
 			{
@@ -156,7 +158,8 @@ function open_encargo_dialog(frm) {
 			const args = {
 				sales_order: frm.doc.name,
 				description: values.description,
-				encargo_brand_store: values.encargo_brand_store,
+				brand: values.brand,
+				supplier: values.supplier,
 				qty: values.qty,
 				rate: values.rate,
 				model: values.model,

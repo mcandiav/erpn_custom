@@ -1,11 +1,6 @@
 frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
-		if (frm.fields_dict.encargo_brand_store) {
-			frm.set_query("encargo_brand_store", () => ({
-				query: "erpn_custom.encargo.api.encargo_brand_store_query",
-			}));
-		}
 	},
 });
 
