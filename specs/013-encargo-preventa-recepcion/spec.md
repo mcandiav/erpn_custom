@@ -105,6 +105,106 @@ El diseño definitivo de campos se confirmará antes de implementar, pero concep
 
 No todos los atributos de producto deben ser obligatorios. Una captura de WhatsApp más una descripción suficiente puede iniciar un ENC.
 
+### 2.2 ENC no es una bodega ni una tabla paralela de productos
+
+**Decisión arquitectónica:** ENC no se implementará como `Warehouse` de ERPNext y tampoco como un segundo maestro de productos.
+
+Un Warehouse representa existencia física o logística de Items identificados. Un ENC puede existir cuando:
+
+- todavía no existe producto físico bajo control de FRA;
+- todavía no existe Item maestro;
+- sólo existe una obligación comercial de conseguir algo para un cliente.
+
+Por tanto crear una “Bodega Encargos” produciría una semántica incorrecta: parecería que FRA posee stock cuando en realidad sólo posee una demanda pendiente.
+
+El ENC debe entenderse como una **bandeja/cola de abastecimiento comprometido**:
+
+```text
+ALMACÉN / STOCK
+= lo que FRA tiene
+
+ENC
+= lo que FRA debe conseguir para un cliente
+```
+
+Puede existir una vista operacional llamada, por ejemplo, **Encargos pendientes**, que visualmente se comporte como una bandeja de productos por comprar, pero técnicamente sigue siendo una lista de documentos `Encargo`, no un Warehouse ni un Stock Ledger paralelo.
+
+### 2.3 Disparador desde la venta
+
+El vendedor comienza desde el almacén de venta/default.
+
+Regla conceptual:
+
+```text
+Cliente solicita cantidad Q
+        ↓
+consultar disponibilidad real del almacén de venta
+        ↓
+¿stock disponible >= Q?
+   ├─ Sí → venta normal desde stock
+   └─ No → cantidad faltante genera ENC
+```
+
+Ejemplo:
+
+```text
+Cliente compra: 3
+Stock Matriz:   1
+
+Atención desde stock: 1
+Cantidad ENC:         2
+```
+
+El ENC corresponde únicamente a la **cantidad no abastecida por stock disponible**, evitando considerar como encargo aquello que ya puede entregarse normalmente.
+
+### 2.4 Dos tipos de origen, una sola entidad ENC
+
+No crear dos clases diferentes de ENC. El mismo DocType cubre ambos casos:
+
+**A. Item conocido, sin stock suficiente**
+
+```text
+ITEM-004381 existe
+Stock disponible: 0
+Cliente pide: 1
+
+ENC-2026-00127
+Item esperado: ITEM-004381
+Cantidad: 1
+```
+
+Aquí no se crea ningún producto nuevo. Miami debe conseguir ese Item/variante.
+
+**B. Producto todavía no identificado**
+
+```text
+Item: desconocido
+Foto: sí
+Descripción: sí
+Marca/Tienda/Talla/Color: según disponibilidad
+
+ENC-2026-00128
+Item esperado: vacío
+Cantidad: 1
+```
+
+La identidad del Item se resolverá posteriormente en recepción.
+
+### 2.5 ENC como compromiso de cantidad, no existencia
+
+Mientras un ENC está:
+
+- pendiente de compra;
+- marcado comprado por el shopper;
+- viajando;
+- pendiente de recepción;
+
+su cantidad **no debe incrementar stock disponible** ni presentarse como existencia utilizable para otra venta.
+
+Sólo después de la recepción física y del ingreso correspondiente al inventario existe stock ERPNext.
+
+Una unidad recibida que satisface un ENC queda comprometida con ese ENC; una unidad recibida sin ENC compatible queda disponible como stock normal.
+
 ---
 
 ## 3. Imagen de referencia como dato operacional
@@ -675,6 +775,23 @@ Hasta nueva decisión, esta Spec no define:
 **Then** se guarda como File vinculado,  
 **And** queda visible como referencia/miniatura.
 
+### US11 — Venta parcialmente cubierta por stock (P1)
+
+**Given** el cliente compra 3 unidades,  
+**And** el almacén de venta tiene sólo 1 disponible,  
+**When** el vendedor confirma el abastecimiento,  
+**Then** 1 unidad se atiende desde stock,  
+**And** se generan ENC por las 2 unidades faltantes,  
+**And** esas 2 unidades no aparecen como stock disponible.
+
+### US12 — Item conocido agotado (P1)
+
+**Given** el Item ya existe en ERPNext,  
+**And** no existe stock disponible suficiente,  
+**When** el vendedor crea el encargo,  
+**Then** el ENC referencia el Item existente,  
+**And** no se crea un Item duplicado.
+
 ---
 
 ## 23. Criterios de aceptación conceptuales
@@ -697,12 +814,24 @@ Antes de promover esta Spec a programación debe quedar validado que:
 14. La solicitud original permanece auditable.
 15. Se define antes de programar cómo se representa en Sales Order un ENC sin Item.
 16. Se define antes de programar la integración exacta con recepción de cajas.
+17. ENC no se implementa como Warehouse ni como stock virtual.
+18. Una falta parcial de stock genera ENC únicamente por la cantidad faltante.
+19. Un Item existente sin stock genera ENC referenciado al mismo Item, no un producto nuevo.
+20. Cantidades ENC pendientes/compradas/en tránsito no incrementan stock disponible.
 
 ---
 
 ## 24. Decisiones congeladas
 
 - nombre conceptual: **Encargo / ENC**;
+- ENC es una **cola de demanda/abastecimiento comprometido**, no una bodega;
+- no crear un Warehouse virtual “Encargos”;
+- no crear un segundo maestro o tabla paralela de productos;
+- la venta consulta primero stock real del almacén de venta/default;
+- si el stock es parcial, crear ENC sólo por la cantidad faltante;
+- si el Item existe pero está agotado, el ENC referencia el Item existente;
+- si el Item no existe, el ENC puede nacer sin Item y con descripción/imagen;
+- cantidades ENC no son stock disponible hasta recepción física e ingreso de inventario;
 - numeración visible `ENC-YYYY-#####` o equivalente compatible;
 - ENC representa lo solicitado por el cliente;
 - Item representa la identidad real del producto;
