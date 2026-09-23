@@ -17,6 +17,8 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 
 **Evidencia aceptación sandbox:** `SAL-ORD-2026-00015` (owner `amaranta@fragallardo.com`, submitted): Sales Team = `Amaranta Fernandez`, Contribution 100%, Commission Rate 1%, allocated_amount CLP 50.000, **Incentives CLP 500**. Caso histórico `SAL-ORD-2026-00014` permanece sin Sales Team (sin reescritura retroactiva).
 
+**Decisión de negocio (2026-09-23):** la comisión se **anota** en la OV al crearla (Sales Team). Queda **a firme para pago** solo al liquidar remuneraciones, filtrando OVs **entregadas**. El pago no es parte de Spec 012.
+
 Documento: `specs/012-sales-person-auto-commission/spec.md`
 
 **Spec 011:** `011-vendedorfra-operational-navigation` queda **pausada** en `16.0.34`. Se mantiene el Desktop nativo de Frappe v16 y no debe retomarse por defecto.

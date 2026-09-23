@@ -354,7 +354,26 @@ Mitigación:
 - no se liga vendedor al Customer;
 - no se crea motor custom de comisiones;
 - implementación server-side;
-- no se recalculan ventas históricas.
+- no se recalculan ventas históricas;
+- **anotación vs pago (2026-09-23):** la comisión se anota al generar la OV; el incentivo en Sales Team es estimativo de la transacción. Para **cálculo/pago de remuneraciones** solo deben considerarse OVs **entregadas** (cliente recibió la mercadería). El pago de la comisión es tema de remuneraciones, fuera del alcance de esta Spec.
+
+## 20.1 Decisión de negocio — madurez de la comisión
+
+```text
+CREAR OV
+  -> anotar vendedor + tasa en Sales Team (Spec 012)
+  -> incentivo visible en la OV = estimación ERPNext
+
+ENTREGA AL CLIENTE
+  -> la OV pasa a ser elegible para liquidar comisión
+
+REMUNERACIONES
+  -> filtrar OVs entregadas
+  -> calcular / pagar comisión
+  -> no es responsabilidad del hook de Sales Order
+```
+
+No se implementa en 012 un bloqueo de incentivos ni un Job de liquidación. Cualquier reporte o nómina futura debe respetar este filtro por entrega.
 
 ## 21. Siguiente acción del Programador
 
