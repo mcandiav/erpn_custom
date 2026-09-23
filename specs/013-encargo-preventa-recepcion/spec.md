@@ -4,13 +4,13 @@
 
 **Created**: 2026-09-23
 
-**Status**: **DRAFT / FUTURA / NO IMPLEMENTAR**. Esta Spec queda registrada para diseño posterior. **No es la Spec activa del Programador y no debe desplazar, interrumpir ni mezclarse con `012-sales-person-auto-commission` hasta OK explícito de Miguel.**
+**Status**: **ACTIVE — PLANIFICACIÓN TÉCNICA AUTORIZADA**. Spec vigente después del cierre aceptado de `012-sales-person-auto-commission`. El Programador debe inspeccionar ERPNext/Frappe v16, presentar plan técnico y pruebas contra esta Spec y esperar OK explícito de Miguel antes de escribir código.
 
 **Parent context**: arquitectura FRAgallardo, flujo Encargo/Preventa, Sales Order, compras Miami, recepción de cajas Chile, Item/Barcode de ERPNext/Frappe v16.
 
 ## 0. Propósito de este documento
 
-Registrar la decisión arquitectónica del proceso de **Encargos (ENC)** sin iniciar todavía su implementación.
+Definir de forma implementable el proceso de **Encargos (ENC)**: generación desde Sales Order, separación entre stock disponible y cantidad por abastecer, lista mínima para shopper Miami y conciliación posterior en recepción Chile.
 
 La necesidad nace de ventas en las que el cliente encarga un producto que:
 
@@ -620,22 +620,146 @@ Evitar utilizar un único campo de estado para mezclar conceptos distintos si du
 
 ---
 
-## 18. Relación con Sales Order
+## 18. Relación con Sales Order — decisión implementable
 
-El ENC debe estar trazablemente vinculado a la venta que originó la obligación.
+El ENC debe quedar trazablemente vinculado a la Sales Order y a la fila concreta que originó la obligación.
 
-Decisión congelada:
+### 18.1 Item conocido
 
-- no convertir posteriormente un Item ficticio de una OV confirmada en un Item real mediante mutaciones destructivas;
-- preservar el registro de qué se vendió y cómo se resolvió.
+Si el Item ya existe, la Sales Order conserva el **Item real** y la cantidad total solicitada por el cliente.
 
-Decisión todavía **abierta para diseño** antes de implementación:
+Ejemplo:
 
-- cómo representar exactamente en Sales Order un ENC cuyo Item todavía no existe;
-- si la línea comercial utiliza un Item genérico no-stock, un mecanismo custom u otra estrategia compatible con ERPNext;
-- cómo se comportará stock reservation para encargos conocidos vs desconocidos.
+```text
+SO Item: ITEM-004381
+Cantidad vendida: 3
+Disponible para comprometer: 1
 
-Esta decisión debe resolverse antes de promover la Spec a implementación.
+stock_committed_qty = 1
+encargo_qty         = 2
+ENC-2026-xxxxx      = 2 x ITEM-004381
+```
+
+No dividir la venta en dos Items distintos y no crear un Item duplicado.
+
+Agregar en `Sales Order Item` campos custom de trazabilidad, nombres técnicos finales a confirmar por el Programador:
+
+- `encargo` — Link a Encargo;
+- `encargo_qty` — cantidad que debe abastecerse;
+- `stock_committed_qty` — cantidad cubierta por stock al confirmar la OV.
+
+Los campos serán read-only para usuario normal y calculados server-side.
+
+### 18.2 Cálculo del faltante
+
+Para un Item de stock, antes de Submit:
+
+```text
+available_to_sell = max(actual_qty - reserved_qty_previa, 0)
+stock_committed   = min(qty_solicitada, available_to_sell)
+encargo_qty       = qty_solicitada - stock_committed
+```
+
+El cálculo debe:
+
+- usar el Warehouse de la fila; si la organización tiene un almacén de venta/default configurado, la fila debe llegar con ese Warehouse;
+- considerar de forma agregada filas repetidas del mismo Item + Warehouse dentro de la misma OV;
+- excluir del cálculo la reserva generada por la propia OV que todavía se está confirmando;
+- ser idempotente;
+- ser seguro frente a concurrencia, reutilizando mecanismos estándar de reserva/bloqueo de ERPNext en vez de crear un ledger paralelo.
+
+ERPNext v16 dispone de Stock Reservation. La implementación debe **reutilizar Stock Reservation Entry / API estándar** para reservar la porción `stock_committed_qty` cuando la función esté habilitada. No implementar un sistema custom de reservas.
+
+### 18.3 Producto desconocido al vender
+
+ERPNext Sales Order trabaja con Items. Para representar una venta cuyo producto real todavía no está identificado se utilizará **un único Item técnico reutilizable y no-stock**, por ejemplo:
+
+```text
+ENCARGO-PENDIENTE
+Maintain Stock = 0
+```
+
+Este Item:
+
+- no representa un producto físico;
+- no se duplica por cada encargo;
+- no lleva stock;
+- no crea Warehouse ni Stock Ledger;
+- existe sólo como soporte comercial para que la OV conserve cantidad, precio, impuestos y trazabilidad.
+
+Para una fila `ENCARGO-PENDIENTE`:
+
+```text
+stock_committed_qty = 0
+encargo_qty         = qty de la fila
+encargo             = obligatorio
+```
+
+La descripción de la fila debe reflejar de forma legible el pedido del cliente, pero la fuente de verdad detallada es el documento ENC.
+
+### 18.4 Creación del ENC desconocido desde la OV
+
+En Sales Order Draft debe existir una acción clara:
+
+```text
+[ Agregar Encargo ]
+```
+
+La acción abre un diálogo/formulario para capturar:
+
+- descripción;
+- cantidad;
+- precio de venta;
+- imagen de referencia;
+- marca;
+- tienda sugerida;
+- modelo;
+- talla;
+- color;
+- URL;
+- observaciones.
+
+Al confirmar:
+
+1. la OV debe estar guardada para tener nombre estable;
+2. se crea un ENC en estado `BORRADOR`;
+3. se agrega/actualiza la fila `ENCARGO-PENDIENTE`;
+4. la fila queda vinculada al ENC;
+5. al Submit de la OV el ENC pasa a `PENDIENTE DE COMPRA`.
+
+No permitir Submit de una fila `ENCARGO-PENDIENTE` sin ENC vinculado.
+
+### 18.5 Creación automática para Item conocido sin stock suficiente
+
+Para filas de Item real:
+
+1. en `before_submit` calcular `stock_committed_qty` y `encargo_qty`;
+2. si `encargo_qty = 0`, no crear ENC;
+3. si `encargo_qty > 0`, crear exactamente un ENC para esa fila y faltante;
+4. copiar Item, descripción, marca e imagen del Item cuando existan;
+5. dejar tienda sugerida y otros datos de compra editables por ComercialFRA;
+6. enlazar ENC ↔ Sales Order ↔ Sales Order Item;
+7. evitar duplicación si el hook se reintenta.
+
+### 18.6 No reescribir la OV al resolver el Item real
+
+Cuando un ENC originalmente desconocido se resuelve en recepción:
+
+- no reemplazar `ENCARGO-PENDIENTE` dentro de una Sales Order ya submitted;
+- guardar el Item real en `Encargo.resolved_item`;
+- usar el Item real para inventario, recepción y Empaque;
+- conservar la fila comercial original como evidencia de lo vendido.
+
+La trazabilidad queda:
+
+```text
+Sales Order
+  -> Sales Order Item (ENCARGO-PENDIENTE)
+      -> ENC
+          -> resolved_item = ITEM real
+```
+
+Esto evita cancelar/amendar la OV sólo para resolver una identidad que era desconocida al vender.
 
 ---
 
@@ -794,9 +918,9 @@ Hasta nueva decisión, esta Spec no define:
 
 ---
 
-## 23. Criterios de aceptación conceptuales
+## 23. Criterios de aceptación
 
-Antes de promover esta Spec a programación debe quedar validado que:
+La implementación se acepta cuando se demuestre en sandbox que:
 
 1. ENC y Item son entidades conceptualmente distintas.
 2. Un ENC puede existir sin Item.
@@ -812,12 +936,17 @@ Antes de promover esta Spec a programación debe quedar validado que:
 12. Una compra equivocada no devuelta puede ingresar como stock.
 13. La vinculación automática por IA/fuzzy no es fuente de verdad.
 14. La solicitud original permanece auditable.
-15. Se define antes de programar cómo se representa en Sales Order un ENC sin Item.
-16. Se define antes de programar la integración exacta con recepción de cajas.
+15. Una OV puede representar producto desconocido mediante el único Item técnico no-stock `ENCARGO-PENDIENTE`, siempre vinculado a un ENC.
+16. Un Item conocido mantiene su Item real en la OV y el ENC representa sólo la cantidad faltante.
 17. ENC no se implementa como Warehouse ni como stock virtual.
 18. Una falta parcial de stock genera ENC únicamente por la cantidad faltante.
 19. Un Item existente sin stock genera ENC referenciado al mismo Item, no un producto nuevo.
 20. Cantidades ENC pendientes/compradas/en tránsito no incrementan stock disponible.
+21. Reintentar Save/Submit no duplica ENC.
+22. Dos OVs concurrentes no pueden comprometer dos veces la misma existencia disponible.
+23. El shopper no obtiene acceso al Desk ni a datos comerciales/contables innecesarios.
+24. Una fila `ENCARGO-PENDIENTE` sin ENC asociado no puede confirmarse.
+25. Resolver un producto desconocido no reescribe destructivamente una OV submitted.
 
 ---
 
@@ -847,35 +976,262 @@ Antes de promover esta Spec a programación debe quedar validado que:
 - ENC equivocado/no satisfecho -> vuelve o permanece pendiente;
 - confirmación humana FRA para el vínculo final;
 - imagen original del ENC se conserva;
-- requerimiento futuro de pegar imagen desde portapapeles;
-- no implementar esta Spec hasta cierre/OK explícito del corte vigente.
+- requerimiento de pegar imagen desde portapapeles;
+- Item conocido: conservar Item real en Sales Order y generar ENC sólo por el faltante;
+- Item desconocido: utilizar un único Item técnico no-stock `ENCARGO-PENDIENTE`;
+- `ENCARGO-PENDIENTE` nunca representa existencia física;
+- Sales Order Item mantiene cantidades calculadas de stock comprometido y ENC;
+- reutilizar Stock Reservation estándar de ERPNext para la porción disponible, sin reserva custom;
+- una OV submitted no se reescribe para sustituir `ENCARGO-PENDIENTE`; el Item real se resuelve en ENC.
 
 ---
 
-## 25. Preguntas deliberadamente pendientes
+## 25. Decisiones técnicas que el Programador debe confirmar en su plan
 
-Estas preguntas deben resolverse cuando Miguel decida activar la Spec:
+No son decisiones de negocio abiertas; son verificaciones técnicas contra la versión instalada antes de escribir código:
 
-1. Representación exacta del ENC dentro de Sales Order cuando no existe Item.
-2. Campos obligatorios mínimos del ENC.
-3. Si se permiten múltiples imágenes estructuradas además de adjuntos.
-4. Mecanismo de autenticación/autorización del shopper externo.
-5. Si el shopper necesita registrar tienda real donde finalmente compró.
-6. Si el shopper registra precio/costo o si eso pertenece a otro proceso.
-7. Diseño exacto de recepción de cajas.
-8. Warehouse transitorio y momento contable del ingreso.
-9. Manejo de cantidades parciales de un mismo ENC.
-10. Cómo se integra ENC satisfecho con Empaque.
+1. API/controlador estándar de Stock Reservation que permita reservar sólo `stock_committed_qty`.
+2. Evento exacto de Sales Order (`before_submit` / `on_submit`) para calcular split, crear ENC y reservar sin doble ejecución.
+3. Estrategia de locking/transacción para evitar doble compromiso concurrente del mismo Bin.
+4. Nombre técnico definitivo de Custom Fields y módulos Python/JS.
+5. Mecanismo de creación idempotente del Item técnico `ENCARGO-PENDIENTE` mediante fixture/patch.
+6. Forma más estable de capturar pegado de imagen y crear `File` adjunto al ENC.
+7. Implementación de usuario Website + rol `ShopperFRA` y página Portal sin Desk.
+8. Qué parte de recepción puede reutilizar lógica estándar de Barcode/Item y qué parte necesita Page custom.
+
+Si alguna de estas verificaciones obliga a cambiar una decisión de negocio congelada, detener el plan y señalar la contradicción a Miguel.
 
 ---
 
-## 26. Regla de secuencia / protección contra implementación accidental
+## 26. Modelo mínimo de DocType Encargo
 
-**Esta sección es obligatoria mientras la Spec esté en DRAFT.**
+Crear DocType custom **Encargo** dentro de `erpn_custom`.
 
-- La Spec activa continúa siendo la indicada en el `README.md` raíz técnico.
-- Al momento de creación de este documento, la Spec activa es `012-sales-person-auto-commission`.
-- La existencia de la carpeta `013-encargo-preventa-recepcion` **NO autoriza implementación**.
-- El Programador no debe tomar “la Spec de número más alto” como siguiente trabajo.
-- No crear código, hooks, DocTypes, patches, fixtures ni migraciones de ENC hasta que Miguel diga explícitamente que la 013 pasa a activa.
-- Cuando se active, primero revisar estas decisiones y cerrar las preguntas pendientes; recién después presentar plan técnico y esperar OK de Miguel.
+Campos mínimos funcionales:
+
+### Origen comercial
+
+- `sales_order` — Link Sales Order, obligatorio;
+- `sales_order_item` — identificador estable de la fila de Sales Order;
+- `customer` — Link Customer, read-only derivado;
+- `sales_person` — Link Sales Person, si existe;
+- `requested_qty` — Float > 0;
+- `source_type` — Select: `KNOWN_ITEM` / `UNKNOWN_ITEM`.
+
+### Identidad solicitada
+
+- `expected_item` — Link Item, opcional;
+- `resolved_item` — Link Item, opcional hasta recepción;
+- `description` — obligatorio;
+- `reference_image` — Attach Image;
+- `brand` — Data;
+- `suggested_store` — Data;
+- `model` — Data;
+- `size` — Data;
+- `color` — Data;
+- `reference_url` — Data;
+- `notes` — Small Text;
+- `sale_rate` — Currency informativa del valor vendido.
+
+### Compra Miami
+
+- `purchase_status` — Select: `PENDING`, `PURCHASED`, `NOT_FOUND`;
+- `shopper_user` — Link User;
+- `purchased_on` — Datetime.
+
+### Recepción / resolución
+
+- `reception_status` — Select: `PENDING`, `RECEIVED`, `RESOLVED_TO_ENC`, `RESOLVED_TO_STOCK`;
+- `received_on` — Datetime;
+- `resolved_by` — Link User.
+
+### Estado operacional
+
+No usar un único Status para reemplazar `purchase_status` y `reception_status`. Puede existir un estado derivado para filtros, pero la fuente de verdad debe mantener separadas ambas dimensiones.
+
+Naming series:
+
+```text
+ENC-.YYYY.-.#####
+```
+
+o la sintaxis equivalente validada para Frappe v16 que produzca `ENC-2026-00001`.
+
+---
+
+## 27. Permisos
+
+### ComercialFRA
+
+Debe poder:
+
+- crear ENC desde Sales Order;
+- ver/editar ENC de operación;
+- completar referencia de compra;
+- ver estado de shopper y recepción.
+
+No obtiene permisos contables adicionales.
+
+### ShopperFRA
+
+Crear rol específico **ShopperFRA** para Website User.
+
+El shopper:
+
+- no entra al Desk;
+- no recibe permiso general de escritura sobre Encargo;
+- consume una página/API limitada;
+- sólo puede listar ENC elegibles para compra y cambiar `purchase_status` mediante métodos server-side controlados;
+- no ve Customer, saldo, margen, comisión, datos bancarios ni módulos ERP.
+
+### Recepción / Comercial autorizado
+
+La conciliación final ENC ↔ Item exige usuario interno FRA con permiso explícito.
+
+---
+
+## 28. Página shopper
+
+Crear una página Portal autenticada, ruta propuesta:
+
+```text
+/encargos-shopper
+```
+
+Debe mostrar únicamente ENC en estados de compra operables.
+
+Orden/grouping inicial:
+
+1. `suggested_store`;
+2. `brand`;
+3. fecha/ENC.
+
+Cada tarjeta/fila muestra:
+
+- ENC;
+- miniatura;
+- descripción;
+- marca;
+- tienda;
+- modelo/talla/color;
+- cantidad;
+- URL si existe;
+- observación necesaria para comprar.
+
+Acciones:
+
+```text
+[ COMPRADO ]
+[ NO ENCONTRADO ]
+```
+
+`COMPRADO` registra usuario y timestamp.
+
+La página no necesita crear/editar Items.
+
+---
+
+## 29. Recepción Chile — alcance de esta Spec
+
+Implementar el **punto de conciliación**, no un WMS completo.
+
+La interfaz de recepción debe permitir:
+
+1. abrir/buscar un ENC comprado pendiente;
+2. escanear o ingresar barcode del producto recibido;
+3. buscar Item existente por barcode/identificadores;
+4. si existe, proponerlo;
+5. si no existe, permitir iniciar creación controlada del Item real con datos mínimos;
+6. mostrar la referencia original del ENC al lado del producto físico;
+7. usuario FRA confirma:
+   - `SATISFACE ENC`, o
+   - `NO SATISFACE / STOCK`;
+8. guardar `resolved_item`, usuario y fecha;
+9. una compra equivocada destinada a stock deja el ENC pendiente de compra nuevamente.
+
+Esta Spec **no debe inventar un Warehouse virtual ENC**.
+
+El documento exacto que realiza el ingreso contable/Stock Ledger (Purchase Receipt, Stock Entry u otro flujo de recepción definitivo) se mantiene desacoplado de la clasificación ENC/Stock y no debe falsearse sin costo/documentación suficiente.
+
+---
+
+## 30. Orden de implementación solicitado
+
+El Programador debe proponer y luego ejecutar, tras OK, en este orden:
+
+### Fase A — inspección y plan
+
+1. leer README + Spec 013;
+2. inspeccionar Sales Order, Sales Order Item, Bin y Stock Reservation en ERPNext/Frappe v16 instalado;
+3. verificar hooks existentes de `erpn_custom` sobre Sales Order para no interferir con Spec 012 ni saldo a favor;
+4. presentar archivos a crear/modificar;
+5. presentar estrategia de idempotencia, concurrencia y rollback;
+6. presentar pruebas;
+7. esperar OK de Miguel.
+
+### Fase B — modelo y Sales Order
+
+1. crear DocType Encargo;
+2. crear Custom Fields en Sales Order Item;
+3. crear Item técnico `ENCARGO-PENDIENTE` no-stock de forma idempotente;
+4. implementar botón `Agregar Encargo`;
+5. implementar captura/pegado de imagen;
+6. implementar split stock/ENC server-side;
+7. enlazar OV ↔ fila ↔ ENC;
+8. integrar reserva estándar de la parte disponible;
+9. tests unitarios.
+
+### Fase C — shopper
+
+1. rol `ShopperFRA`;
+2. acceso Website/Portal;
+3. lista agrupable por tienda/marca;
+4. métodos server-side para `PURCHASED` / `NOT_FOUND`;
+5. auditoría de usuario/fecha;
+6. pruebas de seguridad y permisos.
+
+### Fase D — recepción
+
+1. interfaz de conciliación;
+2. búsqueda por barcode/Item;
+3. resolución a Item existente o creación controlada;
+4. asignación a ENC o stock;
+5. reapertura de ENC por compra incorrecta;
+6. pruebas end-to-end.
+
+---
+
+## 31. Casos mínimos de prueba obligatorios
+
+1. Item conocido, stock 5, venta 2 -> ENC 0.
+2. Item conocido, stock 1 libre, venta 3 -> stock committed 1 + ENC 2.
+3. Item conocido, stock 0, venta 1 -> ENC 1 con mismo Item.
+4. Producto desconocido -> fila `ENCARGO-PENDIENTE` + ENC con imagen/descripción.
+5. Submit repetido/reintento -> no duplica ENC.
+6. Dos filas del mismo Item/Warehouse -> cálculo agregado correcto.
+7. Dos Sales Orders concurrentes -> no comprometen la misma unidad dos veces.
+8. Shopper ve sólo datos de compra permitidos.
+9. Shopper marca COMPRADO -> timestamp/user, ENC no queda satisfecho.
+10. Recepción barcode conocido -> reutiliza Item.
+11. Recepción barcode nuevo -> permite resolver nuevo Item sin duplicar identificador.
+12. Producto correcto -> ENC satisfecho.
+13. Producto incorrecto -> Item a stock y ENC vuelve a compra pendiente.
+14. Resolver Item no modifica destructivamente Sales Order submitted.
+15. Cancelar Sales Order antes de comprar -> ENC asociado no puede quedar activo para shopper.
+16. Cancelar/cerrar una OV con compra ya declarada debe bloquear automatismos destructivos y exigir resolución explícita.
+
+---
+
+## 32. Rollback
+
+El rollback debe poder:
+
+- ocultar/desactivar botones y páginas custom;
+- retirar hooks de Sales Order;
+- conservar documentos ENC ya creados como evidencia;
+- no borrar Stock Reservation estándar válida de otras funciones;
+- no modificar core ERPNext/Frappe;
+- no borrar Items reales creados en recepción;
+- dejar `ENCARGO-PENDIENTE` deshabilitado si la funcionalidad se retira.
+
+No implementar migraciones destructivas para rollback.
