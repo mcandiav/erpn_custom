@@ -1,0 +1,309 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-23 14:30:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "status",
+  "source_type",
+  "column_break_header",
+  "sales_order",
+  "sales_order_item",
+  "customer",
+  "sales_person",
+  "section_request",
+  "description",
+  "reference_image",
+  "column_break_request",
+  "brand",
+  "suggested_store",
+  "model",
+  "size",
+  "color",
+  "reference_url",
+  "notes",
+  "section_qty",
+  "requested_qty",
+  "sale_rate",
+  "column_break_qty",
+  "expected_item",
+  "resolved_item",
+  "section_purchase",
+  "purchase_status",
+  "shopper_user",
+  "purchased_on",
+  "section_reception",
+  "reception_status",
+  "received_on",
+  "resolved_by"
+ ],
+ "fields": [
+  {
+   "default": "ENC-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "ENC-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nOpen\nClosed\nCancelled",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Source Type",
+   "options": "KNOWN_ITEM\nUNKNOWN_ITEM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_header",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "description": "Sales Order Item.name (stable child row id).",
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "label": "Sales Order Item",
+   "reqd": 1,
+   "search_index": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "sales_order.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_person",
+   "fieldtype": "Link",
+   "label": "Sales Person",
+   "options": "Sales Person"
+  },
+  {
+   "fieldname": "section_request",
+   "fieldtype": "Section Break",
+   "label": "Solicitud original"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Description",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_image",
+   "fieldtype": "Attach Image",
+   "label": "Reference Image"
+  },
+  {
+   "fieldname": "column_break_request",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Brand"
+  },
+  {
+   "fieldname": "suggested_store",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Suggested Store"
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model"
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Data",
+   "label": "Size"
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Data",
+   "label": "Color"
+  },
+  {
+   "fieldname": "reference_url",
+   "fieldtype": "Data",
+   "label": "Reference URL"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "Cantidad y producto"
+  },
+  {
+   "fieldname": "requested_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Requested Qty",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "sale_rate",
+   "fieldtype": "Currency",
+   "label": "Sale Rate"
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expected_item",
+   "fieldtype": "Link",
+   "label": "Expected Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "resolved_item",
+   "fieldtype": "Link",
+   "label": "Resolved Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_purchase",
+   "fieldtype": "Section Break",
+   "label": "Compra Miami"
+  },
+  {
+   "default": "PENDING",
+   "fieldname": "purchase_status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Purchase Status",
+   "options": "PENDING\nPURCHASED\nNOT_FOUND",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shopper_user",
+   "fieldtype": "Link",
+   "label": "Shopper User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchased_on",
+   "fieldtype": "Datetime",
+   "label": "Purchased On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_reception",
+   "fieldtype": "Section Break",
+   "label": "Recepción Chile"
+  },
+  {
+   "default": "PENDING",
+   "fieldname": "reception_status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Reception Status",
+   "options": "PENDING\nRECEIVED\nRESOLVED_TO_ENC\nRESOLVED_TO_STOCK",
+   "reqd": 1
+  },
+  {
+   "fieldname": "received_on",
+   "fieldtype": "Datetime",
+   "label": "Received On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_by",
+   "fieldtype": "Link",
+   "label": "Resolved By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-23 14:30:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "description",
+ "track_changes": 1
+}

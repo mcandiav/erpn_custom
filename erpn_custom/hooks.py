@@ -160,6 +160,9 @@ doc_events = {
 	},
 	"Sales Order": {
 		"before_validate": "erpn_custom.selling.sales_person_assignment.assign_sales_person",
+		"before_submit": "erpn_custom.encargo.sales_order_encargo.before_submit",
+		"on_submit": "erpn_custom.encargo.sales_order_encargo.on_submit",
+		"on_cancel": "erpn_custom.encargo.sales_order_encargo.on_cancel",
 	},
 }
 
