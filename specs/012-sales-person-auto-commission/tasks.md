@@ -60,4 +60,4 @@ Nota T028–T030: `ComercialFRA` ya está en `ALLOWED` de `sales_order_credit.py
 - [x] T041 Confirmar despliegue.
 - [x] T042 Aceptación de Miguel.
 
-**Cierre 2026-09-23:** `SAL-ORD-2026-00015` — Amaranta Fernandez / 100% / 1% / Incentives 500. Histórico `SAL-ORD-2026-00014` sin Sales Team (sin migración retroactiva).
+**Cierre 2026-09-23:** `SAL-ORD-2026-00015` — Amaranta Fernandez / 100% / 1% / Incentives 500. Histórico `SAL-ORD-2026-00014` sin Sales Team (sin migración retroactiva). Decisión de negocio: anotar en OV; pagar solo OVs entregadas (remuneraciones). **Spec Closed.**

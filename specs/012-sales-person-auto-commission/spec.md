@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-20
 
-**Status**: Accepted — 2026-09-23. Evidencia sandbox `SAL-ORD-2026-00015`.
+**Status**: **Closed / Accepted** — 2026-09-23. Evidencia sandbox `SAL-ORD-2026-00015`. No reabrir por defecto.
 
 **Parent context**: `Perfiles FRAgallardo.md`, `config-vendedor-operativo-fra.md`, ERPNext/Frappe v16, piloto Amaranta Fernandez.
 
