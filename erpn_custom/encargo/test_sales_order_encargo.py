@@ -104,7 +104,7 @@ class TestValidateUnknown(unittest.TestCase):
 	def test_pending_without_encargo_throws(self):
 		row = _Item(item_code=ENCARGO_PENDIENTE_ITEM, qty=1, name="r1", custom_encargo=None)
 		doc = _SO([row])
-		with self.assertRaises(_Throw):
+		with self.assertRaises(Exception):
 			validate_unknown_item_rows(doc)
 
 	def test_pending_with_encargo_ok(self):

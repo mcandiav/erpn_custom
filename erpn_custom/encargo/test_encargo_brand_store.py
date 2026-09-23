@@ -6,6 +6,9 @@ _frappe = MagicMock()
 _frappe._ = lambda msg: msg
 _frappe.whitelist = lambda *a, **k: (lambda f: f)
 _frappe.validate_and_sanitize_search_inputs = lambda f: f
+_frappe.utils = MagicMock()
+_frappe.utils.flt = lambda v, *a, **k: float(v or 0)
+_frappe.utils.cint = lambda v: 1 if int(v or 0) else 0
 
 
 class _Throw(Exception):
@@ -18,11 +21,10 @@ def _throw(msg, *a, **k):
 
 _frappe.throw = _throw
 sys.modules.setdefault("frappe", _frappe)
-sys.modules.setdefault("frappe.utils", MagicMock())
+sys.modules.setdefault("frappe.utils", _frappe.utils)
 sys.modules.setdefault("frappe.utils.file_manager", MagicMock())
-sys.modules.setdefault("frappe.model.document", MagicMock())
 
-# Minimal Document base for Encargo
+
 class Document:
 	def __init__(self, *a, **k):
 		pass
@@ -31,7 +33,9 @@ class Document:
 		return getattr(self, "_is_new", True)
 
 
-sys.modules["frappe.model.document"].Document = Document
+_doc_mod = MagicMock()
+_doc_mod.Document = Document
+sys.modules.setdefault("frappe.model.document", _doc_mod)
 
 from erpn_custom.encargo.doctype.encargo.encargo import Encargo  # noqa: E402
 
@@ -45,7 +49,7 @@ class TestEncargoPair(unittest.TestCase):
 		doc.purchase_status = "PENDING"
 		doc.reception_status = "PENDING"
 		doc.status = "Draft"
-		with self.assertRaises(Exception):
+		with self.assertRaises(_Throw):
 			doc.before_insert()
 
 	@patch("erpn_custom.encargo.doctype.encargo.encargo.frappe.db.get_value")
