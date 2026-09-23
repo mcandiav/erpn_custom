@@ -1,6 +1,11 @@
 frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
+		if (frm.fields_dict.encargo_brand_store) {
+			frm.set_query("encargo_brand_store", () => ({
+				query: "erpn_custom.encargo.api.encargo_brand_store_query",
+			}));
+		}
 	},
 });
 
@@ -10,7 +15,8 @@ function bind_reference_image_paste(frm) {
 	}
 	frm._encargo_paste_bound = true;
 	$(frm.wrapper).on("paste.encargo_image", (e) => {
-		const items = e.originalEvent?.clipboardData?.items;
+		const clip = e.originalEvent && e.originalEvent.clipboardData;
+		const items = clip && clip.items;
 		if (!items || frm.doc.docstatus === 2) {
 			return;
 		}

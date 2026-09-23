@@ -1,8 +1,7 @@
-import base64
-
 import frappe
 from frappe import _
 from frappe.utils import flt
+from frappe.utils.file_manager import save_file
 
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for_user
@@ -12,10 +11,9 @@ from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for
 def create_unknown_encargo(
 	sales_order,
 	description,
+	encargo_brand_store,
 	qty=1,
 	rate=0,
-	brand=None,
-	suggested_store=None,
 	model=None,
 	size=None,
 	color=None,
@@ -31,6 +29,8 @@ def create_unknown_encargo(
 		frappe.throw(_("Sales Order must be in Draft to add Encargo"))
 	if so.is_new() or not so.name:
 		frappe.throw(_("Save the Sales Order before adding Encargo"))
+
+	pair = _require_enabled_pair(encargo_brand_store)
 
 	_ensure_pending_item()
 	qty = flt(qty)
@@ -75,8 +75,9 @@ def create_unknown_encargo(
 			"customer": so.customer,
 			"sales_person": sales_person,
 			"description": description,
-			"brand": brand,
-			"suggested_store": suggested_store,
+			"encargo_brand_store": pair.name,
+			"brand": pair.brand,
+			"suggested_store": pair.store,
 			"model": model,
 			"size": size,
 			"color": color,
@@ -103,24 +104,64 @@ def attach_reference_image(encargo, filename, content_b64):
 	if not frappe.db.exists("Encargo", encargo):
 		frappe.throw(_("Encargo not found"))
 	file_url = _attach_image(encargo, filename, content_b64)
-	frappe.db.set_value("Encargo", encargo, "reference_image", file_url)
 	return file_url
 
 
-def _attach_image(encargo, filename, content_b64):
-	content = base64.b64decode(content_b64)
-	file_doc = frappe.get_doc(
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def encargo_brand_store_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Link query: only enabled Brand+Store pairs whose store is enabled."""
+	return frappe.db.sql(
+		"""
+		select ebs.name, ebs.brand, ebs.store
+		from `tabEncargo Brand Store` ebs
+		inner join `tabEncargo Store` es on es.name = ebs.store
+		where ebs.enabled = 1
+			and es.enabled = 1
+			and (ebs.name like %(txt)s or ebs.brand like %(txt)s or ebs.store like %(txt)s)
+		order by ebs.brand, ebs.store
+		limit %(start)s, %(page_len)s
+		""",
 		{
-			"doctype": "File",
-			"file_name": filename,
-			"attached_to_doctype": "Encargo",
-			"attached_to_name": encargo,
-			"attached_to_field": "reference_image",
-			"is_private": 1,
-			"content": content,
-		}
+			"txt": f"%{txt}%",
+			"start": start,
+			"page_len": page_len,
+		},
 	)
-	file_doc.save(ignore_permissions=True)
+
+
+def _require_enabled_pair(encargo_brand_store):
+	if not encargo_brand_store:
+		frappe.throw(_("Brand / Store pair is required"))
+	pair = frappe.db.get_value(
+		"Encargo Brand Store",
+		encargo_brand_store,
+		["name", "brand", "store", "enabled"],
+		as_dict=True,
+	)
+	if not pair:
+		frappe.throw(_("Brand / Store pair not found"))
+	if not pair.enabled:
+		frappe.throw(_("Brand / Store pair {0} is disabled").format(encargo_brand_store))
+	if frappe.db.get_value("Encargo Store", pair.store, "enabled") == 0:
+		frappe.throw(_("Store {0} is disabled").format(pair.store))
+	return pair
+
+
+def _attach_image(encargo, filename, content_b64):
+	import base64
+
+	content = base64.b64decode(content_b64)
+	file_doc = save_file(
+		filename,
+		content,
+		"Encargo",
+		encargo,
+		folder=None,
+		is_private=1,
+		df="reference_image",
+	)
+	frappe.db.set_value("Encargo", encargo, "reference_image", file_doc.file_url)
 	return file_doc.file_url
 
 

@@ -117,6 +117,18 @@ function open_encargo_dialog(frm) {
 		title: __("Agregar Encargo"),
 		fields: [
 			{ fieldname: "description", label: __("Descripción"), fieldtype: "Small Text", reqd: 1 },
+			{
+				fieldname: "encargo_brand_store",
+				label: __("Brand / Store"),
+				fieldtype: "Link",
+				options: "Encargo Brand Store",
+				reqd: 1,
+				get_query() {
+					return {
+						query: "erpn_custom.encargo.api.encargo_brand_store_query",
+					};
+				},
+			},
 			{ fieldname: "qty", label: __("Cantidad"), fieldtype: "Float", default: 1, reqd: 1 },
 			{
 				fieldname: "rate",
@@ -124,8 +136,6 @@ function open_encargo_dialog(frm) {
 				fieldtype: "Currency",
 				options: frm.doc.currency,
 			},
-			{ fieldname: "brand", label: __("Marca"), fieldtype: "Data" },
-			{ fieldname: "suggested_store", label: __("Tienda sugerida"), fieldtype: "Data" },
 			{ fieldname: "model", label: __("Modelo"), fieldtype: "Data" },
 			{ fieldname: "size", label: __("Talla"), fieldtype: "Data" },
 			{ fieldname: "color", label: __("Color"), fieldtype: "Data" },
@@ -146,10 +156,9 @@ function open_encargo_dialog(frm) {
 			const args = {
 				sales_order: frm.doc.name,
 				description: values.description,
+				encargo_brand_store: values.encargo_brand_store,
 				qty: values.qty,
 				rate: values.rate,
-				brand: values.brand,
-				suggested_store: values.suggested_store,
 				model: values.model,
 				size: values.size,
 				color: values.color,
@@ -176,7 +185,7 @@ function open_encargo_dialog(frm) {
 	});
 
 	dialog.$wrapper.on("paste", (e) => {
-		const items = e.originalEvent?.clipboardData?.items;
+		const items = e.originalEvent && e.originalEvent.clipboardData && e.originalEvent.clipboardData.items;
 		if (!items) {
 			return;
 		}
