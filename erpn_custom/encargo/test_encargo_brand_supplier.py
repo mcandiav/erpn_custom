@@ -1,6 +1,6 @@
 import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 _frappe = MagicMock()
 _frappe._ = lambda msg: msg
@@ -41,7 +41,7 @@ from erpn_custom.encargo.doctype.encargo.encargo import Encargo  # noqa: E402
 
 
 class TestEncargoBrandSupplier(unittest.TestCase):
-	def test_unknown_insert_requires_brand_supplier(self):
+	def test_unknown_insert_requires_brand(self):
 		doc = Encargo()
 		doc._is_new = True
 		doc.source_type = "UNKNOWN_ITEM"
@@ -53,16 +53,18 @@ class TestEncargoBrandSupplier(unittest.TestCase):
 		with self.assertRaises(Exception):
 			doc.before_insert()
 
-	def test_unknown_insert_ok_with_brand_supplier(self):
+	@patch("erpn_custom.encargo.doctype.encargo.encargo.require_brand", return_value="Michael Kors")
+	def test_unknown_insert_ok_brand_only(self, _req):
 		doc = Encargo()
 		doc._is_new = True
 		doc.source_type = "UNKNOWN_ITEM"
 		doc.brand = "Michael Kors"
-		doc.supplier = "MK Outlet"
+		doc.supplier = None
 		doc.purchase_status = "PENDING"
 		doc.reception_status = "PENDING"
 		doc.status = "Draft"
 		doc.before_insert()
+		self.assertEqual(doc.brand, "Michael Kors")
 
 
 if __name__ == "__main__":

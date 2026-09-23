@@ -1,6 +1,16 @@
 frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
+		frm.set_query("supplier", () => ({
+			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
+			filters: { brand: frm.doc.brand },
+		}));
+	},
+
+	brand(frm) {
+		if (frm.doc.supplier) {
+			frm.set_value("supplier", null);
+		}
 	},
 });
 

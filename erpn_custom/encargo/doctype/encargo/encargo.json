@@ -138,12 +138,12 @@
    "options": "Brand"
   },
   {
-   "description": "Distribuidor/proveedor de esa marca (origen de compra del shopper). No genera Purchase Order.",
+   "description": "Proveedor sugerido donde comprar. El shopper puede cambiarlo según disponibilidad.",
    "fieldname": "supplier",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Supplier",
+   "label": "Suggested Supplier",
    "options": "Supplier"
   },
   {

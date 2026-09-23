@@ -40,8 +40,13 @@ Pegue una imagen (Ctrl+V) o adjunte un archivo.,Pegue una imagen (Ctrl+V) o adju
 Imagen lista para adjuntar: {0},Imagen lista para adjuntar: {0}
 Brand and Supplier are required,Marca y Proveedor son obligatorios
 Brand and Supplier are required for new Encargo,Marca y Proveedor son obligatorios en un Encargo nuevo
+Brand is required,La Marca es obligatoria
 Origen Marca / Proveedor,Origen Marca / Proveedor
 Proveedor de marca,Proveedor de marca
+Proveedor sugerido,Proveedor sugerido
+Suggested Supplier,Proveedor sugerido
+Marcas proveídas,Marcas proveídas
 Proveedor,Proveedor
 Marca,Marca
-Row #{0}: Item {1} requires Brand and Supplier before creating Encargo. Set them on the Item.,Fila #{0}: el producto {1} requiere Marca y Proveedor antes de crear el Encargo. Configúralos en el Producto.
+Row #{0}: Item {1} requires Brand before creating Encargo. Set Brand on the Item.,Fila #{0}: el producto {1} requiere Marca antes de crear el Encargo. Configúrala en el Producto.
+Supplier {0} does not supply Brand {1}. Add the brand on the Supplier.,El proveedor {0} no provee la marca {1}. Agrégala en el Proveedor.

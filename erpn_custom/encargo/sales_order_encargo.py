@@ -80,11 +80,11 @@ def ensure_encargos_for_known_shortfalls(doc):
 		encargo_qty = flt(item.get("custom_encargo_qty"))
 		if encargo_qty <= 0:
 			continue
-		origin = _item_brand_supplier(item.item_code)
+		origin = _item_brand_origin(item.item_code)
 		if not origin:
 			frappe.throw(
 				_(
-					"Row #{0}: Item {1} requires Brand and Supplier before creating Encargo. Set them on the Item."
+					"Row #{0}: Item {1} requires Brand before creating Encargo. Set Brand on the Item."
 				).format(item.idx, item.item_code)
 			)
 		existing = item.get("custom_encargo")
@@ -109,7 +109,7 @@ def ensure_encargos_for_known_shortfalls(doc):
 				"description": item.description or item.item_name or item.item_code,
 				"expected_item": item.item_code,
 				"brand": origin["brand"],
-				"supplier": origin["supplier"],
+				"supplier": origin.get("supplier"),
 				"requested_qty": encargo_qty,
 				"sale_rate": item.rate,
 				"purchase_status": "PENDING",
@@ -120,18 +120,23 @@ def ensure_encargos_for_known_shortfalls(doc):
 		item.custom_encargo = enc.name
 
 
-def _item_brand_supplier(item_code):
+def _item_brand_origin(item_code):
+	from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, supplier_supplies_brand
+
 	row = frappe.db.get_value(
 		"Item",
 		item_code,
 		["brand", "custom_brand_supplier"],
 		as_dict=True,
 	)
-	if not row or not row.get("brand") or not row.get("custom_brand_supplier"):
+	if not row or not row.get("brand"):
 		return None
-	if not frappe.db.exists("Supplier", row.custom_brand_supplier):
-		return None
-	return {"brand": row.brand, "supplier": row.custom_brand_supplier}
+	supplier = row.get("custom_brand_supplier") or None
+	if supplier and not supplier_supplies_brand(supplier, row.brand):
+		# Suggested supplier on Item must match brand list; ignore invalid suggestion.
+		supplier = None
+	brand, supplier = optional_supplier_for_brand(row.brand, supplier)
+	return {"brand": brand, "supplier": supplier}
 
 
 def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None):
@@ -147,7 +152,7 @@ def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None)
 	}
 	if origin:
 		values["brand"] = origin["brand"]
-		values["supplier"] = origin["supplier"]
+		values["supplier"] = origin.get("supplier")
 	frappe.db.set_value("Encargo", name, values, update_modified=False)
 
 

@@ -123,13 +123,22 @@ function open_encargo_dialog(frm) {
 				fieldtype: "Link",
 				options: "Brand",
 				reqd: 1,
+				onchange() {
+					dialog.set_value("supplier", null);
+				},
 			},
 			{
 				fieldname: "supplier",
-				label: __("Proveedor"),
+				label: __("Proveedor sugerido"),
 				fieldtype: "Link",
 				options: "Supplier",
-				reqd: 1,
+				reqd: 0,
+				get_query() {
+					return {
+						query: "erpn_custom.encargo.api.suppliers_for_brand_query",
+						filters: { brand: dialog.get_value("brand") },
+					};
+				},
 			},
 			{ fieldname: "qty", label: __("Cantidad"), fieldtype: "Float", default: 1, reqd: 1 },
 			{

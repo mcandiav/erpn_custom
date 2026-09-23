@@ -4,6 +4,7 @@ from frappe.utils import flt
 from frappe.utils.file_manager import save_file
 
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
+from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
 from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for_user
 
 
@@ -12,7 +13,7 @@ def create_unknown_encargo(
 	sales_order,
 	description,
 	brand,
-	supplier,
+	supplier=None,
 	qty=1,
 	rate=0,
 	model=None,
@@ -31,7 +32,7 @@ def create_unknown_encargo(
 	if so.is_new() or not so.name:
 		frappe.throw(_("Save the Sales Order before adding Encargo"))
 
-	brand, supplier = _require_brand_supplier(brand, supplier)
+	brand, supplier = optional_supplier_for_brand(brand, supplier)
 
 	_ensure_pending_item()
 	qty = flt(qty)
@@ -107,16 +108,32 @@ def attach_reference_image(encargo, filename, content_b64):
 	return file_url
 
 
-def _require_brand_supplier(brand, supplier):
-	brand = (brand or "").strip()
-	supplier = (supplier or "").strip()
-	if not brand or not supplier:
-		frappe.throw(_("Brand and Supplier are required"))
-	if not frappe.db.exists("Brand", brand):
-		frappe.throw(_("Brand {0} not found").format(brand))
-	if not frappe.db.exists("Supplier", supplier):
-		frappe.throw(_("Supplier {0} not found").format(supplier))
-	return brand, supplier
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def suppliers_for_brand_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Link query: Suppliers that list the given Brand (excludes shoppers without brands)."""
+	brand = (filters or {}).get("brand")
+	if not brand:
+		return []
+	return frappe.db.sql(
+		"""
+		select distinct s.name, s.supplier_name
+		from `tabSupplier` s
+		inner join `tabSupplier Brand` sb
+			on sb.parent = s.name and sb.parenttype = 'Supplier'
+		where sb.brand = %(brand)s
+			and ifnull(s.disabled, 0) = 0
+			and (s.name like %(txt)s or ifnull(s.supplier_name, '') like %(txt)s)
+		order by s.name
+		limit %(start)s, %(page_len)s
+		""",
+		{
+			"brand": brand,
+			"txt": f"%{txt}%",
+			"start": start,
+			"page_len": page_len,
+		},
+	)
 
 
 def _attach_image(encargo, filename, content_b64):
