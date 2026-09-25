@@ -212,12 +212,21 @@ function open_encargo_dialog(frm) {
 			}
 			const reader = new FileReader();
 			reader.onload = () => {
-				pasted_b64 = String(reader.result).split(",")[1] || "";
+				const data_url = String(reader.result);
+				pasted_b64 = data_url.split(",")[1] || "";
 				pasted_name = file.name || "referencia.png";
-				frappe.show_alert({
-					message: __("Imagen lista para adjuntar: {0}", [pasted_name]),
-					indicator: "green",
-				});
+				dialog.fields_dict.image_hint.$wrapper.html(
+					$("<div>")
+						.append($("<p class='text-muted'>").text(__("Imagen pegada (se guardará al crear el Encargo):")))
+						.append(
+							$("<img>").attr("src", data_url).css({
+								"max-width": "100%",
+								"max-height": "240px",
+								"border-radius": "6px",
+								border: "1px solid var(--border-color)",
+							})
+						)
+				);
 			};
 			reader.readAsDataURL(file);
 			return;

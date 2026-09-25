@@ -38,6 +38,7 @@ Agregar Encargo,Agregar Encargo
 Crear Encargo,Crear Encargo
 Pegue una imagen (Ctrl+V) o adjunte un archivo.,Pegue una imagen (Ctrl+V) o adjunte un archivo.
 Imagen lista para adjuntar: {0},Imagen lista para adjuntar: {0}
+Imagen pegada (se guardará al crear el Encargo):,Imagen pegada (se guardará al crear el Encargo):
 Brand and Supplier are required,Marca y Proveedor son obligatorios
 Brand and Supplier are required for new Encargo,Marca y Proveedor son obligatorios en un Encargo nuevo
 Brand is required,La Marca es obligatoria

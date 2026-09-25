@@ -25,3 +25,4 @@ erpn_custom.patches.v0_0_13_encargo_foundation
 erpn_custom.patches.v0_0_14_encargo_desktop
 erpn_custom.patches.v0_0_15_brand_supplier
 erpn_custom.patches.v0_0_16_supplier_brands
+erpn_custom.patches.v0_0_17_seller_brand_supplier_read
