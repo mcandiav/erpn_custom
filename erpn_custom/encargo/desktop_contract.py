@@ -4,7 +4,7 @@ ENCARGO_DOCTYPE = "Encargo"
 ENCARGO_ITEMS = [
 	{
 		"type": "Link",
-		"label": "Encargo",
+		"label": "Encargos",
 		"link_type": "DocType",
 		"link_to": ENCARGO_DOCTYPE,
 		"icon": "file-text",
