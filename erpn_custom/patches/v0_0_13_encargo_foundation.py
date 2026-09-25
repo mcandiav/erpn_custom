@@ -109,7 +109,7 @@ def _default_item_group():
 
 
 def _default_uom():
-	for name in ("Nos", "Unit", "Unidad"):
+	for name in ("Unidad", "Nos", "Unit"):
 		if frappe.db.exists("UOM", name):
 			return name
 	uoms = frappe.get_all("UOM", pluck="name", limit=1)

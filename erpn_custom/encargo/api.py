@@ -57,7 +57,7 @@ def create_unknown_encargo(
 			"description": description,
 			"qty": qty,
 			"rate": flt(rate),
-			"uom": frappe.get_cached_value("Item", ENCARGO_PENDIENTE_ITEM, "stock_uom") or "Nos",
+			"uom": frappe.get_cached_value("Item", ENCARGO_PENDIENTE_ITEM, "stock_uom") or "Unidad",
 			"conversion_factor": 1,
 			"custom_stock_committed_qty": 0,
 			"custom_encargo_qty": qty,
