@@ -9,6 +9,41 @@ Customizaciones FRAgallardo para ERPNext, normativa Chile e integraciones.
 - Cada push a deploy sube el **PATCH** (`16.0.1` → `16.0.2` …). MINOR solo al cerrar un corte mayor.
 - Subject de commit: `[16.0.N] …`
 
+### Nomenclatura de documentos (desde 16.0.45)
+
+Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-2026-00001`). Fuente única: `erpn_custom/naming/series.py`, aplicada por el patch `v0_0_20_document_series` (Property Setter `options` + `default` de `naming_series`). Las devoluciones toman su serie automáticamente (`before_insert`).
+
+| Documento | Serie | Devolución |
+|---|---|---|
+| Cotización | `COT-` | — |
+| Orden de venta | `OV-` | — |
+| Nota de entrega | `NE-` | `NE-DEV-` |
+| Factura de venta | `FAC-` | `NC-` |
+| Entrada de pago | `PAG-` | — |
+| Asiento contable | `AST-` | — |
+| Movimiento bancario | `MB-` | — |
+| Solicitud de materiales | `SM-` | — |
+| Solicitud de cotización | `SC-` | — |
+| Cotización de proveedor | `CP-` | — |
+| Orden de compra | `OC-` | — |
+| Recibo de compra | `REC-` | `REC-DEV-` |
+| Factura de compra | `FC-` | `NCC-` |
+| Entrada de inventario | `MOV-` | — |
+| Reconciliación de inventario | `AJU-` | — |
+| Lista de selección | `PICK-` | — |
+| Iniciativa (Lead) | `PROS-` | — |
+| Oportunidad | `OPO-` | — |
+
+- Los documentos anteriores conservan su nombre (`SAL-ORD-…`, `ACC-SINV-…`); no hay renombrado retroactivo.
+- `ENC-` (Encargo) sin cambio. Clientes, proveedores y productos no se tocan.
+- El nombre interno (`FAC-`, `NC-`, `NE-`) no es el folio SII del DTE.
+
+**Bitácora**
+
+| Fecha | Versión | Cambio | Motivo | Validación |
+|---|---|---|---|---|
+| 2026-09-26 | 16.0.45 | Series de documentos cortas en español (tabla anterior) + serie automática de devoluciones | Nombres ERPNext largos y poco representativos (decisión Miguel) | 28 unittests locales OK; verificación en sitio con OV nueva |
+
 ### Spec vigente del Programador
 
 **Spec activa:** `013-encargo-preventa-recepcion` — modelo ENC para separar demanda pendiente de stock físico, generar encargos desde Sales Order, entregar una lista mínima al shopper Miami y conciliar el producto real en recepción Chile.

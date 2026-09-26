@@ -165,6 +165,18 @@ doc_events = {
 		"on_submit": "erpn_custom.encargo.sales_order_encargo.on_submit",
 		"on_cancel": "erpn_custom.encargo.sales_order_encargo.on_cancel",
 	},
+	"Sales Invoice": {
+		"before_insert": "erpn_custom.naming.series.set_return_series",
+	},
+	"Delivery Note": {
+		"before_insert": "erpn_custom.naming.series.set_return_series",
+	},
+	"Purchase Invoice": {
+		"before_insert": "erpn_custom.naming.series.set_return_series",
+	},
+	"Purchase Receipt": {
+		"before_insert": "erpn_custom.naming.series.set_return_series",
+	},
 }
 
 # Scheduled Tasks

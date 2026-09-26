@@ -28,3 +28,4 @@ erpn_custom.patches.v0_0_16_supplier_brands
 erpn_custom.patches.v0_0_17_seller_brand_supplier_read
 erpn_custom.patches.v0_0_18_comercialfra_encargo_perms
 erpn_custom.patches.v0_0_19_encargo_drop_workspace
+erpn_custom.patches.v0_0_20_document_series
