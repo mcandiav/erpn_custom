@@ -42,6 +42,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 | Fecha | Versión | Cambio | Motivo | Validación |
 |---|---|---|---|---|
+| 2026-09-26 | 16.0.46 | Barra de saldo de la OV muestra montos como `CLP$35.000` (código de moneda, miles con punto, sin decimales en CLP) | CLP no usa decimales; el código prepara multi-país | Verificación visual en OV |
 | 2026-09-26 | 16.0.45 | Series de documentos cortas en español (tabla anterior) + serie automática de devoluciones | Nombres ERPNext largos y poco representativos (decisión Miguel) | 28 unittests locales OK; verificación en sitio con OV nueva |
 
 ### Spec vigente del Programador

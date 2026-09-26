@@ -40,10 +40,10 @@ frappe.ui.form.on("Sales Order", {
 					__(
 						"Saldo a favor {0} · Total {1} · Anticipo {2} · Pendiente {3}",
 						[
-							format_currency(data.available, frm.doc.currency),
-							format_currency(data.grand_total, frm.doc.currency),
-							format_currency(data.advance_paid, frm.doc.currency),
-							format_currency(data.pending, frm.doc.currency),
+							format_money(data.available, frm.doc.currency),
+							format_money(data.grand_total, frm.doc.currency),
+							format_money(data.advance_paid, frm.doc.currency),
+							format_money(data.pending, frm.doc.currency),
 						]
 					)
 				);
@@ -58,6 +58,13 @@ frappe.ui.form.on("Sales Order", {
 		});
 	},
 });
+
+function format_money(value, currency) {
+	const code = currency || "CLP";
+	// CLP has no decimals in practice.
+	const amount = code === "CLP" ? format_number(Math.round(value || 0), "#.###", 0) : format_number(value || 0, null, 2);
+	return `${code}$${amount}`;
+}
 
 function apply_credit_dialog(frm, data) {
 	const proposed = data.proposed || 0;
