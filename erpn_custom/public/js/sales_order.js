@@ -2,6 +2,14 @@ frappe.ui.form.on("Sales Order", {
 	refresh(frm) {
 		frm.trigger("show_customer_credit");
 		frm.trigger("setup_encargo_ui");
+		frm.trigger("setup_item_search");
+	},
+
+	setup_item_search(frm) {
+		frm.remove_custom_button(__("Buscar producto"));
+		if (frm.doc.docstatus === 0) {
+			frm.add_custom_button(__("Buscar producto"), () => open_item_search_dialog(frm));
+		}
 	},
 
 	customer(frm) {
@@ -241,4 +249,181 @@ function open_encargo_dialog(frm) {
 	});
 
 	dialog.show();
+}
+
+const SEARCH_ATTRIBUTE_FIELDS = [
+	["custom_color", "Color"],
+	["custom_talla", "Talla"],
+	["custom_tamano", "Tamaño"],
+	["custom_taco", "Taco"],
+	["custom_manga", "Manga"],
+	["custom_tono", "Tono"],
+	["custom_contenido", "Contenido"],
+];
+
+function open_item_search_dialog(frm) {
+	const order_warehouse =
+		frm.doc.set_warehouse || (frm.doc.items || []).map((row) => row.warehouse).find(Boolean) || null;
+	let request = 0;
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Buscar producto"),
+		size: "extra-large",
+		fields: [
+			{ fieldname: "text", label: __("Código, nombre o SKU"), fieldtype: "Data", onchange: () => run_search() },
+			{
+				fieldname: "item_group",
+				label: __("Grupo / Familia / Tipo"),
+				fieldtype: "Link",
+				options: "Item Group",
+				onchange: () => refresh_filters(),
+			},
+			{ fieldname: "brand", label: __("Marca"), fieldtype: "Link", options: "Brand", onchange: () => run_search() },
+			{ fieldtype: "Column Break" },
+			{ fieldname: "departamento", label: __("Departamento"), fieldtype: "Select", onchange: () => refresh_filters() },
+			{
+				fieldname: "warehouse",
+				label: __("Bodega"),
+				fieldtype: "Link",
+				options: "Warehouse",
+				default: order_warehouse,
+				get_query: () => ({ filters: { is_group: 0, company: frm.doc.company } }),
+				onchange: () => run_search(),
+			},
+			{ fieldtype: "Column Break" },
+			...SEARCH_ATTRIBUTE_FIELDS.map(([fieldname, label]) => ({
+				fieldname,
+				label: __(label),
+				fieldtype: "Select",
+				hidden: 1,
+				onchange: () => run_search(),
+			})),
+			{ fieldtype: "Section Break" },
+			{ fieldname: "results", fieldtype: "HTML" },
+		],
+	});
+
+	const run_search = frappe.utils.debounce(search, 300);
+
+	function refresh_filters() {
+		frappe.call({
+			method: "erpn_custom.catalog.search.get_search_filters",
+			args: {
+				item_group: dialog.get_value("item_group"),
+				departamento: dialog.get_value("departamento"),
+			},
+			callback(r) {
+				const data = r.message || {};
+				if (!dialog.fields_dict.departamento.df.options) {
+					dialog.set_df_property("departamento", "options", [""].concat(data.departamentos || []));
+				}
+				const options = data.options || {};
+				SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+					const values = options[fieldname];
+					const current = dialog.get_value(fieldname);
+					dialog.set_df_property(fieldname, "hidden", values ? 0 : 1);
+					dialog.set_df_property(fieldname, "options", [""].concat(values || []));
+					if (current && !(values || []).includes(current)) {
+						dialog.set_value(fieldname, "");
+					}
+				});
+				run_search();
+			},
+		});
+	}
+
+	function search() {
+		const values = dialog.get_values(true) || {};
+		const attributes = {};
+		SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+			if (values[fieldname]) {
+				attributes[fieldname] = values[fieldname];
+			}
+		});
+		const current = ++request;
+		frappe.call({
+			method: "erpn_custom.catalog.search.search_items",
+			args: {
+				item_group: values.item_group,
+				brand: values.brand,
+				departamento: values.departamento,
+				text: values.text,
+				warehouse: values.warehouse,
+				attributes,
+			},
+			callback(r) {
+				if (current === request && r.message) {
+					render(r.message);
+				}
+			},
+		});
+	}
+
+	function render(data) {
+		const wrapper = dialog.fields_dict.results.$wrapper.empty();
+		if (!data.items.length) {
+			wrapper.append($("<p class='text-muted'>").text(__("Sin resultados.")));
+			return;
+		}
+		const headers = [
+			__("Código"),
+			__("Producto"),
+			__("Marca"),
+			__("Tipo"),
+			__("Atributos"),
+			data.warehouse ? __("Disponible en {0}", [data.warehouse]) : __("Disponible"),
+			__("Total"),
+			"",
+		];
+		const table = $("<table class='table table-bordered table-sm'>");
+		table.append($("<thead>").append($("<tr>").append(headers.map((h) => $("<th>").text(h)))));
+		const body = $("<tbody>").appendTo(table);
+		data.items.forEach((item) => {
+			const attributes = [item.custom_departamento, ...SEARCH_ATTRIBUTE_FIELDS.map(([f]) => item[f])]
+				.filter(Boolean)
+				.join(" / ");
+			const add = $("<button class='btn btn-xs btn-primary'>")
+				.text(__("Agregar"))
+				.on("click", () => add_item(item));
+			body.append(
+				$("<tr>").append(
+					$("<td>").text(item.name),
+					$("<td>").text(item.item_name || ""),
+					$("<td>").text(item.brand || ""),
+					$("<td>").text(item.item_group || ""),
+					$("<td>").text(attributes),
+					$("<td class='text-right'>").text(
+						item.stock_bodega == null ? "—" : format_number(item.stock_bodega, null, 0)
+					),
+					$("<td class='text-right'>").text(format_number(item.stock_total, null, 0)),
+					$("<td>").append(add)
+				)
+			);
+		});
+		wrapper.append($("<div style='max-height: 420px; overflow-y: auto'>").append(table));
+		if (data.truncated) {
+			wrapper.append(
+				$("<p class='text-muted'>").text(
+					__("Se muestran los primeros {0}; agrega filtros para acotar.", [data.limit])
+				)
+			);
+		}
+	}
+
+	async function add_item(item) {
+		const warehouse = dialog.get_value("warehouse");
+		const row = (frm.doc.items || []).find((r) => !r.item_code) || frm.add_child("items");
+		await frappe.model.set_value(row.doctype, row.name, "item_code", item.name);
+		// get_item_details may replace the warehouse; apply the chosen one once it returns.
+		frappe.after_ajax(() => {
+			if (warehouse) {
+				frappe.model.set_value(row.doctype, row.name, "warehouse", warehouse);
+			}
+			frm.refresh_field("items");
+		});
+		frappe.show_alert({ message: __("{0} agregado", [item.name]), indicator: "green" });
+	}
+
+	dialog.show();
+	refresh_filters();
 }
