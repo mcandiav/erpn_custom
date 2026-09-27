@@ -32,12 +32,16 @@ def purge_catalog(dry_run=1, vouchers=None, include_stalled_reposts=0):
 
 
 def _drop_cancelled_vouchers(vouchers, include_stalled_reposts=0):
-	"""Remove the reversed ledger rows of cancelled Stock Reconciliations so their Items can go."""
+	"""Remove draft or cancelled Stock Reconciliations (and their reversed ledger rows) so their Items can go."""
 	result = {}
 	for name in vouchers:
 		docstatus = frappe.db.get_value("Stock Reconciliation", name, "docstatus")
+		if docstatus == 0:
+			frappe.delete_doc("Stock Reconciliation", name, ignore_permissions=True, delete_permanently=True)
+			result[name] = "borrador eliminado"
+			continue
 		if docstatus != 2:
-			result[name] = f"omitido: docstatus={docstatus} (debe estar anulado)"
+			result[name] = f"omitido: docstatus={docstatus} (debe estar en borrador o anulado)"
 			continue
 		reposts = _cancellation_reposts(name)
 		pending = [r.name for r in reposts if r.status not in ("Completed", "Skipped", "Failed")]

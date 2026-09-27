@@ -15,11 +15,23 @@ from frappe.utils import cint, flt, now_datetime
 from openpyxl import load_workbook
 
 from erpn_custom.catalog.aduana import translate
-from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS, DEPARTMENTS
+from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS, DEPARTMENTS, allowed_attributes
 from erpn_custom.catalog.item import family_of
 from erpn_custom.catalog.seed import normalize_text
 
 SHEET = "productos"
+# Item Attribute -> spreadsheet column (headers are compared normalized).
+ATTRIBUTE_COLUMNS = {
+	"Color": "color",
+	"Talla": "talla",
+	"Taco": "taco",
+	"Manga": "manga",
+	"Tamaño": "tamano",
+	"Tono": "tono",
+	"Contenido": "contenido",
+}
+SIZE_ATTRIBUTES = ("Talla", "Tamaño")
+NO_SIZE = {"ns", "n/s", "no size"}
 WAREHOUSE = "Matriz - FRAG"
 OPENING_ACCOUNT = "Apertura temporal - FRAG"
 UOM = "Unidad"
@@ -109,7 +121,9 @@ def _build_item(row, code, cost):
 	if not brand:
 		missing.append(f"marca «{_text(row.get('marca'))}» sin clasificar")
 	item_group = _resolve("Tipo", row.get("tipo"), _leaf_group)
-	if not item_group:
+	if item_group and not _leaf_group(item_group):
+		missing.append(f"tipo «{_text(row.get('tipo'))}» apunta a «{item_group}», que no es un tipo del árbol")
+	elif not item_group:
 		missing.append(f"tipo «{_text(row.get('tipo'))}» sin clasificar")
 	if missing:
 		return None, missing
@@ -134,11 +148,24 @@ def _build_item(row, code, cost):
 		leftovers.append(f"Departamento: {_text(row.get('departamento'))}")
 
 	family = family_of(item_group)
-	for attribute, column in (("Color", "color"), ("Talla", "talla")):
+	allowed = allowed_attributes(family)
+	for attribute, column in ATTRIBUTE_COLUMNS.items():
 		raw = _text(row.get(column))
+		if attribute == "Tamaño" and not raw:
+			# Bag sizes arrive in the talla column of the source sheet.
+			raw = _text(row.get("talla"))
+		if attribute in SIZE_ATTRIBUTES and normalize_text(raw) in NO_SIZE:
+			continue
 		if not raw:
 			continue
-		value = _resolve(attribute, raw, lambda v, a=attribute: _attribute_value(a, v, family))
+		if attribute not in allowed:
+			size_as_tamano = attribute == "Talla" and "Tamaño" in allowed and not _text(row.get("tamano"))
+			if attribute != "Tamaño" and not size_as_tamano:
+				leftovers.append(f"{attribute}: {raw}")
+			continue
+		value = _resolve(
+			attribute, raw, lambda v, a=attribute: _attribute_value(a, v, family, departamento)
+		)
 		if value:
 			item[ATTRIBUTE_FIELDS[attribute]] = value
 		else:
@@ -169,16 +196,40 @@ def _department(value):
 	return next((d for d in DEPARTMENTS if normalize_text(d) == key), None)
 
 
-def _attribute_value(attribute, value, family):
+def _attribute_value(attribute, value, family, departamento=None):
 	row = frappe.db.get_value(
 		"Item Attribute Value",
 		{"parent": attribute, "attribute_value": value},
 		["attribute_value", "custom_familia"],
 		as_dict=True,
 	)
-	if not row or (attribute == "Talla" and row.custom_familia not in (None, "", family)):
-		return None
-	return row.attribute_value
+	if row and not (attribute == "Talla" and row.custom_familia not in (None, "", family)):
+		return row.attribute_value
+	if attribute == "Talla" and departamento:
+		return _talla_by_department(value, family, departamento)
+	return None
+
+
+def _talla_by_department(raw, family, departamento):
+	"""Short size ("S", "7.5", "L(14-16)") to the one official talla of this familia and departamento."""
+	key = _size_key(raw)
+	rows = frappe.get_all(
+		"Item Attribute Value",
+		filters={"parent": "Talla", "custom_familia": family, "custom_departamento": departamento},
+		pluck="attribute_value",
+	)
+	matches = [value for value in rows if key in _size_keys(value)]
+	return matches[0] if len(matches) == 1 else None
+
+
+def _size_keys(value):
+	full = _size_key(value)
+	first = _size_key(value.split("·")[0]).removeprefix("unisex")
+	return {full, first, first.removeprefix("us")}
+
+
+def _size_key(text):
+	return normalize_text(text).replace(" ", "")
 
 
 def _pending_counts():
