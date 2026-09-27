@@ -42,6 +42,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 | Fecha | Versión | Cambio | Motivo | Validación |
 |---|---|---|---|---|
+| 2026-09-27 | 16.0.57 | Herramienta `erpn_custom.catalog.purge.purge_catalog` (bench execute, solo System Manager): elimina comprobantes de inventario ya anulados con sus movimientos anulados, luego todo Item borrable (salvo `ENCARGO-PENDIENTE`) y los grupos fuera del árbol; `dry_run=1` simula y deshace | Recarga limpia adelantada antes de la 3b: los productos del CSV no tienen Grupo-Familia-Tipo ni atributos | Pendiente simulación en el sitio |
 | 2026-09-27 | 16.0.56 | Item: Marca obligatoria (validación en servidor + asterisco en el formulario), excepto el producto técnico `ENCARGO-PENDIENTE` | Decisión de Miguel. 4 productos sin marca al activarla: `ENCARGO-PENDIENTE` (exento), `198446914354`, `Notengocodigo`, `TEST-MVP-001` (pedirán marca al editarse) | Pendiente deploy automático |
 | 2026-09-27 | 16.0.55 | Item: se elimina la sección vacía `custom_encargo_section` y Clasificación se ancla en `asset_naming_series` | En 16.0.54 la sección oculta quedó tras Marca y ocultó Unidad de Medida (obligatoria) y la columna derecha del encabezado | Pendiente deploy automático |
 | 2026-09-27 | 16.0.54 | Item: Marca sube al encabezado bajo Grupo de Productos (Property Setter `field_order` generado desde el meta estándar) y Proveedor de marca queda justo debajo | Miguel: la marca es un dato inicial, no final | Pendiente deploy automático |
