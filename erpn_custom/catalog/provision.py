@@ -123,10 +123,12 @@ def apply_item_fields():
 
 	fields = [
 		{
+			# Frappe places a custom Section Break before the next section of its anchor:
+			# after stock_uom it lands right below the Details header block.
 			"fieldname": "custom_clasificacion_section",
 			"label": "Clasificación",
 			"fieldtype": "Section Break",
-			"insert_after": "custom_brand_supplier",
+			"insert_after": "stock_uom",
 		},
 		{
 			"fieldname": "custom_familia",
@@ -182,6 +184,23 @@ def apply_item_fields():
 			"fieldtype": "Data",
 			"search_index": 1,
 			"insert_after": "custom_es_pack",
+		},
+		{
+			"fieldname": "custom_brand_supplier",
+			"label": "Proveedor de marca",
+			"fieldtype": "Link",
+			"options": "Supplier",
+			"insert_after": "custom_sku_proveedor",
+			"description": "Distribuidor de esta marca para este producto. Colecciones distintas = productos distintos (ej. MK Outlet vs MK Tienda).",
+		},
+		{
+			# Its only field moved into Clasificación; the empty section stays hidden.
+			"fieldname": "custom_encargo_section",
+			"label": "Origen Marca / Proveedor",
+			"fieldtype": "Section Break",
+			"insert_after": "brand",
+			"collapsible": 1,
+			"hidden": 1,
 		},
 	]
 	create_custom_fields({"Item": fields}, ignore_validate=True, update=True)
