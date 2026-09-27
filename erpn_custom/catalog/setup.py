@@ -64,14 +64,16 @@ def apply_attribute_value_fields():
 def apply_attributes():
 	"""Create the attribute lists and add missing seed values; never removes values."""
 	for attribute, seeds in SEED_VALUES.items():
-		if frappe.db.exists("Item Attribute", attribute):
+		exists = frappe.db.exists("Item Attribute", attribute)
+		if exists:
 			doc = frappe.get_doc("Item Attribute", attribute)
 		else:
-			doc = frappe.get_doc({"doctype": "Item Attribute", "attribute_name": attribute})
+			doc = frappe.new_doc("Item Attribute")
+			doc.attribute_name = attribute
 		present = {row.attribute_value.lower() for row in doc.item_attribute_values}
 		taken = [row.abbr for row in doc.item_attribute_values]
 		missing = [value for value in seeds if value.lower() not in present]
-		if doc.is_new() or missing:
+		if not exists or missing:
 			for value in missing:
 				abbr = make_abbr(value, taken)
 				taken.append(abbr)
