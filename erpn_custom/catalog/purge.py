@@ -36,15 +36,47 @@ def _drop_cancelled_vouchers(vouchers):
 		if docstatus != 2:
 			result[name] = f"omitido: docstatus={docstatus} (debe estar anulado)"
 			continue
+		reposts = _cancellation_reposts(name)
+		pending = [r.name for r in reposts if r.status not in ("Completed", "Skipped", "Failed")]
+		if pending:
+			result[name] = f"omitido: {len(pending)} reprocesos de valorización aún en curso, reintentar más tarde"
+			continue
 		filters = {"voucher_type": "Stock Reconciliation", "voucher_no": name, "is_cancelled": 1}
 		sle = frappe.db.count("Stock Ledger Entry", filters)
 		gle = frappe.db.count("GL Entry", filters)
 		frappe.db.delete("Stock Ledger Entry", filters)
 		frappe.db.delete("GL Entry", filters)
 		frappe.db.delete("Repost Item Valuation", {"voucher_type": "Stock Reconciliation", "voucher_no": name})
+		if reposts:
+			frappe.db.delete("Repost Item Valuation", {"name": ("in", [r.name for r in reposts])})
 		frappe.delete_doc("Stock Reconciliation", name, ignore_permissions=True, delete_permanently=True)
-		result[name] = f"eliminado con {sle} movimientos de stock y {gle} asientos anulados"
+		result[name] = (
+			f"eliminado con {sle} movimientos de stock, {gle} asientos anulados "
+			f"y {len(reposts)} reprocesos de valorización"
+		)
 	return result
+
+
+def _cancellation_reposts(voucher):
+	"""Item-wise reposts ERPNext creates on cancel carry no voucher, only item, warehouse and posting date."""
+	reco = frappe.db.get_value("Stock Reconciliation", voucher, ["posting_date", "company"], as_dict=True)
+	rows = frappe.get_all(
+		"Stock Reconciliation Item", filters={"parent": voucher}, fields=["item_code", "warehouse"]
+	)
+	if not rows:
+		return []
+	candidates = frappe.get_all(
+		"Repost Item Valuation",
+		filters={
+			"based_on": "Item and Warehouse",
+			"posting_date": reco.posting_date,
+			"company": reco.company,
+			"item_code": ("in", list({r.item_code for r in rows})),
+		},
+		fields=["name", "status", "item_code", "warehouse"],
+	)
+	pairs = {(r.item_code, r.warehouse) for r in rows}
+	return [c for c in candidates if (c.item_code, c.warehouse) in pairs]
 
 
 def _delete_items():
