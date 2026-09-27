@@ -1,6 +1,8 @@
 # Initial list values. The Administrator adjusts them in Desk (Item Attribute).
 # Chilean shoe size (CL) is proposed as EU - 1; clothing uses letters in Chile.
 
+import unicodedata
+
 COLOR_VALUES = [
 	"Black · Negro · Preto",
 	"White · Blanco · Branco",
@@ -74,16 +76,154 @@ KIDS_CLOTHING = ["XS (4-5)", "S (6-7)", "M (8-10)", "M (10-12)", "L (12-14)", "L
 
 
 def talla_values():
-	"""(value, departamento) rows; empty departamento applies to every department."""
-	rows = [("Sin talla", ""), ("Talla única", "")]
-	rows += [(f"US {_num(us)} · EU {_num(eu)} · CL {_num(eu - 1)}", "Mujer") for us, eu in WOMEN_SHOES]
-	rows += [(f"US {_num(us)} · EU {_num(eu)} · CL {_num(eu - 1)}", "Hombre") for us, eu in MEN_SHOES]
+	"""(value, departamento, familia) rows; empty departamento/familia applies to all."""
+	rows = [("Sin talla", "", ""), ("Talla única", "", "")]
+	shoe = "US {} · EU {} · CL {}"
+	rows += [(shoe.format(_num(us), _num(eu), _num(eu - 1)), "Mujer", "Calzado") for us, eu in WOMEN_SHOES]
+	rows += [(shoe.format(_num(us), _num(eu), _num(eu - 1)), "Hombre", "Calzado") for us, eu in MEN_SHOES]
 	rows += [
-		(f"M US {_num(us)} · W US {_num(us + 1.5)} · EU {_num(eu)} · CL {_num(eu - 1)}", "Unisex")
+		(f"M US {_num(us)} · W US {_num(us + 1.5)} · EU {_num(eu)} · CL {_num(eu - 1)}", "Unisex", "Calzado")
 		for us, eu in MEN_SHOES
 	]
-	rows += [(f"{letter} · US {us} · EU {eu}", "Mujer") for letter, us, eu in WOMEN_CLOTHING]
-	rows += [(f"{letter} · US {us} · EU {eu}", "Hombre") for letter, us, eu in MEN_CLOTHING]
-	rows += [(f"Unisex {letter} · US {us} · EU {eu}", "Unisex") for letter, us, eu in MEN_CLOTHING]
-	rows += [(label, "Niño/a") for label in KIDS_CLOTHING]
+	rows += [(f"{letter} · US {us} · EU {eu}", "Mujer", "Ropa") for letter, us, eu in WOMEN_CLOTHING]
+	rows += [(f"{letter} · US {us} · EU {eu}", "Hombre", "Ropa") for letter, us, eu in MEN_CLOTHING]
+	rows += [(f"Unisex {letter} · US {us} · EU {eu}", "Unisex", "Ropa") for letter, us, eu in MEN_CLOTHING]
+	rows += [(label, "Niño/a", "Ropa") for label in KIDS_CLOTHING]
+	return rows
+
+
+# Diccionario de aduana: (tipo de dato, como viene escrito, valor ERP). Normalized on load.
+COLOR_ALIASES = {
+	"Black · Negro · Preto": "negro black negra blk blakc preto",
+	"White · Blanco · Branco": "blanco white blanca waite branco",
+	"Brown · Café · Marrom": "cafe brown marron briwn marrom",
+	"Beige": "beige beiga beiger",
+	"Blue · Azul": "azul blue",
+	"Navy · Azul marino · Azul marinho": "navy|azul marino",
+	"Light blue · Celeste · Azul claro": "celeste|light blue|azul claro|celest",
+	"Green · Verde": "verde green",
+	"Pink · Rosado · Rosa": "rosado pink rosa rosada",
+	"Red · Rojo · Vermelho": "rojo red roja",
+	"Cream · Crema · Creme": "crema cream crem",
+	"Grey · Gris · Cinza": "gris grey gray",
+	"Yellow · Amarillo · Amarelo": "amarillo yellow yelllow amaralla",
+	"Gold · Dorado · Dourado": "dorado gold oro",
+	"Silver · Plateado · Prata": "plateado silver plata",
+	"Lilac · Lila · Lilás": "lila",
+	"Fuchsia · Fucsia · Fúcsia": "fucsia fuchsia",
+	"Orange · Naranjo · Laranja": "naranjo naranja orange",
+	"Burgundy · Burdeo · Bordô": "burdeo burgundy",
+	"Purple · Morado · Roxo": "morado purpura purple moeado",
+	"Khaki · Caqui · Cáqui": "khaki caqui",
+	"Multicolor": "multi multicolor mukti",
+}
+
+TIPO_ALIASES = {
+	"Abrigo": "abrigo",
+	"Joyería": "aros|joyeria",
+	"Banano": "banano",
+	"Base": "base de maquillaje|base",
+	"Billetera": "billetera|billetera con monedero",
+	"Blazer": "blazer",
+	"Corrector": "blur concealer|ojeras|corrector",
+	"Rubor": "blush|rubor",
+	"Tote": "bolsa|tote",
+	"Cartera": "bolso|cartera|caretra",
+	"Bota": "botas|bota",
+	"Botín": "botin",
+	"Brochas y esponjas": "brocha|esponja maquillaje",
+	"Bronzer": "bronzer",
+	"Bufanda": "bufanda",
+	"Calcetines": "calcetin|calcetines|set calcetines",
+	"Calza": "calza",
+	"Calzado": "calzado",
+	"Camisa": "camisa",
+	"Cardigan": "cardigans|cardigan",
+	"Chaleco": "chaleco",
+	"Chaqueta": "chaqueta|chaqueta termica|chiporro",
+	"Llavero / Charm": "charms|llavero",
+	"Cinturones": "cinturon|set cinturon",
+	"Contorno": "contorno|stick contouring",
+	"Correa de cartera": "correa de bolso|strap",
+	"Neceser": "cosmetiquero|estuche|neceser",
+	"Maquillaje": "cosmetica|set maquillaje|pc 3 maquillaje|fijador de maquillaje",
+	"Crossbody": "crossbody",
+	"Gel": "gel",
+	"Gloss": "gloss|lip gloss",
+	"Gomitas": "gomitas",
+	"Gorra": "gorra",
+	"Gorro": "gorro",
+	"Guantes": "guante",
+	"Tarjetero": "id card|tarjetero",
+	"Iluminador": "iluminador|iluminador de ojos",
+	"Lentes": "lentes",
+	"Labial": "lip|lip kit|lipstick|lapiz labial|pc 2 lipstick",
+	"Hogar y otros": "libretas|manta|plancha|toalla|vaso",
+	"Melatonina": "melatonina",
+	"Mochila": "mochila",
+	"Máscara de pestañas": "mascara de pestanas",
+	"Organizador de cartera": "organizador de cartera",
+	"Sombras": "paleta|sombra de ojos",
+	"Pantalón": "pantalon",
+	"Paraguas": "paraguas",
+	"Parka": "parca|parka",
+	"Pastillas": "pastillas|tru niagen",
+	"Pañuelo": "panuelo",
+	"Polar": "polar|sherpa",
+	"Polera": "polera|polera manga larga",
+	"Polerón": "poleron|polerones",
+	"Polvo": "polvo",
+	"Reloj": "reloj",
+	"Ropa": "ropa|ropo",
+	"Ropa interior": "ropa interior|ropa intima",
+	"Sandalia": "sandalias|sandalia|sandalias con tacon",
+	"Ashwagandha": "set pc 3 - ashwaganda",
+	"Short": "short",
+	"Skincare": "skincare set",
+	"Clutch": "sobre",
+	"Sweater": "sweater",
+	"Vestido": "vestido",
+	"Zapatilla": "zapatilla",
+	"Zapato": "zapatos|zapatos de tacon",
+	"Suplementos": "suplemento",
+}
+
+DEPARTAMENTO_ALIASES = {
+	"Mujer": "mujer",
+	"Hombre": "hombre",
+	"Juvenil": "juvenil|nina juvenil",
+	"Niño/a": "nino|nina|nino/a",
+}
+
+MARCA_ALIASES = {
+	"Michael Kors": "michael kors",
+	"Polo Ralph Lauren": "polo ralph lauren|lauren ralph lauren|polo",
+	"Tous": "tous|tou",
+	"Karl Lagerfeld": "karl lagerdeld|karl lagerfeld",
+	"Victoria Secret": "victiria secret|victoria secret",
+	"Steve Madden": "steve medden|steve madden",
+	"Huda Beauty": "hudabeauty",
+	"Beautyblender": "beauty blender",
+}
+
+
+def normalize_text(text):
+	"""Lowercase, no accents, single spaces: the dictionary lookup key."""
+	text = unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode()
+	return " ".join(text.casefold().split())
+
+
+def aduana_seed():
+	"""(tipo de dato, texto, valor ERP) rows for the initial dictionary."""
+	rows = []
+	for tipo, aliases in (
+		("Color", COLOR_ALIASES),
+		("Tipo", TIPO_ALIASES),
+		("Departamento", DEPARTAMENTO_ALIASES),
+		("Marca", MARCA_ALIASES),
+	):
+		for value, words in aliases.items():
+			# Color aliases are single words split by spaces unless a phrase needs "|".
+			texts = words.split() if tipo == "Color" and "|" not in words else words.split("|")
+			rows += [(tipo, text, value) for text in texts]
 	return rows

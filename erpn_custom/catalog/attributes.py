@@ -39,8 +39,8 @@ SEED_VALUES = {
 
 
 def seed_rows(attribute):
-	"""Seed values of an attribute as (value, departamento)."""
-	return [row if isinstance(row, tuple) else (row, "") for row in SEED_VALUES[attribute]]
+	"""Seed values of an attribute as (value, departamento, familia)."""
+	return [row if isinstance(row, tuple) else (row, "", "") for row in SEED_VALUES[attribute]]
 
 
 def family_scoped_attributes():

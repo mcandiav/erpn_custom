@@ -41,10 +41,12 @@ def get_classification_options(item_group=None, departamento=None):
 		rows = frappe.get_all(
 			"Item Attribute Value",
 			filters={"parent": attribute, "parenttype": "Item Attribute"},
-			fields=["attribute_value", "custom_departamento"],
+			fields=["attribute_value", "custom_departamento", "custom_familia"],
 			order_by="idx asc",
 		)
-		if attribute == "Talla" and departamento:
-			rows = [row for row in rows if row.custom_departamento in (None, "", departamento)]
+		if attribute == "Talla":
+			rows = [row for row in rows if row.custom_familia in (None, "", family)]
+			if departamento:
+				rows = [row for row in rows if row.custom_departamento in (None, "", departamento)]
 		options[ATTRIBUTE_FIELDS[attribute]] = [row.attribute_value for row in rows]
 	return {"familia": family, "options": options}

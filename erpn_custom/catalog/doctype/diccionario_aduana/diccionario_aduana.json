@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-27 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tipo_dato",
+  "texto",
+  "column_break_main",
+  "estado",
+  "valor_erp",
+  "section_origen",
+  "origen",
+  "column_break_origen",
+  "ocurrencias"
+ ],
+ "fields": [
+  {
+   "fieldname": "tipo_dato",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Tipo de dato",
+   "options": "Tipo\nMarca\nDepartamento\nColor\nTalla\nTaco\nManga\nTamaño\nTono\nContenido",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "description": "Como viene escrito en la fuente. Se guarda en minúsculas, sin tildes y con espacios simples.",
+   "fieldname": "texto",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Texto original",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "En espera",
+   "fieldname": "estado",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Estado",
+   "options": "En espera\nClasificado\nA descripción",
+   "reqd": 1
+  },
+  {
+   "description": "Valor oficial del ERP: grupo del árbol, marca, departamento o valor de la lista.",
+   "fieldname": "valor_erp",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Valor ERP",
+   "mandatory_depends_on": "eval:doc.estado=='Clasificado'"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_origen",
+   "fieldtype": "Section Break",
+   "label": "Origen"
+  },
+  {
+   "fieldname": "origen",
+   "fieldtype": "Data",
+   "label": "Primera fuente",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_origen",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "ocurrencias",
+   "fieldtype": "Int",
+   "label": "Ocurrencias",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-27 12:00:00",
+ "modified_by": "Administrator",
+ "module": "Catalog",
+ "name": "Diccionario Aduana",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "texto",
+ "track_changes": 1
+}

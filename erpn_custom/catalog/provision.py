@@ -60,7 +60,16 @@ def apply_attribute_value_fields():
 					"insert_after": "abbr",
 					"in_list_view": 1,
 					"description": "Solo tallas: departamento al que pertenece la medida. Vacío = aplica a todos.",
-				}
+				},
+				{
+					"fieldname": "custom_familia",
+					"label": "Familia",
+					"fieldtype": "Select",
+					"options": "\nCalzado\nRopa",
+					"insert_after": "custom_departamento",
+					"in_list_view": 1,
+					"description": "Solo tallas: familia a la que pertenece la medida. Vacío = aplica a todas.",
+				},
 			]
 		},
 		ignore_validate=True,
@@ -77,17 +86,31 @@ def apply_attributes():
 		else:
 			doc = frappe.new_doc("Item Attribute")
 			doc.attribute_name = attribute
-		present = {row.attribute_value.lower() for row in doc.item_attribute_values}
+		present = {row.attribute_value.lower(): row for row in doc.item_attribute_values}
 		taken = [row.abbr for row in doc.item_attribute_values]
-		missing = [(value, dept) for value, dept in seed_rows(attribute) if value.lower() not in present]
-		if not exists or missing:
-			for value, dept in missing:
-				abbr = make_abbr(value, taken)
-				taken.append(abbr)
-				doc.append(
-					"item_attribute_values",
-					{"attribute_value": value, "abbr": abbr, "custom_departamento": dept or None},
-				)
+		changed = not exists
+		for value, dept, family in seed_rows(attribute):
+			row = present.get(value.lower())
+			if row:
+				# Fill scope only where the Administrator left it empty.
+				for fieldname, seed in (("custom_departamento", dept), ("custom_familia", family)):
+					if seed and not row.get(fieldname):
+						row.set(fieldname, seed)
+						changed = True
+				continue
+			abbr = make_abbr(value, taken)
+			taken.append(abbr)
+			doc.append(
+				"item_attribute_values",
+				{
+					"attribute_value": value,
+					"abbr": abbr,
+					"custom_departamento": dept or None,
+					"custom_familia": family or None,
+				},
+			)
+			changed = True
+		if changed:
 			doc.save(ignore_permissions=True)
 
 
