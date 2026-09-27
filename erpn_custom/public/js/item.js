@@ -14,6 +14,7 @@ const item_events = {
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
 		}));
+		frm.toggle_reqd("brand", frm.doc.item_code !== "ENCARGO-PENDIENTE");
 		load_classification_options(frm);
 	},
 

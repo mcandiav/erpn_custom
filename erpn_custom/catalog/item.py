@@ -3,6 +3,7 @@ from frappe import _
 
 from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS, allowed_attributes
 from erpn_custom.catalog.tree import ROOT, family_from_chain
+from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 
 
 def family_of(item_group):
@@ -14,6 +15,8 @@ def family_of(item_group):
 
 
 def validate_item_classification(doc, method=None):
+	if not doc.brand and doc.item_code != ENCARGO_PENDIENTE_ITEM:
+		frappe.throw(_("Marca es obligatoria."), title=_("Falta la marca"))
 	doc.custom_familia = family_of(doc.item_group)
 	allowed = allowed_attributes(doc.custom_familia)
 	for attribute, fieldname in ATTRIBUTE_FIELDS.items():
