@@ -31,3 +31,4 @@ erpn_custom.patches.v0_0_19_encargo_drop_workspace
 erpn_custom.patches.v0_0_20_document_series
 erpn_custom.patches.v0_0_21_product_classification
 erpn_custom.patches.v0_0_22_empty_attribute_lists
+erpn_custom.patches.v0_0_23_catalog_seed_lists

@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from erpn_custom.catalog.seed import COLOR_VALUES, CONTENIDO_VALUES, TONO_VALUES, talla_values
+
 DEPARTMENTS = ("Mujer", "Hombre", "Unisex", "Juvenil", "Niño/a")
 
 # Item Attribute -> Item custom field. Lists are maintained by the Administrator in Desk.
@@ -11,6 +13,7 @@ ATTRIBUTE_FIELDS = {
 	"Manga": "custom_manga",
 	"Tamaño": "custom_tamano",
 	"Tono": "custom_tono",
+	"Contenido": "custom_contenido",
 }
 
 # Attributes that only apply to some families; the rest (Color) apply to every product.
@@ -18,18 +21,26 @@ FAMILY_ATTRIBUTES = {
 	"Calzado": ("Talla", "Taco"),
 	"Ropa": ("Talla", "Manga"),
 	"Bolsos": ("Tamaño",),
-	"Maquillaje": ("Tono",),
+	"Maquillaje": ("Tono", "Contenido"),
+	"Cuidado": ("Contenido",),
+	"Suplementos": ("Contenido",),
 }
 
-# Closed lists seeded on install. Color, Talla and Tono are filled from the catalog later.
+# Values seeded on install: plain strings or (value, departamento).
 SEED_VALUES = {
-	"Color": [],
-	"Talla": ["Sin talla"],
+	"Color": COLOR_VALUES,
+	"Talla": talla_values(),
 	"Taco": ["Sin taco", "Bajo", "Medio", "Alto"],
 	"Manga": ["Corta", "Larga", "Sin manga"],
 	"Tamaño": ["Mini", "Small", "Medium", "Large"],
-	"Tono": [],
+	"Tono": TONO_VALUES,
+	"Contenido": CONTENIDO_VALUES,
 }
+
+
+def seed_rows(attribute):
+	"""Seed values of an attribute as (value, departamento)."""
+	return [row if isinstance(row, tuple) else (row, "") for row in SEED_VALUES[attribute]]
 
 
 def family_scoped_attributes():

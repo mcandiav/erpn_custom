@@ -2,7 +2,14 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.permissions import add_permission, update_permission_property
 
-from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS, DEPARTMENTS, FAMILY_ATTRIBUTES, SEED_VALUES, make_abbr
+from erpn_custom.catalog.attributes import (
+	ATTRIBUTE_FIELDS,
+	DEPARTMENTS,
+	FAMILY_ATTRIBUTES,
+	SEED_VALUES,
+	make_abbr,
+	seed_rows,
+)
 from erpn_custom.catalog.tree import iter_nodes
 
 SELLER_ROLE = "ComercialFRA"
@@ -63,7 +70,7 @@ def apply_attribute_value_fields():
 
 def apply_attributes():
 	"""Create the attribute lists and add missing seed values; never removes values."""
-	for attribute, seeds in SEED_VALUES.items():
+	for attribute in SEED_VALUES:
 		exists = frappe.db.exists("Item Attribute", attribute)
 		if exists:
 			doc = frappe.get_doc("Item Attribute", attribute)
@@ -72,12 +79,15 @@ def apply_attributes():
 			doc.attribute_name = attribute
 		present = {row.attribute_value.lower() for row in doc.item_attribute_values}
 		taken = [row.abbr for row in doc.item_attribute_values]
-		missing = [value for value in seeds if value.lower() not in present]
+		missing = [(value, dept) for value, dept in seed_rows(attribute) if value.lower() not in present]
 		if not exists or missing:
-			for value in missing:
+			for value, dept in missing:
 				abbr = make_abbr(value, taken)
 				taken.append(abbr)
-				doc.append("item_attribute_values", {"attribute_value": value, "abbr": abbr})
+				doc.append(
+					"item_attribute_values",
+					{"attribute_value": value, "abbr": abbr, "custom_departamento": dept or None},
+				)
 			doc.save(ignore_permissions=True)
 
 

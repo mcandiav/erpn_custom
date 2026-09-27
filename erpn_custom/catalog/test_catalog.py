@@ -3,10 +3,12 @@ import unittest
 
 from erpn_custom.catalog.attributes import (
 	ATTRIBUTE_FIELDS,
+	DEPARTMENTS,
 	FAMILY_ATTRIBUTES,
 	SEED_VALUES,
 	allowed_attributes,
 	make_abbr,
+	seed_rows,
 )
 from erpn_custom.catalog.tree import CLASSIFICATION_TREE, ROOT, family_from_chain, iter_nodes
 
@@ -59,7 +61,28 @@ class TestAttributes(unittest.TestCase):
 
 	def test_seed_covers_every_attribute(self):
 		self.assertEqual(set(SEED_VALUES), set(ATTRIBUTE_FIELDS))
-		self.assertIn("Sin talla", SEED_VALUES["Talla"])
+		self.assertIn(("Sin talla", ""), seed_rows("Talla"))
+		self.assertEqual(allowed_attributes("Maquillaje"), ["Color", "Tono", "Contenido"])
+		self.assertEqual(allowed_attributes("Suplementos"), ["Color", "Contenido"])
+
+	def test_seed_values_unique_per_attribute(self):
+		for attribute in SEED_VALUES:
+			values = [value.lower() for value, _dept in seed_rows(attribute)]
+			self.assertEqual(len(values), len(set(values)), attribute)
+
+	def test_talla_labels_show_three_systems(self):
+		rows = dict(seed_rows("Talla"))
+		self.assertEqual(rows["US 8 · EU 39 · CL 38"], "Mujer")
+		self.assertEqual(rows["US 8 · EU 41 · CL 40"], "Hombre")
+		self.assertEqual(rows["M US 7 · W US 8.5 · EU 40 · CL 39"], "Unisex")
+		self.assertEqual(rows["S · US 4-6 · EU 36-38"], "Mujer")
+		self.assertEqual(rows["L (14-16)"], "Niño/a")
+		for value, dept in rows.items():
+			self.assertIn(dept, ("", *DEPARTMENTS))
+
+	def test_color_records_are_multilingual(self):
+		self.assertIn("Black · Negro · Preto", SEED_VALUES["Color"])
+		self.assertIn("Multicolor", SEED_VALUES["Color"])
 
 	def test_abbr_unique_and_short(self):
 		taken = []
