@@ -2,6 +2,7 @@ import frappe
 from frappe.model.document import Document
 
 from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
+from erpn_custom.encargo.known_item import known_item_values
 
 
 class Encargo(Document):
@@ -12,6 +13,8 @@ class Encargo(Document):
 			frappe.throw(frappe._("Expected Item is required for known-item Encargo"))
 		if self.source_type == "UNKNOWN_ITEM" and self.expected_item:
 			frappe.throw(frappe._("Unknown-item Encargo must not set Expected Item"))
+		if self.source_type == "KNOWN_ITEM":
+			self.update(known_item_values(self.expected_item))
 		if not (self.description or "").strip():
 			frappe.throw(frappe._("Description is required"))
 		if self.brand or self.supplier:

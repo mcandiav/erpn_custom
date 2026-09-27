@@ -3,6 +3,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
+from erpn_custom.encargo.known_item import known_item_values
 from erpn_custom.encargo.stock_split import allocate_available_across_rows, available_to_sell
 
 
@@ -147,8 +148,8 @@ def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None)
 		"expected_item": item.item_code,
 		"requested_qty": encargo_qty,
 		"sale_rate": item.rate,
-		"description": item.description or item.item_name or item.item_code,
 		"source_type": "KNOWN_ITEM",
+		**known_item_values(item.item_code),
 	}
 	if origin:
 		values["brand"] = origin["brand"]

@@ -1,6 +1,10 @@
 frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
+		const known = frm.doc.source_type === "KNOWN_ITEM" ? 1 : 0;
+		["brand", "size", "color", "description", "model"].forEach((fieldname) =>
+			frm.set_df_property(fieldname, "read_only", known)
+		);
 		frm.set_query("supplier", () => ({
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
