@@ -42,6 +42,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 | Fecha | Versión | Cambio | Motivo | Validación |
 |---|---|---|---|---|
+| 2026-09-27 | 16.0.49 | `catalog/setup.py` renombrado a `catalog/provision.py` | El deploy automático trata cualquier `setup.py` como cambio de dependencias y corre `bench setup requirements`, que falla (servicio sin `uv` en PATH); 16.0.47 quedó a medio desplegar | Deploy automático `SUCCESS` |
 | 2026-09-27 | 16.0.48 | Patch `v0_0_22`: crea las listas Color y Tono (vacías), omitidas por 16.0.47 | `get_doc(dict)` no marca el documento como nuevo | Migrate 16.0.47 verificado: árbol, 10 campos y listas Taco/Manga/Tamaño/Talla OK |
 | 2026-09-27 | 16.0.47 | Spec 014 Etapa 1: árbol Grupo → Familia → Tipo (4 / 13 / 60) en Item Group; listas en Item Attribute (Color, Talla, Taco, Manga, Tamaño, Tono) con Departamento por valor; campos de clasificación en Item (Familia calculada, Departamento, atributos según Familia, Es pack, SKU proveedor); validación contra lista; ComercialFRA solo lee listas y árbol, System Manager las mantiene | Clasificación Shopify inservible para vender (decisión Miguel V3.5) | 17 unittests locales OK; verificación en sitio tras migrate |
 | 2026-09-26 | config (sin código) | Moneda CLP: símbolo `CLP$`, formato `#.###`, fracción vacía, unidades 1, fracción mínima 1. System Settings: Precisión de la divisa `0` (global; revisar al abrir otra moneda) | CLP no tiene decimales | OV-00008 muestra `CLP$ 50.000`, en palabras sin centavos |

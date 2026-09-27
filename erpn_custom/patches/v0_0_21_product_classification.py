@@ -1,4 +1,4 @@
-from erpn_custom.catalog.setup import apply_product_classification
+from erpn_custom.catalog.provision import apply_product_classification
 
 
 def execute():

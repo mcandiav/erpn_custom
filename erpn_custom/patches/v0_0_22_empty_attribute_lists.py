@@ -1,4 +1,4 @@
-from erpn_custom.catalog.setup import apply_attributes
+from erpn_custom.catalog.provision import apply_attributes
 
 
 def execute():
