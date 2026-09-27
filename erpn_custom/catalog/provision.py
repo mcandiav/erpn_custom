@@ -1,5 +1,8 @@
+import json
+
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 from frappe.permissions import add_permission, update_permission_property
 
 from erpn_custom.catalog.attributes import (
@@ -190,7 +193,7 @@ def apply_item_fields():
 			"label": "Proveedor de marca",
 			"fieldtype": "Link",
 			"options": "Supplier",
-			"insert_after": "custom_sku_proveedor",
+			"insert_after": "brand",
 			"description": "Distribuidor de esta marca para este producto. Colecciones distintas = productos distintos (ej. MK Outlet vs MK Tienda).",
 		},
 		{
@@ -204,6 +207,19 @@ def apply_item_fields():
 		},
 	]
 	create_custom_fields({"Item": fields}, ignore_validate=True, update=True)
+
+
+def apply_item_layout():
+	"""Brand is initial data: move the standard field right below Item Group."""
+	standard = [f.fieldname for f in frappe.get_meta("Item", cached=False).fields if not f.get("is_custom_field")]
+	if "brand" not in standard or "item_group" not in standard:
+		return
+	standard.remove("brand")
+	standard.insert(standard.index("item_group") + 1, "brand")
+	make_property_setter(
+		"Item", None, "field_order", json.dumps(standard), "Data", for_doctype=True, validate_fields_for_doctype=False
+	)
+	frappe.clear_cache(doctype="Item")
 
 
 def apply_permissions():
