@@ -55,11 +55,28 @@ def _delete_items():
 		frappe.db.savepoint(savepoint)
 		try:
 			frappe.delete_doc("Item", name, ignore_permissions=True, delete_permanently=True)
+		except frappe.LinkExistsError:
+			frappe.db.rollback(save_point=savepoint)
+			blocked[name] = _item_links(name)
 		except Exception as e:
 			frappe.db.rollback(save_point=savepoint)
 			blocked[name] = _reason(e)
 		frappe.clear_messages()
 	return _summary(len(names), blocked)
+
+
+def _item_links(name):
+	"""Frappe replaces the Item link error with a generic hint, so list the real referencing documents."""
+	from frappe.model.delete_doc import get_dynamic_linked_docs, get_linked_docs
+
+	doc = frappe.get_doc("Item", name)
+	links = get_linked_docs(doc) + get_dynamic_linked_docs(doc)
+	refs = sorted(
+		{f"{link['reference_doctype']} {link['reference_docname']}" for link in links}
+		- {f"Item {name}"}
+	)
+	refs = [ref for ref in refs if not ref.startswith(("Bin ", "Item Price "))]
+	return "vinculado con: " + ", ".join(refs[:3]) if refs else "vinculado (sin detalle)"
 
 
 def _delete_old_groups():
@@ -84,9 +101,18 @@ def _reason(error):
 
 
 def _summary(total, blocked):
+	motivos = {}
+	for reason in blocked.values():
+		prefix = "vinculado con: "
+		if reason.startswith(prefix):
+			key = reason[len(prefix) :].split(", ")[0].rsplit(" ", 1)[0]
+		else:
+			key = reason[:60]
+		motivos[key] = motivos.get(key, 0) + 1
 	return {
 		"candidatos": total,
 		"eliminados": total - len(blocked),
 		"bloqueados": len(blocked),
+		"motivos": motivos,
 		"muestra_bloqueados": dict(list(blocked.items())[:SAMPLE]),
 	}
