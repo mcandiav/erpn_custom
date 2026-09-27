@@ -42,6 +42,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 | Fecha | Versión | Cambio | Motivo | Validación |
 |---|---|---|---|---|
+| 2026-09-27 | 16.0.60 | `purge_catalog` acepta `include_stalled_reposts=1` para incluir reprocesos del inventario anulado que quedaron detenidos en "In Progress" | 370 reprocesos detenidos desde 13:02 tras el borrado masivo y reinicios de workers | Pendiente simulación |
 | 2026-09-27 | 16.0.59 | `purge_catalog` elimina también los Repost Item Valuation por producto/almacén que ERPNext crea al anular el inventario (misma fecha y compañía); se niega si alguno sigue en curso | La simulación mostró 928 productos bloqueados por esos reprocesos | Pendiente simulación con reprocesos terminados |
 | 2026-09-27 | 16.0.58 | `purge_catalog` informa el documento real que bloquea cada producto (Frappe lo oculta tras "You can disable this Item") y agrupa los bloqueos por tipo de documento | La simulación dejó 930 productos bloqueados sin motivo visible | Pendiente nueva simulación |
 | 2026-09-27 | 16.0.57 | Herramienta `erpn_custom.catalog.purge.purge_catalog` (bench execute, solo System Manager): elimina comprobantes de inventario ya anulados con sus movimientos anulados, luego todo Item borrable (salvo `ENCARGO-PENDIENTE`) y los grupos fuera del árbol; `dry_run=1` simula y deshace | Recarga limpia adelantada antes de la 3b: los productos del CSV no tienen Grupo-Familia-Tipo ni atributos | Pendiente simulación en el sitio |

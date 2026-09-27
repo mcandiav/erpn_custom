@@ -14,11 +14,14 @@ KEEP_ITEMS = {ENCARGO_PENDIENTE_ITEM}
 SAMPLE = 25
 
 
-def purge_catalog(dry_run=1, vouchers=None):
+def purge_catalog(dry_run=1, vouchers=None, include_stalled_reposts=0):
 	"""Drop cancelled stock vouchers, then delete Items and old groups; dry_run rolls everything back."""
 	frappe.only_for("System Manager")
 	dry_run = int(dry_run)
-	report = {"dry_run": bool(dry_run), "vouchers": _drop_cancelled_vouchers(vouchers or [])}
+	report = {
+		"dry_run": bool(dry_run),
+		"vouchers": _drop_cancelled_vouchers(vouchers or [], int(include_stalled_reposts)),
+	}
 	report["items"] = _delete_items()
 	report["groups"] = _delete_old_groups()
 	if dry_run:
@@ -28,7 +31,7 @@ def purge_catalog(dry_run=1, vouchers=None):
 	return report
 
 
-def _drop_cancelled_vouchers(vouchers):
+def _drop_cancelled_vouchers(vouchers, include_stalled_reposts=0):
 	"""Remove the reversed ledger rows of cancelled Stock Reconciliations so their Items can go."""
 	result = {}
 	for name in vouchers:
@@ -38,7 +41,7 @@ def _drop_cancelled_vouchers(vouchers):
 			continue
 		reposts = _cancellation_reposts(name)
 		pending = [r.name for r in reposts if r.status not in ("Completed", "Skipped", "Failed")]
-		if pending:
+		if pending and not include_stalled_reposts:
 			result[name] = f"omitido: {len(pending)} reprocesos de valorización aún en curso, reintentar más tarde"
 			continue
 		filters = {"voucher_type": "Stock Reconciliation", "voucher_no": name, "is_cancelled": 1}
