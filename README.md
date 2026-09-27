@@ -42,13 +42,16 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 | Fecha | Versión | Cambio | Motivo | Validación |
 |---|---|---|---|---|
+| 2026-09-27 | 16.0.47 | Spec 014 Etapa 1: árbol Grupo → Familia → Tipo (4 / 13 / 60) en Item Group; listas en Item Attribute (Color, Talla, Taco, Manga, Tamaño, Tono) con Departamento por valor; campos de clasificación en Item (Familia calculada, Departamento, atributos según Familia, Es pack, SKU proveedor); validación contra lista; ComercialFRA solo lee listas y árbol, System Manager las mantiene | Clasificación Shopify inservible para vender (decisión Miguel V3.5) | 17 unittests locales OK; verificación en sitio tras migrate |
 | 2026-09-26 | config (sin código) | Moneda CLP: símbolo `CLP$`, formato `#.###`, fracción vacía, unidades 1, fracción mínima 1. System Settings: Precisión de la divisa `0` (global; revisar al abrir otra moneda) | CLP no tiene decimales | OV-00008 muestra `CLP$ 50.000`, en palabras sin centavos |
 | 2026-09-26 | 16.0.46 | Barra de saldo de la OV muestra montos como `CLP$35.000` (código de moneda, miles con punto, sin decimales en CLP) | CLP no usa decimales; el código prepara multi-país | Verificación visual en OV |
 | 2026-09-26 | 16.0.45 | Series de documentos cortas en español (tabla anterior) + serie automática de devoluciones | Nombres ERPNext largos y poco representativos (decisión Miguel) | 28 unittests locales OK; verificación en sitio con OV nueva |
 
 ### Spec vigente del Programador
 
-**Spec activa:** `013-encargo-preventa-recepcion` — modelo ENC para separar demanda pendiente de stock físico, generar encargos desde Sales Order, entregar una lista mínima al shopper Miami y conciliar el producto real en recepción Chile.
+**Spec activa:** `014-clasificacion-producto-busqueda` — árbol Grupo → Familia → Tipo, atributos controlados por Familia (tallas US · EU · CL en una sola lista por Departamento, colores multilingües en un solo registro), diccionario de aduana, búsqueda por facetas para la vendedora y recarga limpia de la carga de prueba. La Spec se trabaja localmente (no se versiona). Etapa 1 en `16.0.47`; siguientes etapas: listas Color/Talla/Tono desde el catálogo, aduana, búsqueda y Encargo, recarga limpia (destructiva, con VP y OK de Miguel).
+
+**Spec anterior:** `013-encargo-preventa-recepcion` — modelo ENC para separar demanda pendiente de stock físico, generar encargos desde Sales Order, entregar una lista mínima al shopper Miami y conciliar el producto real en recepción Chile.
 
 Documento: `specs/013-encargo-preventa-recepcion/spec.md`
 

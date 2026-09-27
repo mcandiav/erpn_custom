@@ -165,6 +165,9 @@ doc_events = {
 		"on_submit": "erpn_custom.encargo.sales_order_encargo.on_submit",
 		"on_cancel": "erpn_custom.encargo.sales_order_encargo.on_cancel",
 	},
+	"Item": {
+		"validate": "erpn_custom.catalog.item.validate_item_classification",
+	},
 	"Sales Invoice": {
 		"before_insert": "erpn_custom.naming.series.set_return_series",
 	},
