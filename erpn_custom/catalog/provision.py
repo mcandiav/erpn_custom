@@ -126,12 +126,12 @@ def apply_item_fields():
 
 	fields = [
 		{
-			# Frappe places a custom Section Break before the next section of its anchor:
-			# after stock_uom it lands right below the Details header block.
+			# Frappe moves a custom Section Break forward to the next section (or next field
+			# of the anchor's type); the last header field keeps it below the whole header.
 			"fieldname": "custom_clasificacion_section",
 			"label": "Clasificación",
 			"fieldtype": "Section Break",
-			"insert_after": "stock_uom",
+			"insert_after": "asset_naming_series",
 		},
 		{
 			"fieldname": "custom_familia",
@@ -196,17 +196,11 @@ def apply_item_fields():
 			"insert_after": "brand",
 			"description": "Distribuidor de esta marca para este producto. Colecciones distintas = productos distintos (ej. MK Outlet vs MK Tienda).",
 		},
-		{
-			# Its only field moved into Clasificación; the empty section stays hidden.
-			"fieldname": "custom_encargo_section",
-			"label": "Origen Marca / Proveedor",
-			"fieldtype": "Section Break",
-			"insert_after": "brand",
-			"collapsible": 1,
-			"hidden": 1,
-		},
 	]
 	create_custom_fields({"Item": fields}, ignore_validate=True, update=True)
+	# Its only field now sits under Marca; hidden, it would hide every field after it.
+	if frappe.db.exists("Custom Field", "Item-custom_encargo_section"):
+		frappe.delete_doc("Custom Field", "Item-custom_encargo_section", ignore_permissions=True)
 
 
 def apply_item_layout():

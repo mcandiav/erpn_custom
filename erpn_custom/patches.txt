@@ -35,3 +35,4 @@ erpn_custom.patches.v0_0_23_catalog_seed_lists
 erpn_custom.patches.v0_0_24_talla_family_aduana
 erpn_custom.patches.v0_0_25_item_classification_layout
 erpn_custom.patches.v0_0_26_item_brand_first
+erpn_custom.patches.v0_0_27_item_header_fix
