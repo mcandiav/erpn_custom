@@ -5,6 +5,9 @@ from erpn_custom.catalog.provision import apply_attribute_value_fields, apply_at
 
 
 def execute():
+	# The cached module map predates the new "Catalog" entry in modules.txt.
+	frappe.cache.delete_value("app_modules")
+	frappe.setup_module_map()
 	if not frappe.db.exists("Module Def", "Catalog"):
 		frappe.get_doc({"doctype": "Module Def", "module_name": "Catalog", "app_name": "erpn_custom"}).insert(
 			ignore_permissions=True
