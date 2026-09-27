@@ -3,8 +3,10 @@ from frappe import _
 from frappe.utils import flt
 from frappe.utils.file_manager import save_file
 
+from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
+from erpn_custom.encargo.doctype.encargo.encargo import require_leaf_group
 from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for_user
 
 
@@ -24,8 +26,14 @@ def create_unknown_encargo(
 	image_filename=None,
 	image_b64=None,
 	reference_image=None,
+	item_group=None,
+	custom_departamento=None,
+	attributes=None,
 ):
 	"""Create Draft Encargo + ENCARGO-PENDIENTE row on a Draft Sales Order."""
+	attributes = frappe.parse_json(attributes) if attributes else {}
+	allowed = set(ATTRIBUTE_FIELDS.values())
+	attributes = {fieldname: value for fieldname, value in attributes.items() if fieldname in allowed and value}
 	so = frappe.get_doc("Sales Order", sales_order)
 	if so.docstatus != 0:
 		frappe.throw(_("Sales Order must be in Draft to add Encargo"))
@@ -33,6 +41,7 @@ def create_unknown_encargo(
 		frappe.throw(_("Save the Sales Order before adding Encargo"))
 
 	brand, supplier = optional_supplier_for_brand(brand, supplier)
+	require_leaf_group(item_group)
 
 	_ensure_pending_item()
 	qty = flt(qty)
@@ -89,6 +98,9 @@ def create_unknown_encargo(
 			"purchase_status": "PENDING",
 			"reception_status": "PENDING",
 			"reference_image": reference_image,
+			"item_group": item_group,
+			"custom_departamento": custom_departamento,
+			**attributes,
 		}
 	)
 	enc.insert()

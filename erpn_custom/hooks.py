@@ -50,7 +50,8 @@ add_to_apps_screen = [
 doctype_js = {
 	"Bank Statement Import": "public/js/bank_statement_import.js",
 	"Customer": "public/js/customer.js",
-	"Item": "public/js/item.js",
+	"Item": ["public/js/classification.js", "public/js/item.js"],
+	"Encargo": ["public/js/classification.js", "public/js/encargo_classification.js"],
 	"Sales Order": "public/js/sales_order.js",
 	"Bank Transaction": "public/js/bank_transaction.js",
 	"Courier Configuration": "public/js/courier_configuration.js",

@@ -20,6 +20,16 @@
   "column_break_request",
   "brand",
   "supplier",
+  "item_group",
+  "custom_familia",
+  "custom_departamento",
+  "custom_color",
+  "custom_talla",
+  "custom_taco",
+  "custom_manga",
+  "custom_tamano",
+  "custom_tono",
+  "custom_contenido",
   "model",
   "size",
   "color",
@@ -147,19 +157,86 @@
    "options": "Supplier"
   },
   {
+   "description": "Tipo del árbol (último nivel). Obligatorio en Encargos de producto desconocido.",
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Grupo de producto",
+   "options": "Item Group"
+  },
+  {
+   "description": "Se calcula desde el Grupo de producto.",
+   "fieldname": "custom_familia",
+   "fieldtype": "Link",
+   "label": "Familia",
+   "options": "Item Group",
+   "read_only": 1
+  },
+  {
+   "fieldname": "custom_departamento",
+   "fieldtype": "Select",
+   "label": "Departamento",
+   "options": "\nMujer\nHombre\nUnisex\nJuvenil\nNiño/a"
+  },
+  {
+   "fieldname": "custom_color",
+   "fieldtype": "Autocomplete",
+   "label": "Color"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Calzado' || doc.custom_familia=='Ropa'",
+   "fieldname": "custom_talla",
+   "fieldtype": "Autocomplete",
+   "label": "Talla"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Calzado'",
+   "fieldname": "custom_taco",
+   "fieldtype": "Autocomplete",
+   "label": "Taco"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Ropa'",
+   "fieldname": "custom_manga",
+   "fieldtype": "Autocomplete",
+   "label": "Manga"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Bolsos'",
+   "fieldname": "custom_tamano",
+   "fieldtype": "Autocomplete",
+   "label": "Tamaño"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Maquillaje'",
+   "fieldname": "custom_tono",
+   "fieldtype": "Autocomplete",
+   "label": "Tono"
+  },
+  {
+   "depends_on": "eval:doc.custom_familia=='Maquillaje' || doc.custom_familia=='Cuidado' || doc.custom_familia=='Suplementos'",
+   "fieldname": "custom_contenido",
+   "fieldtype": "Autocomplete",
+   "label": "Contenido"
+  },
+  {
    "fieldname": "model",
    "fieldtype": "Data",
    "label": "Model"
   },
   {
+   "description": "Se llena desde las listas de clasificación.",
    "fieldname": "size",
    "fieldtype": "Data",
-   "label": "Size"
+   "label": "Size",
+   "read_only": 1
   },
   {
+   "description": "Se llena desde las listas de clasificación.",
    "fieldname": "color",
    "fieldtype": "Data",
-   "label": "Color"
+   "label": "Color",
+   "read_only": 1
   },
   {
    "fieldname": "reference_url",
@@ -263,7 +340,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-23 14:30:00",
+ "modified": "2026-09-27 15:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",

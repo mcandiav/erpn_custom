@@ -34,16 +34,24 @@ class TestKnownItemValues(unittest.TestCase):
 			return known_item.known_item_values("198446906618")
 
 	def test_fields_come_from_item(self):
+		values = self._values(_item(item_group="Bota", custom_departamento="Mujer", custom_taco="Bajo"))
+		self.assertEqual(values["brand"], "Michael Kors")
+		self.assertEqual(values["size"], "US 7.5 · EU 38.5 · CL 37.5")
+		self.assertEqual(values["color"], "Brown · Café · Marrom")
+		self.assertEqual(values["description"], "Bota Blake de Combate de Gamuza")
+		self.assertIsNone(values["model"])
+		self.assertEqual(values["item_group"], "Bota")
+		self.assertEqual(values["custom_departamento"], "Mujer")
+		self.assertEqual(values["custom_talla"], "US 7.5 · EU 38.5 · CL 37.5")
+		self.assertEqual(values["custom_taco"], "Bajo")
+		self.assertIsNone(values["custom_manga"])
+
+	def test_legacy_text_from_lists(self):
 		self.assertEqual(
-			self._values(_item()),
-			{
-				"brand": "Michael Kors",
-				"size": "US 7.5 · EU 38.5 · CL 37.5",
-				"color": "Brown · Café · Marrom",
-				"description": "Bota Blake de Combate de Gamuza",
-				"model": None,
-			},
+			known_item.legacy_size_color({"custom_tamano": "Medium", "custom_color": "Black · Negro · Preto"}),
+			{"size": "Medium", "color": "Black · Negro · Preto"},
 		)
+		self.assertEqual(known_item.legacy_size_color({}), {"size": None, "color": None})
 
 	def test_bag_uses_tamano_as_size(self):
 		values = self._values(_item(custom_talla=None, custom_tamano="Medium"))

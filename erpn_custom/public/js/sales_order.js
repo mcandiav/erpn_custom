@@ -131,6 +131,14 @@ function open_encargo_dialog(frm) {
 	const dialog = new frappe.ui.Dialog({
 		title: __("Agregar Encargo"),
 		fields: [
+			{
+				fieldname: "copy_from",
+				label: __("Copiar de un producto similar"),
+				fieldtype: "Link",
+				options: "Item",
+				description: __("Copia marca, grupo, departamento, atributos y descripción. El código de barras queda en blanco."),
+				onchange: () => copy_from_item(dialog.get_value("copy_from")),
+			},
 			{ fieldname: "description", label: __("Descripción"), fieldtype: "Small Text", reqd: 1 },
 			{
 				fieldname: "brand",
@@ -155,6 +163,29 @@ function open_encargo_dialog(frm) {
 					};
 				},
 			},
+			{
+				fieldname: "item_group",
+				label: __("Grupo de producto"),
+				fieldtype: "Link",
+				options: "Item Group",
+				reqd: 1,
+				get_query: () => ({ filters: { is_group: 0 } }),
+				onchange: () => load_classification(),
+			},
+			{ fieldname: "custom_familia", label: __("Familia"), fieldtype: "Data", read_only: 1 },
+			{
+				fieldname: "custom_departamento",
+				label: __("Departamento"),
+				fieldtype: "Select",
+				onchange: () => load_classification(),
+			},
+			...SEARCH_ATTRIBUTE_FIELDS.map(([fieldname, label]) => ({
+				fieldname,
+				label: __(label),
+				fieldtype: "Autocomplete",
+				hidden: 1,
+				onchange: () => reject_outside_list(fieldname),
+			})),
 			{ fieldname: "qty", label: __("Cantidad"), fieldtype: "Float", default: 1, reqd: 1 },
 			{
 				fieldname: "rate",
@@ -163,8 +194,6 @@ function open_encargo_dialog(frm) {
 				options: frm.doc.currency,
 			},
 			{ fieldname: "model", label: __("Modelo"), fieldtype: "Data" },
-			{ fieldname: "size", label: __("Talla"), fieldtype: "Data" },
-			{ fieldname: "color", label: __("Color"), fieldtype: "Data" },
 			{ fieldname: "reference_url", label: __("URL"), fieldtype: "Data" },
 			{ fieldname: "notes", label: __("Observaciones"), fieldtype: "Small Text" },
 			{
@@ -187,11 +216,17 @@ function open_encargo_dialog(frm) {
 				qty: values.qty,
 				rate: values.rate,
 				model: values.model,
-				size: values.size,
-				color: values.color,
 				reference_url: values.reference_url,
 				notes: values.notes,
+				item_group: values.item_group,
+				custom_departamento: values.custom_departamento,
+				attributes: {},
 			};
+			SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+				if (values[fieldname]) {
+					args.attributes[fieldname] = values[fieldname];
+				}
+			});
 			if (pasted_b64 && pasted_name) {
 				args.image_filename = pasted_name;
 				args.image_b64 = pasted_b64;
@@ -210,6 +245,75 @@ function open_encargo_dialog(frm) {
 			});
 		},
 	});
+
+	let attribute_options = {};
+
+	function load_classification() {
+		return frappe
+			.call({
+				method: "erpn_custom.catalog.search.get_search_filters",
+				args: {
+					item_group: dialog.get_value("item_group"),
+					departamento: dialog.get_value("custom_departamento"),
+				},
+			})
+			.then((r) => {
+				const data = r.message || {};
+				if (!dialog.fields_dict.custom_departamento.df.options) {
+					dialog.set_df_property("custom_departamento", "options", [""].concat(data.departamentos || []));
+				}
+				dialog.set_value("custom_familia", data.familia || "");
+				attribute_options = data.options || {};
+				SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+					const values = attribute_options[fieldname];
+					dialog.set_df_property(fieldname, "hidden", values ? 0 : 1);
+					dialog.fields_dict[fieldname].set_data(values || []);
+					reject_outside_list(fieldname);
+				});
+			});
+	}
+
+	function reject_outside_list(fieldname) {
+		const value = dialog.get_value(fieldname);
+		if (!value || (attribute_options[fieldname] || []).includes(value)) {
+			return;
+		}
+		frappe.show_alert(
+			{
+				message: __("{0} «{1}» no existe en la lista. Pide al administrador que lo agregue.", [
+					__(dialog.fields_dict[fieldname].df.label),
+					value,
+				]),
+				indicator: "orange",
+			},
+			7
+		);
+		dialog.set_value(fieldname, "");
+	}
+
+	async function copy_from_item(item_code) {
+		if (!item_code) {
+			return;
+		}
+		const fields = ["item_name", "brand", "item_group", "custom_departamento"].concat(
+			SEARCH_ATTRIBUTE_FIELDS.map(([fieldname]) => fieldname)
+		);
+		const item = (await frappe.db.get_value("Item", item_code, fields)).message || {};
+		await dialog.set_values({
+			description: item.item_name || "",
+			brand: item.brand || "",
+			item_group: item.item_group || "",
+			custom_departamento: item.custom_departamento || "",
+		});
+		await load_classification();
+		const attributes = {};
+		SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+			attributes[fieldname] = item[fieldname] || "";
+		});
+		await dialog.set_values(attributes);
+	}
+
+	load_classification();
 
 	dialog.$wrapper.on("paste", (e) => {
 		const items = e.originalEvent && e.originalEvent.clipboardData && e.originalEvent.clipboardData.items;

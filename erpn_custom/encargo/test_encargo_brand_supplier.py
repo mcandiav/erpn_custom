@@ -53,18 +53,34 @@ class TestEncargoBrandSupplier(unittest.TestCase):
 		with self.assertRaises(Exception):
 			doc.before_insert()
 
+	@patch("erpn_custom.encargo.doctype.encargo.encargo.require_leaf_group")
 	@patch("erpn_custom.encargo.doctype.encargo.encargo.require_brand", return_value="Michael Kors")
-	def test_unknown_insert_ok_brand_only(self, _req):
+	def test_unknown_insert_ok_brand_and_group(self, _req, _group):
 		doc = Encargo()
 		doc._is_new = True
 		doc.source_type = "UNKNOWN_ITEM"
 		doc.brand = "Michael Kors"
+		doc.item_group = "Cartera"
 		doc.supplier = None
 		doc.purchase_status = "PENDING"
 		doc.reception_status = "PENDING"
 		doc.status = "Draft"
 		doc.before_insert()
 		self.assertEqual(doc.brand, "Michael Kors")
+		_group.assert_called_once_with("Cartera")
+
+	@patch("erpn_custom.encargo.doctype.encargo.encargo.require_brand", return_value="Michael Kors")
+	def test_unknown_insert_requires_group(self, _req):
+		doc = Encargo()
+		doc._is_new = True
+		doc.source_type = "UNKNOWN_ITEM"
+		doc.brand = "Michael Kors"
+		doc.item_group = None
+		doc.purchase_status = "PENDING"
+		doc.reception_status = "PENDING"
+		doc.status = "Draft"
+		with self.assertRaises(Exception):
+			doc.before_insert()
 
 
 if __name__ == "__main__":

@@ -17,6 +17,11 @@ def family_of(item_group):
 def validate_item_classification(doc, method=None):
 	if not doc.brand and doc.item_code != ENCARGO_PENDIENTE_ITEM:
 		frappe.throw(_("Marca es obligatoria."), title=_("Falta la marca"))
+	apply_classification(doc)
+
+
+def apply_classification(doc):
+	"""Shared by Item and Encargo: familia from the group, attributes only from its lists."""
 	doc.custom_familia = family_of(doc.item_group)
 	allowed = allowed_attributes(doc.custom_familia)
 	for attribute, fieldname in ATTRIBUTE_FIELDS.items():
