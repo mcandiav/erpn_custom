@@ -17,6 +17,7 @@
   "section_request",
   "description",
   "reference_image",
+  "reference_image_preview",
   "column_break_request",
   "brand",
   "supplier",
@@ -133,6 +134,10 @@
    "fieldname": "reference_image",
    "fieldtype": "Attach Image",
    "label": "Reference Image"
+  },
+  {
+   "fieldname": "reference_image_preview",
+   "fieldtype": "HTML"
   },
   {
    "fieldname": "column_break_request",
@@ -345,7 +350,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-27 23:45:00",
+ "modified": "2026-09-27 23:55:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",

@@ -1,6 +1,7 @@
 frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
+		render_reference_image_preview(frm);
 		frm.set_query("supplier", () => ({
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
@@ -12,7 +13,30 @@ frappe.ui.form.on("Encargo", {
 			frm.set_value("supplier", null);
 		}
 	},
+
+	reference_image(frm) {
+		render_reference_image_preview(frm);
+	},
 });
+
+function render_reference_image_preview(frm) {
+	const field = frm.fields_dict.reference_image_preview;
+	if (!field) {
+		return;
+	}
+	const url = frm.doc.reference_image;
+	if (!url) {
+		field.$wrapper.empty();
+		return;
+	}
+	const src = frappe.utils.escape_html(url);
+	field.$wrapper.html(
+		`<a href="${src}" target="_blank" rel="noopener" title="${__("Abrir imagen")}">` +
+			`<img src="${src}" alt="${__("Imagen de referencia")}" ` +
+			`style="width: 100%; height: auto; border-radius: var(--border-radius-md); margin-top: var(--margin-sm);">` +
+			`</a>`
+	);
+}
 
 function bind_reference_image_paste(frm) {
 	if (frm._encargo_paste_bound) {
