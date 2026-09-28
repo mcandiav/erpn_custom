@@ -6,8 +6,9 @@ SELLER_ROLE = "ComercialFRA"
 PTYPES = {
 	"Sales Order": ("read", "write", "create", "submit", "cancel", "amend", "print", "report"),
 	"Encargo": ("read", "write", "create", "print", "report"),
-	# ERPNext creates it on order submit and cancels it on order cancel, as the current user.
-	"Stock Reservation Entry": ("read", "create", "submit", "cancel", "report"),
+	# ERPNext creates it on order submit and cancels it on order cancel, as the current user;
+	# Document.save checks write before submit.
+	"Stock Reservation Entry": ("read", "write", "create", "submit", "cancel", "report"),
 }
 
 

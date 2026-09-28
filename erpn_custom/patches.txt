@@ -40,3 +40,4 @@ erpn_custom.patches.v0_0_28_known_encargo_item_fields
 erpn_custom.patches.v0_0_29_known_encargo_classification
 erpn_custom.patches.v0_0_30_known_encargo_familia
 erpn_custom.patches.v0_0_31_comercialfra_order_flow_perms
+erpn_custom.patches.v0_0_32_comercialfra_reservation_write
