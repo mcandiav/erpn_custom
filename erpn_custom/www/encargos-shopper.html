@@ -34,8 +34,14 @@
 	.shp-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 8px; z-index: 1100; }
 	.shp-check { display: flex; gap: 10px; align-items: center; margin-top: 14px; font-weight: 600; }
 	.shp-check input { width: 24px; height: 24px; }
+	.shp-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1040; display: flex; background: #fff; border-top: 1px solid #e3e3e3; padding-bottom: env(safe-area-inset-bottom); }
+	.shp-tabs button { flex: 1; border: 0; background: none; padding: 8px 4px 6px; font-size: .78rem; color: #666; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+	.shp-tabs button.active { color: #1f6feb; font-weight: 700; }
+	.shp-tabs svg { width: 24px; height: 24px; }
+	.shp-more a, .shp-more button { display: block; width: 100%; text-align: left; margin-bottom: 8px; }
 </style>
-<div class="shp" id="shp"></div>
+<div class="shp"><div id="shp"></div></div>
+<nav class="shp-tabs" id="shp-tabs"></nav>
 {% endblock %}
 
 {% block script %}
@@ -44,8 +50,74 @@
 (function () {
 	const TODOS = "TODOS";
 	const PLACE_KEY = "erpn_shopper_place";
+	const FILTERS_KEY = "erpn_shopper_filters";
+	const MODULE_KEY = "erpn_shopper_module";
 	const root = document.getElementById("shp");
-	const state = { places: [], place: null, rows: [], filters: { brand: "", familia: "", talla: "" } };
+	const tabs = document.getElementById("shp-tabs");
+	const state = { places: [], place: null, rows: [], loaded: false, module: null, filters: loadFilters() };
+
+	function loadFilters() {
+		const empty = { brand: "", familia: "", talla: "" };
+		try {
+			return Object.assign(empty, JSON.parse(localStorage.getItem(FILTERS_KEY) || "{}"));
+		} catch (e) {
+			return empty;
+		}
+	}
+
+	// Shopper modules: add future ones (Cajas, Recepción Miami) here; each keeps its own state.
+	const ICONS = {
+		cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h9.6a1 1 0 0 0 1-.8L21 7H6"/></svg>',
+		more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+	};
+	const MODULES = [
+		{ id: "compras", label: "Compras", icon: ICONS.cart, enter: enterCompras },
+		{ id: "mas", label: "Más", icon: ICONS.more, enter: renderMore },
+	];
+
+	function renderTabs() {
+		tabs.innerHTML = MODULES.map(
+			(m) => `<button data-module="${m.id}" class="${m.id === state.module ? "active" : ""}">${m.icon}<span>${m.label}</span></button>`
+		).join("");
+		tabs.querySelectorAll("[data-module]").forEach((btn) =>
+			btn.addEventListener("click", () => openModule(btn.dataset.module))
+		);
+	}
+
+	function openModule(id) {
+		const module = MODULES.find((m) => m.id === id) || MODULES[0];
+		state.module = module.id;
+		localStorage.setItem(MODULE_KEY, module.id);
+		renderTabs();
+		window.scrollTo(0, 0);
+		module.enter();
+	}
+
+	function enterCompras() {
+		if (!state.place) return renderStart();
+		if (state.loaded) return renderList();
+		loadList();
+	}
+
+	function renderMore() {
+		root.innerHTML = `
+			<h1>Más</h1>
+			<div class="shp-more">
+				<div class="shp-meta">Comprando en</div>
+				<div class="shp-place" style="margin-bottom:12px">${esc(placeLabel(state.place) || "Sin lugar elegido")}</div>
+				<button id="more-place">Cambiar lugar</button>
+				<button id="more-reload">Actualizar encargos</button>
+				<a class="btn" href="/api/method/web_logout">Cerrar sesión</a>
+			</div>`;
+		document.getElementById("more-place").addEventListener("click", () => {
+			openModule("compras");
+			renderStart();
+		});
+		document.getElementById("more-reload").addEventListener("click", () => {
+			state.loaded = false;
+			openModule("compras");
+		});
+	}
 
 	function esc(value) {
 		const div = document.createElement("div");
@@ -180,6 +252,7 @@
 		const supplier = place && place.supplier ? place.supplier : TODOS;
 		try {
 			state.rows = await api("erpn_custom.encargo.shopper.list_pending", { supplier: supplier });
+			state.loaded = true;
 		} catch (e) {
 			root.innerHTML = `<div class="shp-empty">${esc(e.message)}</div>`;
 			return;
@@ -238,6 +311,10 @@
 	}
 
 	function renderList() {
+		// A saved filter with no matching Encargo here would silently hide everything.
+		Object.keys(state.filters).forEach((field) => {
+			if (state.filters[field] && !uniq(field).includes(state.filters[field])) state.filters[field] = "";
+		});
 		const rows = visibleRows();
 		root.innerHTML = `
 			<div class="shp-bar">
@@ -254,6 +331,7 @@
 		root.querySelectorAll("[data-filter]").forEach((sel) =>
 			sel.addEventListener("change", () => {
 				state.filters[sel.dataset.filter] = sel.value;
+				localStorage.setItem(FILTERS_KEY, JSON.stringify(state.filters));
 				renderList();
 			})
 		);
@@ -534,12 +612,8 @@
 		const valid =
 			saved &&
 			(saved.supplier === TODOS || saved.proposed || state.places.some((p) => p.name === saved.supplier));
-		if (valid) {
-			state.place = saved;
-			loadList();
-		} else {
-			renderStart();
-		}
+		if (valid) state.place = saved;
+		openModule(localStorage.getItem(MODULE_KEY) || "compras");
 	}
 
 	init();

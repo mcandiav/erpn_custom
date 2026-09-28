@@ -2,6 +2,8 @@ frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
 		render_reference_image_preview(frm);
+		render_purchase_images_preview(frm);
+		show_customer_contact_alert(frm);
 		frm.set_query("supplier", () => ({
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
@@ -35,6 +37,47 @@ function render_reference_image_preview(frm) {
 			`<img src="${src}" alt="${__("Imagen de referencia")}" ` +
 			`style="width: 100%; height: auto; border-radius: var(--border-radius-md); margin-top: var(--margin-sm);">` +
 			`</a>`
+	);
+}
+
+function render_purchase_images_preview(frm) {
+	const field = frm.fields_dict.purchase_images_preview;
+	if (!field) {
+		return;
+	}
+	const images = [
+		[frm.doc.purchase_product_image, __("Foto del producto")],
+		[frm.doc.purchase_label_image, __("Foto de etiqueta")],
+	].filter(([url]) => url);
+	if (!images.length) {
+		field.$wrapper.empty();
+		return;
+	}
+	field.$wrapper.html(
+		`<div style="display: flex; gap: var(--margin-sm); margin-top: var(--margin-sm);">` +
+			images
+				.map(([url, label]) => {
+					const src = frappe.utils.escape_html(url);
+					return (
+						`<a href="${src}" target="_blank" rel="noopener" title="${label}" style="flex: 1;">` +
+						`<img src="${src}" alt="${label}" style="width: 100%; height: auto; border-radius: var(--border-radius-md);">` +
+						`<div class="text-muted small">${label}</div></a>`
+					);
+				})
+				.join("") +
+			`</div>`
+	);
+}
+
+function show_customer_contact_alert(frm) {
+	if (!frm.doc.needs_commercial_review || frm.doc.purchase_status !== "PENDING") {
+		return;
+	}
+	frm.dashboard.set_headline_alert(
+		__("El shopper no encontró este producto {0} veces. Contactar al cliente y decidir: seguir buscando, esperar reposición, ofrecer alternativa o cancelar.", [
+			frm.doc.not_found_count,
+		]),
+		"red"
 	);
 }
 

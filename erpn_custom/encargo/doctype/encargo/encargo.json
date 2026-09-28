@@ -53,6 +53,7 @@
   "purchase_price",
   "purchase_product_image",
   "purchase_label_image",
+  "purchase_images_preview",
   "section_not_found",
   "not_found_count",
   "needs_commercial_review",
@@ -307,7 +308,7 @@
   {
    "fieldname": "section_purchase",
    "fieldtype": "Section Break",
-   "label": "Compra Miami"
+   "label": "Compra Shopper"
   },
   {
    "default": "PENDING",
@@ -377,11 +378,14 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
-   "collapsible_depends_on": "eval:doc.not_found_count",
+   "fieldname": "purchase_images_preview",
+   "fieldtype": "HTML"
+  },
+  {
+   "depends_on": "eval:doc.not_found_count",
    "fieldname": "section_not_found",
    "fieldtype": "Section Break",
-   "label": "Intentos sin encontrar"
+   "label": "Compra Shopper · intentos «No encontrado»"
   },
   {
    "default": "0",
@@ -392,11 +396,11 @@
   },
   {
    "default": "0",
-   "description": "Se marca al tercer «No encontrado». El Encargo sigue pendiente de compra.",
+   "description": "Se marca al tercer «No encontrado». El Encargo sigue pendiente de compra: Comercial decide qué responder al cliente.",
    "fieldname": "needs_commercial_review",
    "fieldtype": "Check",
    "in_standard_filter": 1,
-   "label": "Revisar con comercial",
+   "label": "Contactar cliente (revisión comercial)",
    "read_only": 1
   },
   {
@@ -436,7 +440,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-28 15:30:00",
+ "modified": "2026-09-28 16:00:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
