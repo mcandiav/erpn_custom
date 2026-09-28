@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-23
 
-**Status**: **ACTIVE — PLANIFICACIÓN TÉCNICA AUTORIZADA**. Spec vigente después del cierre aceptado de `012-sales-person-auto-commission`. El Programador debe inspeccionar ERPNext/Frappe v16, presentar plan técnico y pruebas contra esta Spec y esperar OK explícito de Miguel antes de escribir código.
+**Status**: **ACTIVE — DEFINICIÓN FUNCIONAL CERRADA / PLANIFICACIÓN TÉCNICA AUTORIZADA**. Spec vigente después del cierre aceptado de `012-sales-person-auto-commission`. El Programador debe inspeccionar ERPNext/Frappe v16, presentar plan técnico y pruebas contra esta Spec y esperar OK explícito de Miguel antes de escribir código.
 
 **Parent context**: arquitectura FRAgallardo, flujo Encargo/Preventa, Sales Order, compras Miami, recepción de cajas Chile, Item/Barcode de ERPNext/Frappe v16.
 
@@ -273,6 +273,18 @@ La identidad del Item se resolverá cuando exista evidencia suficiente, principa
 
 ## 5. Rol del shopper Miami
 
+### 5.1 Principio de captura operacional y gobierno de maestros
+
+Aplica el principio rector del proyecto:
+
+> **Los usuarios operativos pueden capturar realidad nueva, pero no deben contaminar automáticamente los datos maestros. La operación no se bloquea; el maestro se gobierna.**
+
+Si el Shopper encuentra un lugar/proveedor no existente, puede registrar el nombre observado y continuar la compra. Esa observación queda vinculada a la operación y pendiente de gobierno; **no crea Supplier, Brand, Item ni otro maestro automáticamente**.
+
+El administrador ERP decide posteriormente si normaliza contra un maestro existente, crea uno nuevo o conserva el dato únicamente como evidencia histórica.
+
+### 5.2 Responsabilidad del Shopper
+
 El shopper **no es empleado FRA** y su interfaz no debe exponerle complejidad de ERPNext.
 
 No debe tener responsabilidad sobre:
@@ -287,7 +299,7 @@ No debe tener responsabilidad sobre:
 - conciliar ENC contra Item;
 - decidir si una compra errónea satisface el ENC.
 
-Su función es únicamente **comprar**.
+Su función es **resolver la compra física del Encargo y capturar evidencia objetiva de esa compra**. El Shopper no gobierna datos maestros: puede registrar realidad nueva observada durante la operación, pero esa captura no crea automáticamente maestros ERP.
 
 ---
 
@@ -326,15 +338,17 @@ La vista debe permitir al menos:
 - ver talla/color/cantidad cuando existan;
 - marcar estado simple.
 
-Estados/acciones mínimas para shopper:
+Estados operacionales para shopper:
 
 ```text
-PENDIENTE
+PENDIENTE DE COMPRA
 COMPRADO
 NO ENCONTRADO
 ```
 
-El shopper no debe cerrar el ENC comercial.
+No existe un paso obligatorio `TOMAR ENCARGO`. Abrir un ENC no cambia su estado ni lo asigna al Shopper. Si se requiere protección de concurrencia, debe resolverse mediante bloqueo técnico temporal al confirmar, no mediante una etapa operacional adicional.
+
+`COMPRADO` sólo puede confirmarse cuando existe evidencia mínima completa: **barcode escaneado + foto del producto + foto de la etiqueta + precio**. El shopper no debe cerrar el ENC comercial.
 
 ---
 
@@ -359,12 +373,26 @@ No significa:
 - ingreso a inventario;
 - entrega al cliente.
 
-Registrar como mínimo:
+Registrar como mínimo y de forma atómica al confirmar la compra:
 
 - ENC;
-- estado de compra;
-- fecha/hora;
-- identidad del shopper o mecanismo equivalente de auditoría.
+- barcode capturado;
+- foto del producto comprado;
+- foto de etiqueta/tag;
+- precio capturado (un único valor operacional);
+- Shopper autenticado;
+- fecha/hora de compra;
+- Supplier seleccionado o referencia operacional de lugar de compra;
+- Supplier propuesto, si el lugar observado no existe en el maestro;
+- estado de compra = `PURCHASED`.
+
+El barcode queda asociado al **Encargo comprado**, no se incorpora automáticamente al maestro Item. La asociación definitiva barcode/Item queda bajo control FRA durante recepción/normalización.
+
+Un Encargo puede representar `requested_qty > 1`, pero la unidad operativa de compra sigue siendo el **ENC individual**. Si existen dos ENC distintos —aunque correspondan al mismo producto, variante y barcode— el Shopper debe completar la captura y confirmar cada ENC por separado. Cada ENC conserva su propia evidencia: barcode escaneado, foto de producto, foto de etiqueta, precio, Shopper y timestamp.
+
+Ejemplo: dos clientes distintos generan dos ENC iguales. El Shopper compra dos unidades idénticas. Debe procesar ENC-001 y ENC-002 como compras separadas, repitiendo escaneo y fotos para cada uno. No se permite dar de baja múltiples ENC mediante una sola captura compartida.
+
+Si un único ENC tiene `requested_qty > 1`, la cantidad visible pertenece a ese ENC y la implementación debe exigir una confirmación explícita de que se compró la cantidad completa antes de pasarlo a `PURCHASED`; esta Spec no convierte automáticamente una sola evidencia en cierre de otros ENC.
 
 ---
 
@@ -846,9 +874,10 @@ Hasta nueva decisión, esta Spec no define:
 ### US3 — Shopper compra (P1)
 
 **Given** un ENC está pendiente,  
-**When** el shopper marca COMPRADO,  
-**Then** se registra la compra declarada,  
-**But** el ENC todavía no se considera satisfecho.
+**When** el Shopper completa para ese ENC barcode, foto del producto, foto de etiqueta y precio, y confirma la compra,  
+**Then** se registra atómicamente la evidencia, Shopper y fecha/hora,  
+**And** ese ENC pasa a `PURCHASED`,  
+**But** el ENC todavía no se considera satisfecho ni recibido.
 
 ### US4 — Recepción encuentra Item existente (P1)
 
@@ -1024,11 +1053,11 @@ Campos mínimos funcionales:
 - `resolved_item` — Link Item, opcional hasta recepción;
 - `description` — obligatorio;
 - `reference_image` — Attach Image;
-- `brand` — Data;
-- `suggested_store` — Data;
-- `model` — Data;
-- `size` — Data;
-- `color` — Data;
+- `brand` — referencia controlada al maestro/lista de Marca definido por el modelo de producto; no texto libre cuando exista valor gobernado;
+- `suggested_supplier` — Link Supplier, opcional; representa un Supplier maestro ya validado y sugerido para buscar;
+- `model` — Data descriptivo cuando corresponda;
+- `size` — atributo controlado según Familia/tipo de producto; no texto libre cuando aplique;
+- `color` — atributo controlado según el modelo de producto; no texto libre cuando aplique;
 - `reference_url` — Data;
 - `notes` — Small Text;
 - `sale_rate` — Currency informativa del valor vendido.
@@ -1036,6 +1065,12 @@ Campos mínimos funcionales:
 ### Compra Miami
 
 - `purchase_status` — Select: `PENDING`, `PURCHASED`, `NOT_FOUND`;
+- `purchase_barcode` — Data, requerido para confirmar `PURCHASED`;
+- `purchase_product_image` — Attach Image, requerido para confirmar `PURCHASED`;
+- `purchase_label_image` — Attach Image, requerido para confirmar `PURCHASED`;
+- `purchase_price` — Currency, requerido para confirmar `PURCHASED`;
+- `purchase_supplier` — Link Supplier, opcional cuando existe maestro validado;
+- `proposed_supplier_name` — Data, opcional para capturar un lugar/proveedor todavía no gobernado;
 - `shopper_user` — Link User;
 - `purchased_on` — Datetime.
 
@@ -1100,11 +1135,15 @@ Crear una página Portal autenticada, ruta propuesta:
 
 Debe mostrar únicamente ENC en estados de compra operables.
 
-Orden/grouping inicial:
+La entrada es **mobile-first**. Antes de mostrar la cola, el Shopper selecciona el Supplier/lugar donde está comprando o `TODOS`. Esa selección permanece activa mientras trabaja y puede cambiarse sin alterar ENC.
 
-1. `suggested_store`;
-2. `brand`;
-3. fecha/ENC.
+Filtros/agrupación operacionales:
+
+1. Supplier/lugar seleccionado;
+2. marca;
+3. tipo/familia de producto cuando esté disponible;
+4. talla/atributos relevantes;
+5. fecha/ENC.
 
 Cada tarjeta/fila muestra:
 
@@ -1118,16 +1157,100 @@ Cada tarjeta/fila muestra:
 - URL si existe;
 - observación necesaria para comprar.
 
-Acciones:
+La lista representa **oportunidades de compra en el lugar actual**, no asignaciones personales. Cada tarjeta prioriza foto, descripción reconocible, marca, variante/color, talla y **cantidad requerida**; códigos internos y datos administrativos quedan en segundo plano. La cantidad debe ser visible sin abrir el ENC, porque un mismo Encargo puede requerir más de una unidad.
+
+Al encontrar el producto, la acción principal abre una captura secuencial:
 
 ```text
-[ COMPRADO ]
-[ NO ENCONTRADO ]
+1/4 ESCANEAR BARCODE
+2/4 FOTO DEL PRODUCTO
+3/4 FOTO DE ETIQUETA / TAG
+4/4 PRECIO
+        ↓
+[ CONFIRMAR COMPRA ]
 ```
 
-`COMPRADO` registra usuario y timestamp.
+`CONFIRMAR COMPRA` permanece deshabilitado mientras falte cualquiera de las cuatro evidencias. La confirmación guarda todo y cambia a `PURCHASED` en una única operación server-side; si falla una parte, no debe existir un `PURCHASED` parcial. Después vuelve al mismo Supplier/filtro y el ENC comprado desaparece de `Por comprar`.
 
-La página no necesita crear/editar Items.
+Debe existir `+ Registrar supplier/lugar no listado`. Esta acción **no crea un Supplier maestro**: captura `proposed_supplier_name`, usuario/fecha/ENC y permite continuar. La validación, asociación o creación posterior del maestro corresponde a administración ERP.
+
+La página no crea ni edita Items ni Suppliers maestros.
+
+---
+
+## Addendum A — presentación de la ficha Encargo
+
+Este addendum es **no disruptivo** respecto de la implementación ya iniciada. No cambia modelo, estados, validaciones ni contratos existentes; únicamente fija la organización visual esperada del formulario `Encargo`.
+
+La ficha del Encargo debe agrupar visualmente la información del Shopper en una sección claramente identificable como **Shopper** o **Compra Shopper**, separada de la solicitud original del cliente.
+
+Debe mostrar, cuando existan:
+
+- estado de compra;
+- Shopper;
+- fecha/hora de compra;
+- Supplier validado;
+- Supplier/lugar propuesto;
+- barcode capturado;
+- precio;
+- foto del producto comprado;
+- foto de la etiqueta/tag;
+- historial de intentos `NO ENCONTRADO`.
+
+La Sales Order no duplica estos campos: mantiene el vínculo al ENC y desde ese vínculo se consulta la ficha completa.
+
+---
+
+## Addendum B — intentos `NO ENCONTRADO`
+
+`NO ENCONTRADO` deja de ser un estado terminal y pasa a representar un **intento fallido de compra**.
+
+Cuando el Shopper marca `NO ENCONTRADO`:
+
+1. el ENC **permanece en `PENDIENTE DE COMPRA`**;
+2. sigue apareciendo en la lista de compras futuras;
+3. se registra un intento auditable con:
+   - Shopper;
+   - Supplier/lugar en el que se buscó;
+   - fecha/hora;
+   - resultado = `NOT_FOUND`;
+   - observación opcional;
+4. el intento no modifica la solicitud original del cliente;
+5. el mismo ENC puede volver a buscarse otro día o en otro Supplier.
+
+Debe existir un historial visible de intentos por ENC.
+
+Al alcanzar **3 intentos `NOT_FOUND`**, el sistema no cancela automáticamente el ENC. Debe generar una condición de **revisión comercial / contacto con cliente**, mediante una bandera o estado derivado equivalente, por ejemplo `requires_customer_contact = 1`.
+
+La responsabilidad posterior pertenece a ComercialFRA, que decidirá si continuar buscando, ofrecer alternativa, esperar reposición, cancelar o resolver financieramente con el cliente.
+
+Principio: **el Shopper reporta disponibilidad física; Comercial decide la respuesta al cliente**.
+
+---
+
+## Addendum C — navegación mobile-first multi-módulo para Shopper
+
+La experiencia Shopper debe concebirse como una **aplicación móvil con varios módulos operativos**, no como una única página aislada.
+
+`Compras` es el primer módulo. Módulos futuros —por ejemplo `Cajas`, `Recepción Miami`, armado o revisión de cajas— deben poder incorporarse sin abandonar el diseño mobile-first.
+
+La navegación principal debe usar un patrón móvil persistente y simple, preferentemente **barra inferior con iconos** o navegación equivalente de acceso inmediato. Ejemplo conceptual:
+
+```text
+[ Compras ]   [ Cajas ]   [ Más ]
+```
+
+Reglas:
+
+- no replicar la barra lateral densa del Desk de ERPNext;
+- máximo acceso directo a las funciones operativas frecuentes;
+- iconos y etiquetas breves;
+- cada módulo conserva contexto y filtros cuando el usuario vuelve;
+- los flujos de captura deben seguir optimizados para uso con una mano;
+- la incorporación de nuevos módulos no debe reducir el espacio útil de la vista principal de Compras;
+- información administrativa o poco frecuente debe ir a `Más` o vistas secundarias.
+
+La arquitectura de navegación debe permitir añadir nuevos módulos Shopper sin rediseñar la aplicación completa.
 
 ---
 
@@ -1184,11 +1307,15 @@ El Programador debe proponer y luego ejecutar, tras OK, en este orden:
 ### Fase C — shopper
 
 1. rol `ShopperFRA`;
-2. acceso Website/Portal;
-3. lista agrupable por tienda/marca;
-4. métodos server-side para `PURCHASED` / `NOT_FOUND`;
-5. auditoría de usuario/fecha;
-6. pruebas de seguridad y permisos.
+2. acceso Website/Portal mobile-first;
+3. selector inicial Supplier/lugar + opción `TODOS` y persistencia del contexto;
+4. lista filtrable por Supplier, marca, tipo/familia, talla y atributos disponibles;
+5. captura obligatoria de barcode, foto producto, foto etiqueta y precio;
+6. captura de Supplier/lugar propuesto sin crear maestro;
+7. método server-side atómico para `PURCHASED` y método controlado para `NOT_FOUND`;
+8. asociación barcode -> ENC comprado sin modificar Item;
+9. auditoría de usuario/fecha;
+10. pruebas de concurrencia, seguridad y permisos.
 
 ### Fase D — recepción
 
@@ -1210,8 +1337,10 @@ El Programador debe proponer y luego ejecutar, tras OK, en este orden:
 5. Submit repetido/reintento -> no duplica ENC.
 6. Dos filas del mismo Item/Warehouse -> cálculo agregado correcto.
 7. Dos Sales Orders concurrentes -> no comprometen la misma unidad dos veces.
-8. Shopper ve sólo datos de compra permitidos.
-9. Shopper marca COMPRADO -> timestamp/user, ENC no queda satisfecho.
+8. Shopper entra desde móvil, selecciona Supplier/lugar o `TODOS` y ve sólo datos de compra permitidos.
+9. Shopper no puede confirmar COMPRADO sin barcode + foto producto + foto etiqueta + precio.
+10. Confirmar COMPRADO guarda evidencia + timestamp/user de forma atómica, asocia barcode al ENC y el ENC no queda satisfecho.
+11. Supplier/lugar no listado puede registrarse como propuesta sin crear Supplier maestro.
 10. Recepción barcode conocido -> reutiliza Item.
 11. Recepción barcode nuevo -> permite resolver nuevo Item sin duplicar identificador.
 12. Producto correcto -> ENC satisfecho.
@@ -1235,3 +1364,70 @@ El rollback debe poder:
 - dejar `ENCARGO-PENDIENTE` deshabilitado si la funcionalidad se retira.
 
 No implementar migraciones destructivas para rollback.
+
+---
+
+## 33. Addendum compatible posterior al inicio de programación
+
+Este addendum amplía la experiencia de usuario y la trazabilidad del Shopper sin invalidar el núcleo funcional ya iniciado. Debe tratarse como ajuste compatible de la Spec 013, no como reinicio del desarrollo.
+
+### 33.1 Sección visible `Shopper` en la ficha Encargo
+
+La ficha del DocType **Encargo** debe agrupar visualmente en una sección claramente identificable como `Shopper` o `Compra Shopper` todos los datos generados durante la compra física.
+
+La sección debe mostrar, al menos:
+
+- estado de compra;
+- Shopper;
+- fecha/hora de compra;
+- Supplier validado, si existe;
+- Supplier/lugar propuesto, si fue capturado durante la operación;
+- barcode escaneado;
+- precio capturado;
+- foto del producto comprado;
+- foto de etiqueta/tag.
+
+Esta agrupación es de presentación y trazabilidad. No modifica los contratos de datos, estados, validaciones ni endpoints ya definidos.
+
+Debe permitir que, desde la Sales Order, al abrir el Encargo vinculado, un usuario autorizado pueda comparar claramente **solicitud original** vs **compra Shopper** sin mezclar ambos conjuntos de evidencia.
+
+### 33.2 `NO ENCONTRADO` como intento histórico, no estado terminal
+
+Cuando el Shopper busca un Encargo en un Supplier/lugar y no encuentra el producto, debe poder registrar `NO ENCONTRADO`.
+
+Cada intento debe registrar de forma auditable:
+
+- Encargo;
+- Shopper;
+- Supplier/lugar donde se buscó;
+- fecha/hora;
+- resultado = `NOT_FOUND`;
+- observación opcional.
+
+Registrar `NO ENCONTRADO` **no elimina el Encargo de la lista de compras** y no lo convierte en estado terminal. El ENC permanece disponible para ser buscado otro día, en el mismo Supplier o en otro Supplier.
+
+Debe existir un historial de intentos asociado al ENC. Este historial no debe sobrescribirse ni reducirse a un único contador sin evidencia de cada búsqueda.
+
+### 33.3 Escalamiento al tercer intento no encontrado
+
+Al alcanzar **3 intentos `NOT_FOUND`** para el mismo ENC, el sistema debe marcarlo para revisión comercial, por ejemplo mediante una bandera derivada `requires_customer_contact = 1` o mecanismo equivalente definido técnicamente por el Programador.
+
+El tercer intento no cancela automáticamente el ENC. Debe generar una señal clara para Comercial de que corresponde evaluar comunicación con el cliente y decidir una acción posterior, por ejemplo:
+
+- continuar buscando;
+- esperar reposición;
+- ofrecer alternativa;
+- cancelar el encargo;
+- devolver/aplicar saldo según flujo comercial vigente.
+
+El Shopper informa realidad operacional; **Comercial decide la relación con el cliente**.
+
+### 33.4 Criterios de aceptación adicionales del addendum
+
+1. Los campos de compra Shopper aparecen agrupados en una sección visible del Encargo.
+2. Desde la OV puede abrirse el ENC y distinguir solicitud original de compra Shopper.
+3. `NO ENCONTRADO` registra un intento histórico con Shopper, Supplier/lugar y timestamp.
+4. Registrar `NO ENCONTRADO` mantiene el ENC en la lista de compras.
+5. El mismo ENC puede acumular intentos en fechas y Suppliers distintos.
+6. Al tercer `NOT_FOUND`, el sistema genera una señal de revisión comercial sin cancelar automáticamente el ENC.
+7. El historial de intentos permanece auditable y no se sobrescribe.

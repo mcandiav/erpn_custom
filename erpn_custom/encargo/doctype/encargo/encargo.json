@@ -46,6 +46,17 @@
   "purchase_status",
   "shopper_user",
   "purchased_on",
+  "purchase_supplier",
+  "proposed_supplier_name",
+  "column_break_purchase",
+  "purchase_barcode",
+  "purchase_price",
+  "purchase_product_image",
+  "purchase_label_image",
+  "section_not_found",
+  "not_found_count",
+  "needs_commercial_review",
+  "purchase_attempts",
   "section_reception",
   "reception_status",
   "received_on",
@@ -321,6 +332,81 @@
    "read_only": 1
   },
   {
+   "description": "Supplier del maestro donde el shopper compró.",
+   "fieldname": "purchase_supplier",
+   "fieldtype": "Link",
+   "label": "Supplier de compra",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "description": "Lugar informado por el shopper que no existe en el maestro. No crea Supplier.",
+   "fieldname": "proposed_supplier_name",
+   "fieldtype": "Data",
+   "label": "Lugar propuesto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_purchase",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Capturado por el shopper. No se agrega al Item.",
+   "fieldname": "purchase_barcode",
+   "fieldtype": "Data",
+   "label": "Barcode comprado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_price",
+   "fieldtype": "Float",
+   "label": "Precio de compra",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_product_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto del producto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_label_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto de etiqueta",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:doc.not_found_count",
+   "fieldname": "section_not_found",
+   "fieldtype": "Section Break",
+   "label": "Intentos sin encontrar"
+  },
+  {
+   "default": "0",
+   "fieldname": "not_found_count",
+   "fieldtype": "Int",
+   "label": "Veces no encontrado",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Se marca al tercer «No encontrado». El Encargo sigue pendiente de compra.",
+   "fieldname": "needs_commercial_review",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Revisar con comercial",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_attempts",
+   "fieldtype": "Table",
+   "label": "Intentos",
+   "options": "Encargo Purchase Attempt",
+   "read_only": 1
+  },
+  {
    "fieldname": "section_reception",
    "fieldtype": "Section Break",
    "label": "Recepción Chile"
@@ -350,7 +436,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-27 23:55:00",
+ "modified": "2026-09-28 15:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",

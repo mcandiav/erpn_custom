@@ -1,0 +1,548 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Encargos por comprar") }}{% endblock %}
+
+{% block page_content %}
+<style>
+	.shp { max-width: 640px; margin: 0 auto; padding: 8px 4px 96px; font-size: 16px; }
+	.shp h1 { font-size: 1.35rem; margin: 4px 0 12px; }
+	.shp-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+	.shp-place { font-weight: 600; }
+	.shp-filters { display: flex; gap: 6px; margin-bottom: 12px; }
+	.shp-filters select { flex: 1; min-width: 0; }
+	.shp select, .shp input, .shp textarea { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #fff; }
+	.shp button { font-size: 16px; padding: 12px 14px; border-radius: 8px; border: 1px solid #ccc; background: #f5f5f5; }
+	.shp button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+	.shp button:disabled { opacity: .45; }
+	.shp-card { border: 1px solid #e3e3e3; border-radius: 12px; padding: 12px; margin-bottom: 12px; display: grid; grid-template-columns: 96px 1fr; gap: 12px; }
+	.shp-card img, .shp-noimg { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; background: #f0f0f0; }
+	.shp-desc { font-weight: 600; line-height: 1.25; }
+	.shp-meta { color: #555; font-size: .92rem; margin-top: 2px; }
+	.shp-qty { display: inline-block; background: #111; color: #fff; border-radius: 999px; padding: 2px 10px; font-weight: 700; margin-top: 6px; }
+	.shp-warn { display: inline-block; background: #fff4e5; color: #8a4b00; border-radius: 6px; padding: 2px 8px; font-size: .85rem; margin-top: 6px; }
+	.shp-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+	.shp-actions button { flex: 1; }
+	.shp-code { color: #999; font-size: .8rem; }
+	.shp-panel { position: fixed; inset: 0; background: #fff; z-index: 1050; overflow-y: auto; padding: 14px; }
+	.shp-panel .shp-inner { max-width: 640px; margin: 0 auto; }
+	.shp-step { color: #1f6feb; font-weight: 700; margin: 10px 0 6px; }
+	.shp-preview { width: 100%; max-height: 260px; object-fit: contain; margin-top: 8px; border-radius: 8px; background: #f5f5f5; }
+	.shp-nav { display: flex; gap: 8px; margin-top: 16px; }
+	.shp-nav button { flex: 1; }
+	.shp-empty { text-align: center; color: #777; padding: 32px 8px; }
+	.shp-video { width: 100%; border-radius: 8px; background: #000; margin-top: 8px; }
+	.shp-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 8px; z-index: 1100; }
+	.shp-check { display: flex; gap: 10px; align-items: center; margin-top: 14px; font-weight: 600; }
+	.shp-check input { width: 24px; height: 24px; }
+</style>
+<div class="shp" id="shp"></div>
+{% endblock %}
+
+{% block script %}
+{{ super() }}
+<script>
+(function () {
+	const TODOS = "TODOS";
+	const PLACE_KEY = "erpn_shopper_place";
+	const root = document.getElementById("shp");
+	const state = { places: [], place: null, rows: [], filters: { brand: "", familia: "", talla: "" } };
+
+	function esc(value) {
+		const div = document.createElement("div");
+		div.textContent = value == null ? "" : String(value);
+		return div.innerHTML;
+	}
+
+	function errText(data) {
+		try {
+			const messages = JSON.parse(data._server_messages || "[]");
+			if (messages.length) {
+				const first = JSON.parse(messages[0]);
+				const div = document.createElement("div");
+				div.innerHTML = first.message || first;
+				return div.textContent;
+			}
+		} catch (e) {}
+		return data.exception || "";
+	}
+
+	async function api(method, args, post) {
+		const opts = { headers: { Accept: "application/json", "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "" } };
+		let url = "/api/method/" + method;
+		if (post) {
+			opts.method = "POST";
+			opts.headers["Content-Type"] = "application/json";
+			opts.body = JSON.stringify(args || {});
+		} else if (args) {
+			url += "?" + new URLSearchParams(args).toString();
+		}
+		const response = await fetch(url, opts);
+		const data = await response.json().catch(() => ({}));
+		if (!response.ok || data.exc_type) {
+			throw new Error(errText(data) || "Error " + response.status);
+		}
+		return data.message;
+	}
+
+	function toast(text) {
+		const el = document.createElement("div");
+		el.className = "shp-toast";
+		el.textContent = text;
+		document.body.appendChild(el);
+		setTimeout(() => el.remove(), 2500);
+	}
+
+	function savePlace(place) {
+		state.place = place;
+		localStorage.setItem(PLACE_KEY, JSON.stringify(place));
+	}
+
+	function loadPlace() {
+		try {
+			return JSON.parse(localStorage.getItem(PLACE_KEY) || "null");
+		} catch (e) {
+			return null;
+		}
+	}
+
+	function placeLabel(place) {
+		if (!place) return "";
+		if (place.supplier === TODOS) return "Todos los lugares";
+		return place.label || place.supplier || place.proposed;
+	}
+
+	function placeOptions(selected) {
+		const opts = state.places.map((p) =>
+			`<option value="${esc(p.name)}" ${p.name === selected ? "selected" : ""}>${esc(p.supplier_name || p.name)}</option>`
+		);
+		return opts.join("");
+	}
+
+	// Place picker markup shared by the start screen and the capture panels.
+	function placeFields(prefix, allowAll) {
+		return `
+			<select id="${prefix}-sel">
+				<option value="">Elige el lugar…</option>
+				${allowAll ? `<option value="${TODOS}">Todos los lugares</option>` : ""}
+				${placeOptions("")}
+				<option value="__new">+ Registrar lugar no listado</option>
+			</select>
+			<input id="${prefix}-new" placeholder="Nombre del lugar" style="display:none;margin-top:8px">`;
+	}
+
+	function bindPlaceFields(prefix, onChange) {
+		const sel = document.getElementById(prefix + "-sel");
+		const input = document.getElementById(prefix + "-new");
+		const read = () => {
+			if (sel.value === "__new") {
+				const name = input.value.trim();
+				return name ? { proposed: name, label: name } : null;
+			}
+			if (!sel.value) return null;
+			const found = state.places.find((p) => p.name === sel.value);
+			return { supplier: sel.value, label: found ? found.supplier_name || found.name : sel.value };
+		};
+		sel.addEventListener("change", () => {
+			input.style.display = sel.value === "__new" ? "block" : "none";
+			onChange(read());
+		});
+		input.addEventListener("input", () => onChange(read()));
+		return read;
+	}
+
+	function renderStart() {
+		root.innerHTML = `
+			<h1>¿Dónde estás comprando?</h1>
+			${placeFields("start", true)}
+			<div class="shp-nav"><button class="primary" id="start-go" disabled>Ver encargos</button></div>`;
+		const go = document.getElementById("start-go");
+		let chosen = null;
+		bindPlaceFields("start", (value) => {
+			chosen = value;
+			go.disabled = !value;
+		});
+		go.addEventListener("click", () => {
+			savePlace(chosen);
+			loadList();
+		});
+	}
+
+	// The purchase is registered at the current place unless it is "Todos".
+	function purchasePlace() {
+		const place = state.place;
+		if (!place || place.supplier === TODOS) return null;
+		return place;
+	}
+
+	async function loadList() {
+		root.innerHTML = `<div class="shp-empty">Cargando…</div>`;
+		const place = state.place;
+		const supplier = place && place.supplier ? place.supplier : TODOS;
+		try {
+			state.rows = await api("erpn_custom.encargo.shopper.list_pending", { supplier: supplier });
+		} catch (e) {
+			root.innerHTML = `<div class="shp-empty">${esc(e.message)}</div>`;
+			return;
+		}
+		renderList();
+	}
+
+	function uniq(field) {
+		return [...new Set(state.rows.map((r) => r[field]).filter(Boolean))].sort();
+	}
+
+	function filterSelect(field, label) {
+		const current = state.filters[field];
+		return `<select data-filter="${field}">
+			<option value="">${label}</option>
+			${uniq(field).map((v) => `<option value="${esc(v)}" ${v === current ? "selected" : ""}>${esc(v)}</option>`).join("")}
+		</select>`;
+	}
+
+	function visibleRows() {
+		return state.rows.filter((r) =>
+			Object.entries(state.filters).every(([field, value]) => !value || r[field] === value)
+		);
+	}
+
+	function card(row) {
+		const img = row.image
+			? `<img src="${esc(row.image)}" loading="lazy" alt="">`
+			: `<div class="shp-noimg"></div>`;
+		const review = row.not_found_count
+			? `<div class="shp-warn">No encontrado ${row.not_found_count} ${row.not_found_count === 1 ? "vez" : "veces"}${row.needs_commercial_review ? " · en revisión comercial" : ""}</div>`
+			: "";
+		const link = row.reference_url
+			? `<div class="shp-meta"><a href="${esc(row.reference_url)}" target="_blank" rel="noopener">Ver referencia</a></div>`
+			: "";
+		return `
+			<div class="shp-card" data-name="${esc(row.name)}">
+				${img}
+				<div>
+					<div class="shp-desc">${esc(row.description)}</div>
+					<div class="shp-meta">${esc(row.brand || "")}${row.item_group ? " · " + esc(row.item_group) : ""}${row.departamento ? " · " + esc(row.departamento) : ""}</div>
+					${row.variant ? `<div class="shp-meta">${esc(row.variant)}</div>` : ""}
+					${row.model ? `<div class="shp-meta">Modelo: ${esc(row.model)}</div>` : ""}
+					${row.suggested_supplier ? `<div class="shp-meta">Sugerido: ${esc(row.suggested_supplier)}</div>` : ""}
+					${row.notes ? `<div class="shp-meta">${esc(row.notes)}</div>` : ""}
+					${link}
+					<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+					${review}
+					<div class="shp-code">${esc(row.name)}</div>
+				</div>
+				<div class="shp-actions">
+					<button data-act="notfound">No encontrado</button>
+					<button class="primary" data-act="buy">Lo encontré</button>
+				</div>
+			</div>`;
+	}
+
+	function renderList() {
+		const rows = visibleRows();
+		root.innerHTML = `
+			<div class="shp-bar">
+				<div>Comprando en<br><span class="shp-place">${esc(placeLabel(state.place))}</span></div>
+				<button id="change-place">Cambiar</button>
+			</div>
+			<div class="shp-filters">
+				${filterSelect("brand", "Marca")}
+				${filterSelect("familia", "Familia")}
+				${filterSelect("talla", "Talla")}
+			</div>
+			${rows.length ? rows.map(card).join("") : `<div class="shp-empty">No hay encargos por comprar aquí.</div>`}`;
+		document.getElementById("change-place").addEventListener("click", renderStart);
+		root.querySelectorAll("[data-filter]").forEach((sel) =>
+			sel.addEventListener("change", () => {
+				state.filters[sel.dataset.filter] = sel.value;
+				renderList();
+			})
+		);
+		root.querySelectorAll(".shp-card").forEach((el) => {
+			const row = state.rows.find((r) => r.name === el.dataset.name);
+			el.querySelector('[data-act="buy"]').addEventListener("click", () => openPurchase(row));
+			el.querySelector('[data-act="notfound"]').addEventListener("click", () => openNotFound(row));
+		});
+	}
+
+	function openPanel(html) {
+		const panel = document.createElement("div");
+		panel.className = "shp-panel";
+		panel.innerHTML = `<div class="shp-inner">${html}</div>`;
+		document.body.appendChild(panel);
+		document.body.style.overflow = "hidden";
+		return panel;
+	}
+
+	function closePanel(panel) {
+		panel.remove();
+		document.body.style.overflow = "";
+	}
+
+	function compress(file) {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(file);
+			img.onload = () => {
+				const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+				const canvas = document.createElement("canvas");
+				canvas.width = Math.round(img.width * scale);
+				canvas.height = Math.round(img.height * scale);
+				canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+				URL.revokeObjectURL(url);
+				resolve(canvas.toDataURL("image/jpeg", 0.8));
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject(new Error("No se pudo leer la foto"));
+			};
+			img.src = url;
+		});
+	}
+
+	async function scanBarcode(input, box) {
+		if (!("BarcodeDetector" in window) || !navigator.mediaDevices) {
+			toast("Este teléfono no escanea desde el navegador: escribe el código");
+			input.focus();
+			return;
+		}
+		let stream;
+		try {
+			stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+		} catch (e) {
+			toast("Sin acceso a la cámara: escribe el código");
+			return;
+		}
+		const video = document.createElement("video");
+		video.className = "shp-video";
+		video.setAttribute("playsinline", "");
+		video.srcObject = stream;
+		box.innerHTML = "";
+		box.appendChild(video);
+		await video.play();
+		const detector = new BarcodeDetector();
+		const stop = () => {
+			stream.getTracks().forEach((t) => t.stop());
+			box.innerHTML = "";
+		};
+		const tick = async () => {
+			if (!video.isConnected) return stop();
+			try {
+				const codes = await detector.detect(video);
+				if (codes.length) {
+					input.value = codes[0].rawValue;
+					input.dispatchEvent(new Event("input"));
+					return stop();
+				}
+			} catch (e) {}
+			setTimeout(tick, 250);
+		};
+		tick();
+	}
+
+	function openPurchase(row) {
+		const fixedPlace = purchasePlace();
+		const cap = { barcode: "", product: null, label: null, price: "", place: fixedPlace, fullQty: row.requested_qty <= 1 };
+		const steps = ["barcode", "product", "label", "price"];
+		let step = 0;
+		const panel = openPanel(`
+			<div class="shp-bar"><strong>${esc(row.description)}</strong><button data-close>Cerrar</button></div>
+			<div class="shp-meta">${esc(row.brand || "")} ${row.variant ? "· " + esc(row.variant) : ""}</div>
+			<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+			<div id="cap-body"></div>
+			<div id="cap-final" style="display:none">
+				<div class="shp-step">Lugar de compra</div>
+				${fixedPlace ? `<div class="shp-place">${esc(placeLabel(fixedPlace))}</div>` : placeFields("cap", false)}
+				${row.requested_qty > 1 ? `<label class="shp-check"><input type="checkbox" id="cap-full"> Compré las ${esc(row.requested_qty)} unidades</label>` : ""}
+			</div>
+			<div class="shp-nav">
+				<button id="cap-back">Atrás</button>
+				<button class="primary" id="cap-next">Siguiente</button>
+			</div>`);
+		const body = panel.querySelector("#cap-body");
+		const back = panel.querySelector("#cap-back");
+		const next = panel.querySelector("#cap-next");
+		panel.querySelector("[data-close]").addEventListener("click", () => closePanel(panel));
+		if (!fixedPlace) {
+			bindPlaceFields("cap", (value) => {
+				cap.place = value;
+				refresh();
+			});
+		}
+		const full = panel.querySelector("#cap-full");
+		if (full) full.addEventListener("change", () => {
+			cap.fullQty = full.checked;
+			refresh();
+		});
+
+		const done = {
+			barcode: () => cap.barcode.trim().length > 0,
+			product: () => !!cap.product,
+			label: () => !!cap.label,
+			price: () => parseFloat(cap.price) > 0,
+		};
+		const complete = () => steps.every((s) => done[s]()) && !!cap.place && cap.fullQty;
+
+		function refresh() {
+			const last = step === steps.length - 1;
+			back.disabled = step === 0;
+			panel.querySelector("#cap-final").style.display = last ? "block" : "none";
+			next.textContent = last ? "Confirmar compra" : "Siguiente";
+			next.disabled = last ? !complete() : !done[steps[step]]();
+		}
+
+		function photoStep(n, title, key) {
+			body.innerHTML = `
+				<div class="shp-step">${n}/4 ${title}</div>
+				<input type="file" accept="image/*" capture="environment" id="cap-file">
+				${cap[key] ? `<img class="shp-preview" src="${cap[key]}">` : ""}`;
+			body.querySelector("#cap-file").addEventListener("change", async (ev) => {
+				const file = ev.target.files[0];
+				if (!file) return;
+				try {
+					cap[key] = await compress(file);
+				} catch (e) {
+					toast(e.message);
+				}
+				render();
+			});
+		}
+
+		function render() {
+			const name = steps[step];
+			if (name === "barcode") {
+				body.innerHTML = `
+					<div class="shp-step">1/4 Escanear barcode</div>
+					<input id="cap-code" inputmode="numeric" autocomplete="off" placeholder="Código de barras" value="${esc(cap.barcode)}">
+					<div class="shp-nav"><button id="cap-scan">Escanear con la cámara</button></div>
+					<div id="cap-video"></div>`;
+				const input = body.querySelector("#cap-code");
+				input.addEventListener("input", () => {
+					cap.barcode = input.value;
+					refresh();
+				});
+				body.querySelector("#cap-scan").addEventListener("click", () => scanBarcode(input, body.querySelector("#cap-video")));
+			} else if (name === "product") {
+				photoStep(2, "Foto del producto", "product");
+			} else if (name === "label") {
+				photoStep(3, "Foto de etiqueta / tag", "label");
+			} else {
+				body.innerHTML = `
+					<div class="shp-step">4/4 Precio</div>
+					<input id="cap-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio pagado" value="${esc(cap.price)}">`;
+				const input = body.querySelector("#cap-price");
+				input.addEventListener("input", () => {
+					cap.price = input.value;
+					refresh();
+				});
+			}
+			refresh();
+		}
+
+		back.addEventListener("click", () => {
+			if (step > 0) {
+				step -= 1;
+				render();
+			}
+		});
+		next.addEventListener("click", async () => {
+			if (step < steps.length - 1) {
+				step += 1;
+				render();
+				return;
+			}
+			next.disabled = true;
+			next.textContent = "Guardando…";
+			try {
+				await api(
+					"erpn_custom.encargo.shopper.confirm_purchase",
+					{
+						encargo: row.name,
+						barcode: cap.barcode.trim(),
+						price: cap.price,
+						product_image: cap.product,
+						label_image: cap.label,
+						supplier: cap.place.supplier || null,
+						proposed_supplier_name: cap.place.proposed || null,
+						confirm_full_qty: cap.fullQty ? 1 : 0,
+					},
+					true
+				);
+				closePanel(panel);
+				state.rows = state.rows.filter((r) => r.name !== row.name);
+				renderList();
+				toast(`${row.name} comprado`);
+			} catch (e) {
+				toast(e.message);
+				refresh();
+			}
+		});
+		render();
+	}
+
+	function openNotFound(row) {
+		const fixedPlace = purchasePlace();
+		let place = fixedPlace;
+		const panel = openPanel(`
+			<div class="shp-bar"><strong>No encontrado</strong><button data-close>Cerrar</button></div>
+			<div class="shp-desc">${esc(row.description)}</div>
+			<div class="shp-step">Lugar</div>
+			${fixedPlace ? `<div class="shp-place">${esc(placeLabel(fixedPlace))}</div>` : placeFields("nf", false)}
+			<div class="shp-step">Observación (opcional)</div>
+			<textarea id="nf-notes" rows="3" placeholder="Ej.: no había talla, agotado"></textarea>
+			<div class="shp-nav"><button class="primary" id="nf-save" ${place ? "" : "disabled"}>Registrar no encontrado</button></div>`);
+		const save = panel.querySelector("#nf-save");
+		panel.querySelector("[data-close]").addEventListener("click", () => closePanel(panel));
+		if (!fixedPlace) {
+			bindPlaceFields("nf", (value) => {
+				place = value;
+				save.disabled = !value;
+			});
+		}
+		save.addEventListener("click", async () => {
+			save.disabled = true;
+			try {
+				const result = await api(
+					"erpn_custom.encargo.shopper.mark_not_found",
+					{
+						encargo: row.name,
+						supplier: place.supplier || null,
+						proposed_supplier_name: place.proposed || null,
+						notes: panel.querySelector("#nf-notes").value,
+					},
+					true
+				);
+				row.not_found_count = result.not_found_count;
+				row.needs_commercial_review = result.needs_commercial_review;
+				closePanel(panel);
+				renderList();
+				toast(result.needs_commercial_review ? "Registrado · pasa a revisión comercial" : "Registrado");
+			} catch (e) {
+				toast(e.message);
+				save.disabled = false;
+			}
+		});
+	}
+
+	async function init() {
+		try {
+			state.places = await api("erpn_custom.encargo.shopper.get_places");
+		} catch (e) {
+			root.innerHTML = `<div class="shp-empty">${esc(e.message)}</div>`;
+			return;
+		}
+		const saved = loadPlace();
+		const valid =
+			saved &&
+			(saved.supplier === TODOS || saved.proposed || state.places.some((p) => p.name === saved.supplier));
+		if (valid) {
+			state.place = saved;
+			loadList();
+		} else {
+			renderStart();
+		}
+	}
+
+	init();
+})();
+</script>
+{% endblock %}
