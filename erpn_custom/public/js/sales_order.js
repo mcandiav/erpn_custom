@@ -147,7 +147,8 @@ function apply_credit_dialog(frm, data) {
 	dialog.show();
 }
 
-function open_encargo_dialog(frm) {
+// preset: {description, brand, item_group, custom_departamento, attributes} from the item search.
+function open_encargo_dialog(frm, preset) {
 	let pasted_b64 = null;
 	let pasted_name = null;
 
@@ -334,7 +335,25 @@ function open_encargo_dialog(frm) {
 		await dialog.set_values(attributes);
 	}
 
-	load_classification();
+	async function apply_preset() {
+		await load_classification();
+		if (!preset) {
+			return;
+		}
+		const is_group = preset.item_group
+			? (await frappe.db.get_value("Item Group", preset.item_group, "is_group")).message?.is_group
+			: 0;
+		await dialog.set_values({
+			description: preset.description || "",
+			brand: preset.brand || "",
+			item_group: is_group ? "" : preset.item_group || "",
+			custom_departamento: preset.custom_departamento || "",
+		});
+		await load_classification();
+		await dialog.set_values(preset.attributes || {});
+	}
+
+	apply_preset();
 
 	dialog.$wrapper.on("paste", (e) => {
 		const items = e.originalEvent && e.originalEvent.clipboardData && e.originalEvent.clipboardData.items;
@@ -484,10 +503,38 @@ function open_item_search_dialog(frm) {
 		});
 	}
 
+	function open_encargo_from_filters() {
+		if (frm.is_new()) {
+			frappe.msgprint(__("Guarda la orden de venta antes de agregar un Encargo."));
+			return;
+		}
+		const values = dialog.get_values(true) || {};
+		const attributes = {};
+		SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+			if (values[fieldname]) {
+				attributes[fieldname] = values[fieldname];
+			}
+		});
+		dialog.hide();
+		open_encargo_dialog(frm, {
+			description: values.text,
+			brand: values.brand,
+			item_group: values.item_group,
+			custom_departamento: values.departamento,
+			attributes,
+		});
+	}
+
+	function encargo_button() {
+		return $("<button class='btn btn-sm btn-default'>")
+			.text(__("Crear Encargo con estos filtros"))
+			.on("click", open_encargo_from_filters);
+	}
+
 	function render(data) {
 		const wrapper = dialog.fields_dict.results.$wrapper.empty();
 		if (!data.items.length) {
-			wrapper.append($("<p class='text-muted'>").text(__("Sin resultados.")));
+			wrapper.append($("<p class='text-muted'>").text(__("Sin resultados.")), encargo_button());
 			return;
 		}
 		const headers = [
@@ -533,6 +580,10 @@ function open_item_search_dialog(frm) {
 				)
 			);
 		}
+		wrapper.append(
+			$("<p class='text-muted'>").text(__("¿No está la talla o el color que pide la clienta?")),
+			encargo_button()
+		);
 	}
 
 	async function add_item(item) {
