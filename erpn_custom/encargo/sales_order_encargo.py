@@ -157,12 +157,37 @@ def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None)
 	frappe.db.set_value("Encargo", name, values, update_modified=False)
 
 
-def activate_draft_encargos(doc):
-	names = frappe.get_all(
+def _draft_encargos_by_presence(doc):
+	"""Draft Encargos of the order split into (with a line in the order, orphan)."""
+	rows = frappe.get_all(
 		"Encargo",
 		filters={"sales_order": doc.name, "status": "Draft"},
-		pluck="name",
+		fields=["name", "sales_order_item"],
 	)
+	line_names = {item.name for item in doc.items}
+	linked = {item.get("custom_encargo") for item in doc.items if item.get("custom_encargo")}
+	present, orphan = [], []
+	for row in rows:
+		(present if row.name in linked or row.sales_order_item in line_names else orphan).append(row.name)
+	return present, orphan
+
+
+def cancel_orphan_draft_encargos(doc, method=None):
+	"""Sales Order validate: a Draft Encargo whose line was removed must not reach the shopper."""
+	if doc.is_new() or doc.docstatus != 0:
+		return
+	_present, orphan = _draft_encargos_by_presence(doc)
+	for name in orphan:
+		frappe.db.set_value("Encargo", name, "status", "Cancelled", update_modified=True)
+		frappe.msgprint(
+			_("{0} cancelado: se eliminó su línea de la orden.").format(name),
+			alert=True,
+			indicator="orange",
+		)
+
+
+def activate_draft_encargos(doc):
+	names, _orphan = _draft_encargos_by_presence(doc)
 	for name in names:
 		frappe.db.set_value(
 			"Encargo",

@@ -162,7 +162,10 @@ doc_events = {
 	},
 	"Sales Order": {
 		"before_validate": "erpn_custom.selling.sales_person_assignment.assign_sales_person",
-		"validate": "erpn_custom.encargo.sales_order_line.refresh_encargo_lines",
+		"validate": [
+			"erpn_custom.encargo.sales_order_line.refresh_encargo_lines",
+			"erpn_custom.encargo.sales_order_encargo.cancel_orphan_draft_encargos",
+		],
 		"before_submit": "erpn_custom.encargo.sales_order_encargo.before_submit",
 		"on_submit": "erpn_custom.encargo.sales_order_encargo.on_submit",
 		"on_cancel": "erpn_custom.encargo.sales_order_encargo.on_cancel",
