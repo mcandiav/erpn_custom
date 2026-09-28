@@ -352,6 +352,7 @@
 	}
 
 	function closePanel(panel) {
+		stopScanner();
 		panel.remove();
 		document.body.style.overflow = "";
 	}
@@ -377,44 +378,89 @@
 		});
 	}
 
+	// Same library Frappe's Desk scanner uses; decodes in JS where the browser has no BarcodeDetector (iPhone).
+	const SCANNER_SRC = "/assets/frappe/node_modules/html5-qrcode/html5-qrcode.min.js";
+	let scannerLib = null;
+	let activeScanner = null;
+
+	function loadScanner() {
+		if (window.__Html5QrcodeLibrary__) return Promise.resolve(window.__Html5QrcodeLibrary__);
+		if (!scannerLib) {
+			scannerLib = new Promise((resolve, reject) => {
+				const script = document.createElement("script");
+				script.src = SCANNER_SRC;
+				script.onload = () => resolve(window.__Html5QrcodeLibrary__);
+				script.onerror = () => {
+					scannerLib = null;
+					reject(new Error("No se pudo cargar el lector"));
+				};
+				document.head.appendChild(script);
+			});
+		}
+		return scannerLib;
+	}
+
+	async function stopScanner() {
+		const scanner = activeScanner;
+		activeScanner = null;
+		if (!scanner) return;
+		try {
+			await scanner.stop();
+			scanner.clear();
+		} catch (e) {}
+	}
+
+	function cameraError(e) {
+		const text = String((e && (e.name || e.message)) || e || "");
+		if (/NotAllowed|Permission/i.test(text)) return "Permiso de cámara denegado: habilítalo para este sitio en el navegador";
+		if (/NotFound|Overconstrained/i.test(text)) return "No se encontró la cámara trasera";
+		if (/NotReadable|in use/i.test(text)) return "La cámara está en uso por otra app";
+		if (!window.isSecureContext) return "La cámara requiere https";
+		return "No se pudo abrir la cámara: " + text;
+	}
+
 	async function scanBarcode(input, box) {
-		if (!("BarcodeDetector" in window) || !navigator.mediaDevices) {
-			toast("Este teléfono no escanea desde el navegador: escribe el código");
+		await stopScanner();
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			toast("Este navegador no permite usar la cámara: escribe el código");
 			input.focus();
 			return;
 		}
-		let stream;
+		let lib;
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+			lib = await loadScanner();
 		} catch (e) {
-			toast("Sin acceso a la cámara: escribe el código");
+			toast(e.message + ": escribe el código");
 			return;
 		}
-		const video = document.createElement("video");
-		video.className = "shp-video";
-		video.setAttribute("playsinline", "");
-		video.srcObject = stream;
-		box.innerHTML = "";
-		box.appendChild(video);
-		await video.play();
-		const detector = new BarcodeDetector();
-		const stop = () => {
-			stream.getTracks().forEach((t) => t.stop());
-			box.innerHTML = "";
-		};
-		const tick = async () => {
-			if (!video.isConnected) return stop();
-			try {
-				const codes = await detector.detect(video);
-				if (codes.length) {
-					input.value = codes[0].rawValue;
+		box.innerHTML = `<div id="cap-reader" class="shp-video"></div><div class="shp-nav"><button id="cap-scan-stop">Cancelar escaneo</button></div>`;
+		box.querySelector("#cap-scan-stop").addEventListener("click", () => stopScanner().then(() => (box.innerHTML = "")));
+		const F = lib.Html5QrcodeSupportedFormats;
+		const scanner = new lib.Html5Qrcode("cap-reader", {
+			verbose: false,
+			formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
+			experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+		});
+		activeScanner = scanner;
+		try {
+			await scanner.start(
+				{ facingMode: "environment" },
+				{ fps: 10, qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(h, w) * 0.45) }) },
+				async (text) => {
+					if (activeScanner !== scanner) return;
+					input.value = text;
 					input.dispatchEvent(new Event("input"));
-					return stop();
-				}
-			} catch (e) {}
-			setTimeout(tick, 250);
-		};
-		tick();
+					await stopScanner();
+					box.innerHTML = "";
+					toast("Código leído");
+				},
+				() => {}
+			);
+		} catch (e) {
+			activeScanner = null;
+			box.innerHTML = "";
+			toast(cameraError(e));
+		}
 	}
 
 	function openPurchase(row) {
@@ -486,6 +532,7 @@
 		}
 
 		function render() {
+			stopScanner();
 			const name = steps[step];
 			if (name === "barcode") {
 				body.innerHTML = `
