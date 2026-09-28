@@ -52,7 +52,7 @@ doctype_js = {
 	"Customer": "public/js/customer.js",
 	"Item": ["public/js/classification.js", "public/js/item.js"],
 	"Encargo": ["public/js/classification.js", "public/js/encargo_classification.js"],
-	"Sales Order": "public/js/sales_order.js",
+	"Sales Order": ["public/js/classification.js", "public/js/sales_order.js"],
 	"Bank Transaction": "public/js/bank_transaction.js",
 	"Courier Configuration": "public/js/courier_configuration.js",
 	"Shipment": "public/js/shipment.js",
@@ -162,6 +162,7 @@ doc_events = {
 	},
 	"Sales Order": {
 		"before_validate": "erpn_custom.selling.sales_person_assignment.assign_sales_person",
+		"validate": "erpn_custom.encargo.sales_order_line.refresh_encargo_lines",
 		"before_submit": "erpn_custom.encargo.sales_order_encargo.before_submit",
 		"on_submit": "erpn_custom.encargo.sales_order_encargo.on_submit",
 		"on_cancel": "erpn_custom.encargo.sales_order_encargo.on_cancel",

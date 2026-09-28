@@ -4,6 +4,7 @@ from frappe.model.document import Document
 from erpn_custom.catalog.item import apply_classification
 from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
 from erpn_custom.encargo.known_item import known_item_values, legacy_size_color
+from erpn_custom.encargo.sales_order_line import sync_sales_order_line
 
 
 class Encargo(Document):
@@ -26,6 +27,9 @@ class Encargo(Document):
 			brand, supplier = optional_supplier_for_brand(self.brand, self.supplier)
 			self.brand = brand
 			self.supplier = supplier
+
+	def on_update(self):
+		sync_sales_order_line(self)
 
 	def before_insert(self):
 		if not self.purchase_status:

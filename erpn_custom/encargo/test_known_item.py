@@ -34,7 +34,10 @@ class TestKnownItemValues(unittest.TestCase):
 			return known_item.known_item_values("198446906618")
 
 	def test_fields_come_from_item(self):
-		values = self._values(_item(item_group="Bota", custom_departamento="Mujer", custom_taco="Bajo"))
+		values = self._values(
+			_item(item_group="Bota", custom_familia="Calzado", custom_departamento="Mujer", custom_taco="Bajo")
+		)
+		self.assertEqual(values["custom_familia"], "Calzado")
 		self.assertEqual(values["brand"], "Michael Kors")
 		self.assertEqual(values["size"], "US 7.5 · EU 38.5 · CL 37.5")
 		self.assertEqual(values["color"], "Brown · Café · Marrom")

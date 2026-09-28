@@ -160,6 +160,7 @@
    "description": "Tipo del árbol (último nivel). Obligatorio en Encargos de producto desconocido.",
    "fieldname": "item_group",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Grupo de producto",
    "options": "Item Group"
@@ -181,12 +182,14 @@
   {
    "fieldname": "custom_color",
    "fieldtype": "Autocomplete",
+   "in_standard_filter": 1,
    "label": "Color"
   },
   {
    "depends_on": "eval:doc.custom_familia=='Calzado' || doc.custom_familia=='Ropa'",
    "fieldname": "custom_talla",
    "fieldtype": "Autocomplete",
+   "in_standard_filter": 1,
    "label": "Talla"
   },
   {
@@ -340,7 +343,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-27 15:30:00",
+ "modified": "2026-09-27 23:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
@@ -384,6 +387,7 @@
    "write": 1
   }
  ],
+ "search_fields": "description,brand,item_group,custom_talla,custom_color",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

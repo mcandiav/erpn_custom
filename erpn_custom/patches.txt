@@ -38,3 +38,4 @@ erpn_custom.patches.v0_0_26_item_brand_first
 erpn_custom.patches.v0_0_27_item_header_fix
 erpn_custom.patches.v0_0_28_known_encargo_item_fields
 erpn_custom.patches.v0_0_29_known_encargo_classification
+erpn_custom.patches.v0_0_30_known_encargo_familia

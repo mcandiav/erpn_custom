@@ -7,6 +7,7 @@ from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
 from erpn_custom.encargo.doctype.encargo.encargo import require_leaf_group
+from erpn_custom.encargo.sales_order_line import sync_sales_order_line
 from erpn_custom.selling.sales_person_assignment import resolve_sales_person_for_user
 
 
@@ -108,6 +109,7 @@ def create_unknown_encargo(
 		_attach_image(enc.name, image_filename, image_b64)
 
 	frappe.db.set_value("Sales Order Item", row.name, "custom_encargo", enc.name, update_modified=False)
+	sync_sales_order_line(frappe.get_doc("Encargo", enc.name))
 	so.reload()
 	return {"encargo": enc.name, "sales_order_item": row.name}
 

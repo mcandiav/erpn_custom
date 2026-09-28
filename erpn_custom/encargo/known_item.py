@@ -3,7 +3,7 @@ from frappe import _
 
 from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 
-CLASSIFICATION_FIELDS = ("item_group", "custom_departamento", *ATTRIBUTE_FIELDS.values())
+CLASSIFICATION_FIELDS = ("item_group", "custom_familia", "custom_departamento", *ATTRIBUTE_FIELDS.values())
 KNOWN_ITEM_FIELDS = ("brand", "size", "color", "description", "model", *CLASSIFICATION_FIELDS)
 
 

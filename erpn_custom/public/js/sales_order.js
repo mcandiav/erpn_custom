@@ -67,6 +67,29 @@ frappe.ui.form.on("Sales Order", {
 	},
 });
 
+frappe.ui.form.on("Sales Order Item", {
+	form_render(frm, cdt, cdn) {
+		show_view_encargo_button(frm, cdn);
+	},
+});
+
+function show_view_encargo_button(frm, cdn) {
+	const grid_row = frm.fields_dict.items.grid.grid_rows_by_docname[cdn];
+	const actions = grid_row?.grid_form?.wrapper?.find(".grid-form-heading .row-actions");
+	if (!actions?.length) {
+		return;
+	}
+	actions.find(".erpn-view-encargo").remove();
+	const encargo = grid_row.doc.custom_encargo;
+	if (!encargo) {
+		return;
+	}
+	$('<button class="btn btn-primary btn-sm pull-right erpn-view-encargo"></button>')
+		.text(__("Ver Encargo {0}", [encargo]))
+		.appendTo(actions)
+		.on("click", () => frappe.set_route("Form", "Encargo", encargo));
+}
+
 function format_money(value, currency) {
 	const code = currency || "CLP";
 	// CLP has no decimals in practice.
@@ -278,18 +301,16 @@ function open_encargo_dialog(frm) {
 		if (!value || (attribute_options[fieldname] || []).includes(value)) {
 			return;
 		}
-		frappe.show_alert(
-			{
-				message: __("{0} «{1}» no existe en la lista. Pide al administrador que lo agregue.", [
-					__(dialog.fields_dict[fieldname].df.label),
-					value,
-				]),
-				indicator: "orange",
-			},
-			7
-		);
+		erpn_custom.classification.alert_outside_list(dialog.fields_dict[fieldname].df.label, value);
 		dialog.set_value(fieldname, "");
 	}
+
+	SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {
+		erpn_custom.classification.warn_when_discarded(
+			dialog.fields_dict[fieldname],
+			() => attribute_options[fieldname] || []
+		);
+	});
 
 	async function copy_from_item(item_code) {
 		if (!item_code) {
