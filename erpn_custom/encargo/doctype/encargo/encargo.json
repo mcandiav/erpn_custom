@@ -228,6 +228,7 @@
    "label": "Model"
   },
   {
+   "depends_on": "eval:!doc.item_group",
    "description": "Se llena desde las listas de clasificación.",
    "fieldname": "size",
    "fieldtype": "Data",
@@ -235,6 +236,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:!doc.item_group",
    "description": "Se llena desde las listas de clasificación.",
    "fieldname": "color",
    "fieldtype": "Data",
@@ -343,7 +345,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-27 23:30:00",
+ "modified": "2026-09-27 23:45:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
