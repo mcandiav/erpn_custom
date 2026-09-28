@@ -71,7 +71,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 ### Spec vigente del Programador
 
-**Spec activa:** `014-clasificacion-producto-busqueda` — árbol Grupo → Familia → Tipo, atributos controlados por Familia (tallas US · EU · CL en una sola lista por Departamento, colores multilingües en un solo registro), diccionario de aduana, búsqueda por facetas para la vendedora y recarga limpia de la carga de prueba. La Spec se trabaja localmente (no se versiona). Etapa 1 en `16.0.47`; siguientes etapas: listas Color/Talla/Tono desde el catálogo, aduana, búsqueda y Encargo, recarga limpia (destructiva, con VP y OK de Miguel).
+**Spec activa:** `014-clasificacion-producto-busqueda` — árbol Grupo → Familia → Tipo, atributos controlados por Familia (tallas US · EU · CL en una sola lista por Departamento, colores multilingües en un solo registro), diccionario de aduana, búsqueda por facetas para la vendedora y recarga limpia de la carga de prueba. La Spec se trabaja localmente (no se versiona). Etapa 1 en `16.0.47`; **completa y validada en el sitio en `16.0.69`** (2026-09-27): US1–US8 y §6 Encargo clasificado. Próxima Spec: por definir por el Arquitecto (candidatas: precio de venta y costos de compra; vista de celular con escaneo, §11).
 
 **Spec anterior:** `013-encargo-preventa-recepcion` — modelo ENC para separar demanda pendiente de stock físico, generar encargos desde Sales Order, entregar una lista mínima al shopper Miami y conciliar el producto real en recepción Chile.
 
