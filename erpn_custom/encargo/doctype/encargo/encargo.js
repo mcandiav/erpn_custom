@@ -2,6 +2,7 @@ frappe.ui.form.on("Encargo", {
 	refresh(frm) {
 		bind_reference_image_paste(frm);
 		render_reference_image_preview(frm);
+		render_reference_url_link(frm);
 		render_purchase_images_preview(frm);
 		show_customer_contact_alert(frm);
 		frm.set_query("supplier", () => ({
@@ -19,7 +20,31 @@ frappe.ui.form.on("Encargo", {
 	reference_image(frm) {
 		render_reference_image_preview(frm);
 	},
+
+	reference_url(frm) {
+		render_reference_url_link(frm);
+	},
 });
+
+// Reference URL is free text: without a scheme the browser would resolve it against this site.
+function reference_href(value) {
+	const text = String(value || "").trim();
+	if (/^https?:\/\//i.test(text)) {
+		return text;
+	}
+	if (/^[^\s\/]+\.[a-z]{2,}(\/\S*)?$/i.test(text)) {
+		return "https://" + text;
+	}
+	return null;
+}
+
+function render_reference_url_link(frm) {
+	const href = reference_href(frm.doc.reference_url);
+	const description = href
+		? `<a href="${frappe.utils.escape_html(href)}" target="_blank" rel="noopener">${__("Abrir enlace")} ↗</a>`
+		: "";
+	frm.set_df_property("reference_url", "description", description);
+}
 
 function render_reference_image_preview(frm) {
 	const field = frm.fields_dict.reference_image_preview;
