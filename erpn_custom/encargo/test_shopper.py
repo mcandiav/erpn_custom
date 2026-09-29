@@ -123,9 +123,12 @@ class TestShopperRules(unittest.TestCase):
 			requested_qty=2,
 			not_found_count=0,
 			needs_commercial_review=0,
+			reference_url="https://derp.at-once.cl/desk/sales-order/OV-2026-00003",
 		)
 		row.get = lambda f, d=None: getattr(row, f, d) if f in ("custom_talla",) else None
-		card = shopper._card(row)
+		card = shopper._card(row, "derp.at-once.cl")
+		self.assertIsNone(card["reference_url"])
+		self.assertIsNone(card["reference_text"])
 		self.assertNotIn("customer", card)
 		self.assertNotIn("sale_rate", card)
 		self.assertNotIn("sales_order", card)
@@ -134,9 +137,26 @@ class TestShopperRules(unittest.TestCase):
 		self.assertEqual(card["variant"], "Talla: US 8 Â· EU 39 Â· CL 38")
 
 	def test_list_fields_exclude_commercial_data(self):
-		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item", "reference_url"):
+		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item"):
 			self.assertNotIn(field, shopper.LIST_FIELDS)
 			self.assertNotIn(field, shopper.PURCHASE_FIELDS)
+
+	def test_reference_link_keeps_store_links(self):
+		host = "derp.at-once.cl"
+		self.assertEqual(shopper.reference_link("https://www.zara.com/p1", host), ("https://www.zara.com/p1", None))
+		self.assertEqual(shopper.reference_link(" www.zara.com/cl/p?x=1 ", host), ("https://www.zara.com/cl/p?x=1", None))
+		self.assertEqual(shopper.reference_link("Ver foto en Instagram @tienda", host), (None, "Ver foto en Instagram @tienda"))
+		self.assertEqual(shopper.reference_link("", host), (None, None))
+
+	def test_reference_link_drops_erp_links(self):
+		host = "derp.at-once.cl"
+		for value in (
+			"https://derp.at-once.cl/desk/sales-order/OV-2026-00003",
+			"HTTPS://DERP.AT-ONCE.CL/app/encargo/ENC-1",
+			"derp.at-once.cl/desk/sales-order/OV-2026-00003",
+			"/desk/sales-order/OV-2026-00003",
+		):
+			self.assertEqual(shopper.reference_link(value, host), (None, None), value)
 
 	def test_period_start(self):
 		now = datetime(2026, 9, 28, 21, 30, 15)

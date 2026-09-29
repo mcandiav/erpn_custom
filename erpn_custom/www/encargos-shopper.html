@@ -148,6 +148,7 @@
 					<div class="shp-meta">Lugar: ${esc(row.place || "")}</div>
 					<div class="shp-meta">Precio: <strong>${esc(money(row.purchase_price))}</strong> · ${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
 					<div class="shp-meta">Barcode: ${esc(row.purchase_barcode || "")}</div>
+					${referenceHtml(row)}
 					<div class="shp-code">${esc(row.name)}</div>
 				</div>
 				<div class="shp-thumbs">${thumb(row.product_image, "Producto")}${thumb(row.label_image, "Etiqueta")}</div>
@@ -369,6 +370,13 @@
 		);
 	}
 
+	function referenceHtml(row) {
+		if (row.reference_url) {
+			return `<div class="shp-meta"><a href="${esc(row.reference_url)}" target="_blank" rel="noopener">Ver referencia ↗</a></div>`;
+		}
+		return row.reference_text ? `<div class="shp-meta">Referencia: ${esc(row.reference_text)}</div>` : "";
+	}
+
 	function card(row) {
 		const img = row.image
 			? `<img src="${esc(row.image)}" data-zoom loading="lazy" alt="">`
@@ -386,6 +394,7 @@
 					${row.model ? `<div class="shp-meta">Modelo: ${esc(row.model)}</div>` : ""}
 					${row.suggested_supplier ? `<div class="shp-meta">Sugerido: ${esc(row.suggested_supplier)}</div>` : ""}
 					${row.notes ? `<div class="shp-meta">${esc(row.notes)}</div>` : ""}
+					${referenceHtml(row)}
 					<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
 					${review}
 					<div class="shp-code">${esc(row.name)}</div>

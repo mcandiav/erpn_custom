@@ -1,10 +1,11 @@
 import base64
 import re
 from datetime import timedelta
+from urllib.parse import urlparse
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, now_datetime
+from frappe.utils import cint, flt, get_url, now_datetime
 
 SHOPPER_ROLE = "ShopperFRA"
 ALLOWED_ROLES = (SHOPPER_ROLE, "System Manager")
@@ -12,7 +13,7 @@ REVIEW_AFTER_NOT_FOUND = 3
 ALL_PLACES = "TODOS"
 
 # Never add customer, sales order, sale rate or seller: the shopper must not see them.
-# reference_url stays out too: sellers paste ERP links there that the shopper cannot open.
+# reference_url is only sent through reference_link(), which drops links into this ERP.
 LIST_FIELDS = [
 	"name",
 	"description",
@@ -32,6 +33,7 @@ LIST_FIELDS = [
 	"size",
 	"color",
 	"requested_qty",
+	"reference_url",
 	"notes",
 	"reference_image",
 	"not_found_count",
@@ -62,6 +64,8 @@ IMAGE_FIELDS = {
 	"label": "purchase_label_image",
 }
 LOCK_FIELDS = ["name", "status", "purchase_status", "shopper_user", "purchase_barcode", "requested_qty", "not_found_count"]
+URL_SCHEME = re.compile(r"^https?://", re.I)
+BARE_DOMAIN = re.compile(r"^[^\s/]+\.[a-z]{2,}(/\S*)?$", re.I)
 IMAGE_DATA_URL = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.S)
 
 
@@ -89,6 +93,28 @@ def missing_evidence(barcode, product_image, label_image, price):
 
 def needs_review(not_found_count):
 	return cint(not_found_count) >= REVIEW_AFTER_NOT_FOUND
+
+
+def reference_link(value, own_host):
+	"""(url, text) for the shopper. Links into this ERP (or relative paths) are dropped: they
+	expose the sales order and the shopper has no Desk access. Plain text is returned as text."""
+	text = (value or "").strip()
+	if not text:
+		return None, None
+	if URL_SCHEME.match(text):
+		url = text
+	elif BARE_DOMAIN.match(text):
+		url = "https://" + text
+	else:
+		return (None, None) if text.startswith("/") else (None, text)
+	host = (urlparse(url).hostname or "").lower()
+	if not host or host == (own_host or "").lower():
+		return None, None
+	return url, None
+
+
+def _own_host():
+	return urlparse(get_url()).hostname
 
 
 def period_start(period, now):
@@ -166,8 +192,11 @@ def _variant(row):
 	return " · ".join(parts)
 
 
-def _card(row):
+def _card(row, own_host=None):
+	reference_url, reference_text = reference_link(row.reference_url, own_host)
 	return {
+		"reference_url": reference_url,
+		"reference_text": reference_text,
 		"name": row.name,
 		"description": row.description,
 		"brand": row.brand,
@@ -221,11 +250,12 @@ def list_pending(supplier=None):
 			)
 		)
 		rows = [row for row in rows if row.supplier == supplier or row.brand in brands]
-	return [_card(row) for row in rows]
+	own_host = _own_host()
+	return [_card(row, own_host) for row in rows]
 
 
-def _purchase_card(row, place_labels):
-	card = _card(row)
+def _purchase_card(row, place_labels, own_host):
+	card = _card(row, own_host)
 	card.update(
 		{
 			"purchased_on": row.purchased_on,
@@ -254,8 +284,9 @@ def list_purchased(period="today"):
 		if suppliers
 		else {}
 	)
+	own_host = _own_host()
 	return {
-		"rows": [_purchase_card(row, place_labels) for row in rows],
+		"rows": [_purchase_card(row, place_labels, own_host) for row in rows],
 		"count": len(rows),
 		"total": flt(sum(flt(row.purchase_price) for row in rows), 2),
 	}
