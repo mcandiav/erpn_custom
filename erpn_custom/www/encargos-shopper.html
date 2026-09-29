@@ -107,8 +107,18 @@
 				<div class="shp-place" style="margin-bottom:12px">${esc(placeLabel(state.place) || "Sin lugar elegido")}</div>
 				<button id="more-place">Cambiar lugar</button>
 				<button id="more-reload">Actualizar encargos</button>
-				<a class="btn" href="/api/method/web_logout">Cerrar sesión</a>
+				<button id="more-logout">Cerrar sesión</button>
 			</div>`;
+		document.getElementById("more-logout").addEventListener("click", async (event) => {
+			event.target.disabled = true;
+			try {
+				await api("logout", {}, true);
+				window.location.href = "/login";
+			} catch (e) {
+				event.target.disabled = false;
+				toast(e.message);
+			}
+		});
 		document.getElementById("more-place").addEventListener("click", () => {
 			openModule("compras");
 			renderStart();
