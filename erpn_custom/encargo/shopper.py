@@ -12,6 +12,7 @@ REVIEW_AFTER_NOT_FOUND = 3
 ALL_PLACES = "TODOS"
 
 # Never add customer, sales order, sale rate or seller: the shopper must not see them.
+# reference_url stays out too: sellers paste ERP links there that the shopper cannot open.
 LIST_FIELDS = [
 	"name",
 	"description",
@@ -31,7 +32,6 @@ LIST_FIELDS = [
 	"size",
 	"color",
 	"requested_qty",
-	"reference_url",
 	"notes",
 	"reference_image",
 	"not_found_count",
@@ -179,7 +179,6 @@ def _card(row):
 		"variant": _variant(row),
 		"model": row.model,
 		"requested_qty": flt(row.requested_qty),
-		"reference_url": row.reference_url,
 		"notes": row.notes,
 		"image": _image_url(row.name, row.reference_image),
 		"not_found_count": cint(row.not_found_count),

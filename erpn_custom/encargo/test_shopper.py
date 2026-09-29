@@ -134,7 +134,7 @@ class TestShopperRules(unittest.TestCase):
 		self.assertEqual(card["variant"], "Talla: US 8 Â· EU 39 Â· CL 38")
 
 	def test_list_fields_exclude_commercial_data(self):
-		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item"):
+		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item", "reference_url"):
 			self.assertNotIn(field, shopper.LIST_FIELDS)
 			self.assertNotIn(field, shopper.PURCHASE_FIELDS)
 

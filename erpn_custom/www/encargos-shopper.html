@@ -365,17 +365,6 @@
 		);
 	}
 
-	// Reference URL is free text: without a scheme the browser resolves it against this site.
-	function referenceLink(value) {
-		const text = String(value || "").trim();
-		if (!text) return "";
-		let url = null;
-		if (/^https?:\/\//i.test(text)) url = text;
-		else if (/^[^\s\/]+\.[a-z]{2,}(\/\S*)?$/i.test(text)) url = "https://" + text;
-		if (!url) return `<div class="shp-meta">Referencia: ${esc(text)}</div>`;
-		return `<div class="shp-meta"><a href="${esc(url)}" target="_blank" rel="noopener">Ver referencia</a></div>`;
-	}
-
 	function card(row) {
 		const img = row.image
 			? `<img src="${esc(row.image)}" loading="lazy" alt="">`
@@ -383,7 +372,6 @@
 		const review = row.not_found_count
 			? `<div class="shp-warn">No encontrado ${row.not_found_count} ${row.not_found_count === 1 ? "vez" : "veces"}${row.needs_commercial_review ? " · en revisión comercial" : ""}</div>`
 			: "";
-		const link = referenceLink(row.reference_url);
 		return `
 			<div class="shp-card" data-name="${esc(row.name)}">
 				${img}
@@ -394,7 +382,6 @@
 					${row.model ? `<div class="shp-meta">Modelo: ${esc(row.model)}</div>` : ""}
 					${row.suggested_supplier ? `<div class="shp-meta">Sugerido: ${esc(row.suggested_supplier)}</div>` : ""}
 					${row.notes ? `<div class="shp-meta">${esc(row.notes)}</div>` : ""}
-					${link}
 					<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
 					${review}
 					<div class="shp-code">${esc(row.name)}</div>
