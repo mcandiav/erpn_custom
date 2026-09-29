@@ -39,6 +39,14 @@
 	.shp-tabs button.active { color: #1f6feb; font-weight: 700; }
 	.shp-tabs svg { width: 24px; height: 24px; }
 	.shp-more a, .shp-more button { display: block; width: 100%; text-align: left; margin-bottom: 8px; }
+	.shp-seg { display: flex; gap: 6px; margin-bottom: 10px; }
+	.shp-seg button { flex: 1; padding: 10px 6px; }
+	.shp-seg button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+	.shp-sum { display: flex; justify-content: space-between; background: #f5f8ff; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; }
+	.shp-ok { display: inline-block; background: #e6f4ea; color: #1e6b34; border-radius: 6px; padding: 2px 8px; font-size: .85rem; font-weight: 700; }
+	.shp-thumbs { grid-column: 1 / -1; display: flex; gap: 8px; }
+	.shp-thumbs a { flex: 1; font-size: .8rem; color: #555; text-align: center; text-decoration: none; }
+	.shp-thumbs img { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; background: #f0f0f0; display: block; margin-bottom: 2px; }
 </style>
 <div class="shp"><div id="shp"></div></div>
 <nav class="shp-tabs" id="shp-tabs"></nav>
@@ -52,6 +60,12 @@
 	const PLACE_KEY = "erpn_shopper_place";
 	const FILTERS_KEY = "erpn_shopper_filters";
 	const MODULE_KEY = "erpn_shopper_module";
+	const PERIOD_KEY = "erpn_shopper_period";
+	const PERIODS = [
+		{ id: "today", label: "Hoy" },
+		{ id: "7d", label: "Últimos 7 días" },
+		{ id: "all", label: "Todo" },
+	];
 	const root = document.getElementById("shp");
 	const tabs = document.getElementById("shp-tabs");
 	const state = { places: [], place: null, rows: [], loaded: false, module: null, filters: loadFilters() };
@@ -68,10 +82,12 @@
 	// Shopper modules: add future ones (Cajas, Recepción Miami) here; each keeps its own state.
 	const ICONS = {
 		cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h9.6a1 1 0 0 0 1-.8L21 7H6"/></svg>',
+		bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7h12l1 14H5L6 7z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/><path d="M9.5 15l2 2 3.5-4"/></svg>',
 		more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
 	};
 	const MODULES = [
 		{ id: "compras", label: "Compras", icon: ICONS.cart, enter: enterCompras },
+		{ id: "mis", label: "Mis compras", icon: ICONS.bag, enter: enterMine },
 		{ id: "mas", label: "Más", icon: ICONS.more, enter: renderMore },
 	];
 
@@ -97,6 +113,67 @@
 		if (!state.place) return renderStart();
 		if (state.loaded) return renderList();
 		loadList();
+	}
+
+	function money(value) {
+		return Number(value || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
+
+	function when(value) {
+		// Safari rejects microseconds and the space separator of Frappe datetimes.
+		const date = new Date(String(value || "").replace(" ", "T").replace(/\.\d+$/, ""));
+		if (isNaN(date)) return value || "";
+		return date.toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+	}
+
+	function thumb(url, label) {
+		if (!url) return "";
+		return `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" loading="lazy" alt="">${label}</a>`;
+	}
+
+	function mineCard(row) {
+		const img = row.image ? `<img src="${esc(row.image)}" loading="lazy" alt="">` : `<div class="shp-noimg"></div>`;
+		return `
+			<div class="shp-card">
+				${img}
+				<div>
+					<div class="shp-ok">Comprado · ${esc(when(row.purchased_on))}</div>
+					<div class="shp-desc" style="margin-top:4px">${esc(row.description)}</div>
+					<div class="shp-meta">${esc(row.brand || "")}${row.item_group ? " · " + esc(row.item_group) : ""}</div>
+					${row.variant ? `<div class="shp-meta">${esc(row.variant)}</div>` : ""}
+					<div class="shp-meta">Lugar: ${esc(row.place || "")}</div>
+					<div class="shp-meta">Precio: <strong>${esc(money(row.purchase_price))}</strong> · ${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+					<div class="shp-meta">Barcode: ${esc(row.purchase_barcode || "")}</div>
+					<div class="shp-code">${esc(row.name)}</div>
+				</div>
+				<div class="shp-thumbs">${thumb(row.product_image, "Producto")}${thumb(row.label_image, "Etiqueta")}</div>
+			</div>`;
+	}
+
+	async function enterMine() {
+		const period = PERIODS.some((p) => p.id === localStorage.getItem(PERIOD_KEY)) ? localStorage.getItem(PERIOD_KEY) : "today";
+		root.innerHTML = `
+			<h1>Mis compras</h1>
+			<div class="shp-seg">${PERIODS.map((p) => `<button data-period="${p.id}" class="${p.id === period ? "active" : ""}">${p.label}</button>`).join("")}</div>
+			<div id="mine-body"><div class="shp-empty">Cargando…</div></div>`;
+		root.querySelectorAll("[data-period]").forEach((btn) =>
+			btn.addEventListener("click", () => {
+				localStorage.setItem(PERIOD_KEY, btn.dataset.period);
+				enterMine();
+			})
+		);
+		const body = document.getElementById("mine-body");
+		let data;
+		try {
+			data = await api("erpn_custom.encargo.shopper.list_purchased", { period: period });
+		} catch (e) {
+			body.innerHTML = `<div class="shp-empty">${esc(e.message)}</div>`;
+			return;
+		}
+		if (state.module !== "mis") return;
+		body.innerHTML = `
+			<div class="shp-sum"><span>${data.count} ${data.count === 1 ? "compra" : "compras"}</span><span>Total ${esc(money(data.total))}</span></div>
+			${data.rows.length ? data.rows.map(mineCard).join("") : `<div class="shp-empty">Sin compras en este período.</div>`}`;
 	}
 
 	function renderMore() {

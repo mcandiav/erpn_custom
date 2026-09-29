@@ -1,5 +1,6 @@
 import base64
 import re
+from datetime import timedelta
 
 import frappe
 from frappe import _
@@ -46,6 +47,20 @@ ATTRIBUTE_LABELS = (
 	("custom_tono", "Tono"),
 	("custom_contenido", "Contenido"),
 )
+PURCHASE_FIELDS = LIST_FIELDS + [
+	"purchased_on",
+	"purchase_price",
+	"purchase_barcode",
+	"purchase_supplier",
+	"proposed_supplier_name",
+	"purchase_product_image",
+	"purchase_label_image",
+]
+IMAGE_FIELDS = {
+	"reference": "reference_image",
+	"product": "purchase_product_image",
+	"label": "purchase_label_image",
+}
 LOCK_FIELDS = ["name", "status", "purchase_status", "shopper_user", "purchase_barcode", "requested_qty", "not_found_count"]
 IMAGE_DATA_URL = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.S)
 
@@ -74,6 +89,24 @@ def missing_evidence(barcode, product_image, label_image, price):
 
 def needs_review(not_found_count):
 	return cint(not_found_count) >= REVIEW_AFTER_NOT_FOUND
+
+
+def period_start(period, now):
+	"""'all' has no lower bound; '7d' is the last seven days; anything else is today."""
+	if period == "all":
+		return None
+	if period == "7d":
+		return now - timedelta(days=7)
+	return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def can_view_image(row, user, kind):
+	"""Pending Encargos expose only the reference; a purchase exposes everything to its own shopper."""
+	if not row or kind not in IMAGE_FIELDS:
+		return False
+	if row.get("purchase_status") == "PURCHASED":
+		return row.get("shopper_user") == user
+	return kind == "reference" and row.get("status") == "Open" and row.get("purchase_status") == "PENDING"
 
 
 def purchase_decision(row, user, barcode):
@@ -118,11 +151,11 @@ def _lock_pending(encargo):
 	return row
 
 
-def _image_url(encargo, file_url):
+def _image_url(encargo, file_url, kind="reference"):
 	if not file_url:
 		return None
 	if file_url.startswith("/private/"):
-		return f"/api/method/erpn_custom.encargo.shopper.reference_image?encargo={encargo}"
+		return f"/api/method/erpn_custom.encargo.shopper.reference_image?encargo={encargo}&kind={kind}"
 	return file_url
 
 
@@ -192,15 +225,52 @@ def list_pending(supplier=None):
 	return [_card(row) for row in rows]
 
 
+def _purchase_card(row, place_labels):
+	card = _card(row)
+	card.update(
+		{
+			"purchased_on": row.purchased_on,
+			"purchase_price": flt(row.purchase_price, 2),
+			"purchase_barcode": row.purchase_barcode,
+			"place": place_labels.get(row.purchase_supplier) or row.purchase_supplier or row.proposed_supplier_name,
+			"product_image": _image_url(row.name, row.purchase_product_image, "product"),
+			"label_image": _image_url(row.name, row.purchase_label_image, "label"),
+		}
+	)
+	return card
+
+
 @frappe.whitelist()
-def reference_image(encargo):
+def list_purchased(period="today"):
+	"""Only the purchases of the logged-in shopper; same hidden fields as the pending list."""
+	_require_shopper()
+	filters = {"purchase_status": "PURCHASED", "shopper_user": frappe.session.user}
+	start = period_start(period, now_datetime())
+	if start:
+		filters["purchased_on"] = (">=", start)
+	rows = frappe.get_all("Encargo", filters=filters, fields=PURCHASE_FIELDS, order_by="purchased_on desc")
+	suppliers = list({row.purchase_supplier for row in rows if row.purchase_supplier})
+	place_labels = (
+		dict(frappe.get_all("Supplier", filters={"name": ("in", suppliers)}, fields=["name", "supplier_name"], as_list=True))
+		if suppliers
+		else {}
+	)
+	return {
+		"rows": [_purchase_card(row, place_labels) for row in rows],
+		"count": len(rows),
+		"total": flt(sum(flt(row.purchase_price) for row in rows), 2),
+	}
+
+
+@frappe.whitelist()
+def reference_image(encargo, kind="reference"):
 	_require_shopper()
 	row = frappe.db.get_value(
-		"Encargo", encargo, ["status", "purchase_status", "reference_image"], as_dict=True
+		"Encargo", encargo, ["status", "purchase_status", "shopper_user", *IMAGE_FIELDS.values()], as_dict=True
 	)
-	if not row or row.status != "Open" or row.purchase_status != "PENDING" or not row.reference_image:
+	if not can_view_image(row, frappe.session.user, kind) or not row.get(IMAGE_FIELDS[kind]):
 		raise frappe.DoesNotExistError
-	file_name = frappe.db.get_value("File", {"file_url": row.reference_image}, "name")
+	file_name = frappe.db.get_value("File", {"file_url": row.get(IMAGE_FIELDS[kind])}, "name")
 	if not file_name:
 		raise frappe.DoesNotExistError
 	file_doc = frappe.get_doc("File", file_name)

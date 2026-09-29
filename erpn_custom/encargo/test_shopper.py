@@ -1,6 +1,7 @@
-import base64
+﻿import base64
 import sys
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 _frappe = MagicMock()
@@ -135,6 +136,28 @@ class TestShopperRules(unittest.TestCase):
 	def test_list_fields_exclude_commercial_data(self):
 		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item"):
 			self.assertNotIn(field, shopper.LIST_FIELDS)
+			self.assertNotIn(field, shopper.PURCHASE_FIELDS)
+
+	def test_period_start(self):
+		now = datetime(2026, 9, 28, 21, 30, 15)
+		self.assertIsNone(shopper.period_start("all", now))
+		self.assertEqual(shopper.period_start("7d", now), datetime(2026, 9, 21, 21, 30, 15))
+		self.assertEqual(shopper.period_start("today", now), datetime(2026, 9, 28))
+		self.assertEqual(shopper.period_start("otro", now), datetime(2026, 9, 28))
+
+	def test_images_of_a_purchase_only_for_its_shopper(self):
+		bought = {"status": "Open", "purchase_status": "PURCHASED", "shopper_user": "a@x.cl"}
+		for kind in ("reference", "product", "label"):
+			self.assertTrue(shopper.can_view_image(bought, "a@x.cl", kind))
+			self.assertFalse(shopper.can_view_image(bought, "b@x.cl", kind))
+		self.assertFalse(shopper.can_view_image(bought, "a@x.cl", "customer"))
+
+	def test_pending_encargo_exposes_only_reference(self):
+		pending = {"status": "Open", "purchase_status": "PENDING", "shopper_user": None}
+		self.assertTrue(shopper.can_view_image(pending, "a@x.cl", "reference"))
+		self.assertFalse(shopper.can_view_image(pending, "a@x.cl", "product"))
+		self.assertFalse(shopper.can_view_image({**pending, "status": "Cancelled"}, "a@x.cl", "reference"))
+		self.assertFalse(shopper.can_view_image(None, "a@x.cl", "reference"))
 
 
 if __name__ == "__main__":
