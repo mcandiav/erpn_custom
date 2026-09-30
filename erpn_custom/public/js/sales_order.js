@@ -24,9 +24,13 @@ frappe.ui.form.on("Sales Order", {
 		}
 
 		frm.remove_custom_button(__("Agregar Encargo"));
-		if (frm.doc.docstatus === 0 && !frm.is_new()) {
+		if (frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Agregar Encargo"), () => open_encargo_dialog(frm));
 		}
+		frm.set_query("item_code", "items", () => ({
+			query: "erpn_custom.encargo.api.sales_item_query",
+			filters: { is_sales_item: 1, customer: frm.doc.customer },
+		}));
 	},
 
 	show_customer_credit(frm) {
@@ -257,16 +261,42 @@ function open_encargo_dialog(frm, preset) {
 			} else if (values.image) {
 				args.reference_image = values.image;
 			}
-			dialog.hide();
-			frappe.call({
-				method: "erpn_custom.encargo.api.create_unknown_encargo",
-				args,
-				freeze: true,
-				freeze_message: __("Creando Encargo"),
-				callback() {
-					frm.reload_doc();
-				},
-			});
+			const create = () => {
+				args.sales_order = frm.doc.name;
+				dialog.hide();
+				frappe.call({
+					method: "erpn_custom.encargo.api.create_unknown_encargo",
+					args,
+					freeze: true,
+					freeze_message: __("Creando Encargo"),
+					callback() {
+						frm.reload_doc();
+					},
+				});
+			};
+			if (!frm.is_new()) {
+				create();
+				return;
+			}
+			if (!frm.doc.customer) {
+				frappe.msgprint(__("Selecciona el cliente antes de crear el Encargo."));
+				return;
+			}
+			frappe
+				.call({ method: "erpn_custom.encargo.api.prepare_pending_item" })
+				.then(() => {
+					const pending = (frm.doc.items || []).find(
+						(row) => row.item_code === "ENCARGO-PENDIENTE" && !row.custom_encargo
+					);
+					if (pending) {
+						return null;
+					}
+					const row = frm.add_child("items");
+					return frappe.model.set_value(row.doctype, row.name, "item_code", "ENCARGO-PENDIENTE");
+				})
+				.then(() => frm.save())
+				.then(() => create())
+				.catch(() => {});
 		},
 	});
 
@@ -504,10 +534,6 @@ function open_item_search_dialog(frm) {
 	}
 
 	function open_encargo_from_filters() {
-		if (frm.is_new()) {
-			frappe.msgprint(__("Guarda la orden de venta antes de agregar un Encargo."));
-			return;
-		}
 		const values = dialog.get_values(true) || {};
 		const attributes = {};
 		SEARCH_ATTRIBUTE_FIELDS.forEach(([fieldname]) => {

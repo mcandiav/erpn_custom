@@ -11,6 +11,9 @@ def execute():
 	ensure_partial_reservation_if_enabled()
 
 
+PENDING_ITEM_NAME = "Encargo pendiente (producto no identificado)"
+
+
 def ensure_encargo_pendiente_item():
 	if frappe.db.exists("Item", ENCARGO_PENDIENTE_ITEM):
 		doc = frappe.get_doc("Item", ENCARGO_PENDIENTE_ITEM)
@@ -20,6 +23,9 @@ def ensure_encargo_pendiente_item():
 			changed = True
 		if cint(doc.disabled):
 			doc.disabled = 0
+			changed = True
+		if doc.item_name != PENDING_ITEM_NAME:
+			doc.item_name = PENDING_ITEM_NAME
 			changed = True
 		if changed:
 			doc.save(ignore_permissions=True)
@@ -31,7 +37,7 @@ def ensure_encargo_pendiente_item():
 		{
 			"doctype": "Item",
 			"item_code": ENCARGO_PENDIENTE_ITEM,
-			"item_name": "Encargo pendiente (producto no identificado)",
+			"item_name": PENDING_ITEM_NAME,
 			"item_group": item_group,
 			"stock_uom": uom,
 			"is_stock_item": 0,
