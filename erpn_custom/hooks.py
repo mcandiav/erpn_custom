@@ -101,6 +101,8 @@ role_home_page = {
 # before_install = "erpn_custom.install.before_install"
 # after_install = "erpn_custom.install.after_install"
 
+after_migrate = ["erpn_custom.selling.selling_sidebar.ensure_encargo_link"]
+
 # Uninstallation
 # ------------
 
