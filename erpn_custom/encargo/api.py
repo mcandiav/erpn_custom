@@ -59,22 +59,24 @@ def create_unknown_encargo(
 	elif so.get("sales_team"):
 		sales_person = so.sales_team[0].sales_person
 
-	so.append(
-		"items",
-		{
-			"item_code": ENCARGO_PENDIENTE_ITEM,
-			"item_name": description[:140],
-			"description": description,
-			"qty": qty,
-			"rate": flt(rate),
-			"uom": frappe.get_cached_value("Item", ENCARGO_PENDIENTE_ITEM, "stock_uom") or "Unidad",
-			"conversion_factor": 1,
-			"custom_stock_committed_qty": 0,
-			"custom_encargo_qty": qty,
-		},
-	)
+	pending_values = {
+		"item_code": ENCARGO_PENDIENTE_ITEM,
+		"item_name": description[:140],
+		"description": description,
+		"qty": qty,
+		"rate": flt(rate),
+		"uom": frappe.get_cached_value("Item", ENCARGO_PENDIENTE_ITEM, "stock_uom") or "Unidad",
+		"conversion_factor": 1,
+		"custom_stock_committed_qty": 0,
+		"custom_encargo_qty": qty,
+	}
+	row = _unlinked_pending_row(so)
+	if row:
+		row.update(pending_values)
+	else:
+		so.append("items", pending_values)
+		row = so.items[-1]
 	so.save()
-	row = so.items[-1]
 
 	enc = frappe.get_doc(
 		{
@@ -108,7 +110,12 @@ def create_unknown_encargo(
 	if image_b64 and image_filename:
 		_attach_image(enc.name, image_filename, image_b64)
 
-	frappe.db.set_value("Sales Order Item", row.name, "custom_encargo", enc.name, update_modified=False)
+	frappe.db.set_value(
+		"Sales Order Item",
+		row.name,
+		{"custom_encargo": enc.name, "item_name": description[:140]},
+		update_modified=False,
+	)
 	sync_sales_order_line(frappe.get_doc("Encargo", enc.name))
 	so.reload()
 	return {"encargo": enc.name, "sales_order_item": row.name}
@@ -165,6 +172,13 @@ def _attach_image(encargo, filename, content_b64):
 	)
 	frappe.db.set_value("Encargo", encargo, "reference_image", file_doc.file_url)
 	return file_doc.file_url
+
+
+def _unlinked_pending_row(so):
+	for item in so.items or []:
+		if item.item_code == ENCARGO_PENDIENTE_ITEM and not item.get("custom_encargo"):
+			return item
+	return None
 
 
 def _ensure_pending_item():
