@@ -85,19 +85,24 @@ frappe.ui.form.on("Sales Order Item", {
 
 function show_view_encargo_button(frm, cdn) {
 	const grid_row = frm.fields_dict.items.grid.grid_rows_by_docname[cdn];
-	const actions = grid_row?.grid_form?.wrapper?.find(".grid-form-heading .row-actions");
-	if (!actions?.length) {
+	// Not inside .row-actions: Frappe hides it once the order is submitted.
+	const toolbar = grid_row?.grid_form?.wrapper?.find(".grid-form-heading .grid-header-toolbar");
+	if (!toolbar?.length) {
 		return;
 	}
-	actions.find(".erpn-view-encargo").remove();
+	toolbar.find(".erpn-view-encargo").remove();
 	const encargo = grid_row.doc.custom_encargo;
 	if (!encargo) {
 		return;
 	}
 	$('<button class="btn btn-primary btn-sm pull-right erpn-view-encargo"></button>')
 		.text(__("Ver Encargo {0}", [encargo]))
-		.appendTo(actions)
-		.on("click", () => frappe.set_route("Form", "Encargo", encargo));
+		.appendTo(toolbar)
+		.on("click", () => {
+			frappe.set_route("Form", "Encargo", encargo);
+			// The heading click would collapse the row.
+			return false;
+		});
 }
 
 function format_money(value, currency) {
