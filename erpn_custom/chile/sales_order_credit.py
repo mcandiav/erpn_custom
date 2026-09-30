@@ -25,7 +25,7 @@ def credit_summary(sales_order=None, customer=None):
 		frappe.throw(_("Seleccione un cliente"))
 	available, payments = _available_credit(customer)
 	grand_total = flt(so.rounded_total or so.grand_total) if so else 0
-	advance_paid = _applied_to_order(so.name) if so else 0
+	advance_paid = applied_to_order(so.name) if so else 0
 	pending = remaining_order_amount(grand_total, advance_paid)
 	return {
 		"customer": customer,
@@ -187,7 +187,7 @@ def _load_sales_order(name):
 	return frappe.get_doc("Sales Order", name)
 
 
-def _applied_to_order(sales_order):
+def applied_to_order(sales_order):
 	rows = frappe.get_all(
 		"Payment Entry Reference",
 		filters={
@@ -201,7 +201,7 @@ def _applied_to_order(sales_order):
 
 
 def _sync_advance_paid(so):
-	allocated = _applied_to_order(so.name)
+	allocated = applied_to_order(so.name)
 	so.db_set("advance_paid", allocated, update_modified=True)
 	return allocated
 

@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from erpn_custom.chile.sales_order_credit import applied_to_order
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 from erpn_custom.encargo.known_item import known_item_values
 from erpn_custom.encargo.stock_split import allocate_available_across_rows, available_to_sell
@@ -10,6 +11,9 @@ from erpn_custom.encargo.stock_split import allocate_available_across_rows, avai
 def before_submit(doc, method=None):
 	if getattr(doc, "doctype", None) != "Sales Order":
 		return
+	# Gates run before anything that creates Encargos or reservations.
+	require_order_lines(doc)
+	require_applied_payment(doc)
 	apply_stock_encargo_split(doc)
 	validate_unknown_item_rows(doc)
 	ensure_encargos_for_known_shortfalls(doc)
@@ -33,6 +37,16 @@ def on_cancel(doc, method=None):
 	if getattr(doc, "doctype", None) != "Sales Order":
 		return
 	cancel_or_block_encargos(doc)
+
+
+def require_order_lines(doc):
+	if not doc.get("items"):
+		frappe.throw(_("La Orden de Venta debe contener al menos un producto o Encargo antes de validarse."))
+
+
+def require_applied_payment(doc):
+	if applied_to_order(doc.name) <= 0:
+		frappe.throw(_("La Orden de Venta requiere al menos un pago aplicado antes de validarse."))
 
 
 def apply_stock_encargo_split(doc):

@@ -23,6 +23,7 @@ sys.modules.setdefault("frappe.utils", _frappe.utils)
 
 from erpn_custom.encargo.sales_order_encargo import (  # noqa: E402
 	apply_stock_encargo_split,
+	before_submit,
 	validate_unknown_item_rows,
 )
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM  # noqa: E402
@@ -50,6 +51,9 @@ class _SO:
 		self.name = "SAL-ORD-TEST"
 		self.customer = "CUST"
 		self.sales_team = []
+
+	def get(self, key, default=None):
+		return getattr(self, key, default)
 
 
 class TestApplySplit(unittest.TestCase):
@@ -111,6 +115,52 @@ class TestValidateUnknown(unittest.TestCase):
 		row = _Item(item_code=ENCARGO_PENDIENTE_ITEM, qty=1, name="r1", custom_encargo="ENC-1")
 		doc = _SO([row])
 		validate_unknown_item_rows(doc)
+
+
+_MOD = "erpn_custom.encargo.sales_order_encargo"
+
+
+@patch(f"{_MOD}.ensure_encargos_for_known_shortfalls")
+@patch(f"{_MOD}.validate_unknown_item_rows")
+@patch(f"{_MOD}.apply_stock_encargo_split")
+class TestSubmitGates(unittest.TestCase):
+	def setUp(self):
+		# Another test module may have registered its own frappe mock first.
+		for patcher in (
+			patch(f"{_MOD}.frappe.throw", side_effect=_throw),
+			patch(f"{_MOD}._", side_effect=lambda msg: msg),
+		):
+			patcher.start()
+			self.addCleanup(patcher.stop)
+
+	def test_empty_order_blocked_before_any_effect(self, split, unknown, shortfalls):
+		with patch(f"{_MOD}.applied_to_order", return_value=50000.0) as applied:
+			with self.assertRaises(_Throw) as ctx:
+				before_submit(_SO([]))
+		self.assertIn("al menos un producto o Encargo", str(ctx.exception))
+		applied.assert_not_called()
+		split.assert_not_called()
+		shortfalls.assert_not_called()
+
+	def test_no_applied_payment_blocked_before_any_effect(self, split, unknown, shortfalls):
+		row = _Item(item_code="ITEM-A", warehouse="Matriz - FRAG", qty=1, name="r1")
+		with patch(f"{_MOD}.applied_to_order", return_value=0.0) as applied:
+			with self.assertRaises(_Throw) as ctx:
+				before_submit(_SO([row]))
+		self.assertIn("pago aplicado", str(ctx.exception))
+		applied.assert_called_once_with("SAL-ORD-TEST")
+		split.assert_not_called()
+		unknown.assert_not_called()
+		shortfalls.assert_not_called()
+
+	def test_partial_payment_passes_gates(self, split, unknown, shortfalls):
+		row = _Item(item_code="ITEM-A", warehouse="Matriz - FRAG", qty=1, name="r1")
+		doc = _SO([row])
+		with patch(f"{_MOD}.applied_to_order", return_value=10000.0):
+			before_submit(doc)
+		split.assert_called_once_with(doc)
+		unknown.assert_called_once_with(doc)
+		shortfalls.assert_called_once_with(doc)
 
 
 if __name__ == "__main__":
