@@ -161,7 +161,10 @@ doc_events = {
 		"on_update": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
 	},
 	"Sales Order": {
-		"before_validate": "erpn_custom.selling.sales_person_assignment.assign_sales_person",
+		"before_validate": [
+			"erpn_custom.selling.sales_person_assignment.assign_sales_person",
+			"erpn_custom.selling.delivery_date.default_delivery_date",
+		],
 		"validate": [
 			"erpn_custom.encargo.sales_order_line.refresh_encargo_lines",
 			"erpn_custom.encargo.sales_order_encargo.cancel_orphan_draft_encargos",

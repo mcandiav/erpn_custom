@@ -1,4 +1,14 @@
+// Keep in sync with DEFAULT_DELIVERY_DAYS in selling/delivery_date.py.
+const DEFAULT_DELIVERY_DAYS = 7;
+
 frappe.ui.form.on("Sales Order", {
+	onload(frm) {
+		if (frm.is_new() && !frm.doc.delivery_date) {
+			const base = frm.doc.transaction_date || frappe.datetime.get_today();
+			frm.set_value("delivery_date", frappe.datetime.add_days(base, DEFAULT_DELIVERY_DAYS));
+		}
+	},
+
 	refresh(frm) {
 		frm.trigger("show_customer_credit");
 		frm.trigger("setup_encargo_ui");
