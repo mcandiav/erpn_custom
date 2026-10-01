@@ -249,7 +249,7 @@
    "description": "Se llena desde las listas de clasificación.",
    "fieldname": "size",
    "fieldtype": "Data",
-   "label": "Size",
+   "label": "Talla obsoleta",
    "read_only": 1
   },
   {
@@ -257,7 +257,7 @@
    "description": "Se llena desde las listas de clasificación.",
    "fieldname": "color",
    "fieldtype": "Data",
-   "label": "Color",
+   "label": "Color obsoleto",
    "read_only": 1
   },
   {
@@ -440,7 +440,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-28 16:00:00",
+ "modified": "2026-10-01 10:10:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
@@ -488,6 +488,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "description",
  "track_changes": 1
 }
