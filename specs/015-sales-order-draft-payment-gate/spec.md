@@ -1,6 +1,6 @@
 # Spec 015 — Orden de Venta Draft sin líneas y validación comercial segura
 
-**Estado:** ACTIVA — AUTORIZADA PARA PLANIFICACIÓN TÉCNICA E IMPLEMENTACIÓN  
+**Estado:** CERRADA — validada en el sitio el 2026-09-30 (producto desde `16.0.85`)  
 **Fecha:** 2026-09-30  
 **Proyecto:** ERPn Custom / FRAgallardo  
 **Dependencias:** Spec 013 (Encargo), flujo de pagos de clientes existente  

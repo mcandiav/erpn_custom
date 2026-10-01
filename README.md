@@ -87,7 +87,11 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 ### Spec vigente del Programador
 
-**Spec activa:** `015-sales-order-draft-payment-gate` — AUTORIZADA. Permitir guardar OV Draft sin líneas; Submit exige al menos una línea válida y pago aplicado > 0; Encargos llegan al Shopper solo tras Submit exitoso. El Programador debe leer README + Spec/plan/tasks 015, inspeccionar el core/meta efectivo y ejecutar el corte sin rediseñar Spec 013.
+**Spec activa:** ninguna. Próxima Spec: por definir por el Arquitecto.
+
+**Última Spec cerrada:** `015-sales-order-draft-payment-gate` — 2026-09-30. OV Draft se guarda sin líneas; Submit exige al menos una línea y pago aplicado > 0; los Encargos llegan al Shopper solo tras Submit. Producto desde `16.0.85`; complementos `16.0.86` (fecha de entrega +7 días), `16.0.87` (botón Ver Encargo en la línea de la OV validada) y `16.0.88` (Encargos (ENC) en el menú Ventas).
+
+**Evidencia aceptación 015:** OV vacía guardada; Agregar Encargo deja una sola línea; Submit sin pago bloqueado; `OV-2026-00077` validada con CLP 10.000 aplicados y una línea `ENCARGO-PENDIENTE`; `ENC-2026-00095` visible en la página del Shopper. Prueba de OV con stock sin pago/con pago ya cubierta según Miguel.
 
 Documento: `specs/015-sales-order-draft-payment-gate/spec.md`
 
@@ -131,13 +135,13 @@ Documento histórico: `specs/009-chilexpress-shipment-integration/spec.md`
 
 **Base previa:** Courier → Configuración de Couriers; Chilexpress Test configurado con 3 servicios + endpoints Desk.
 
-**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`, `009-chilexpress-shipment-integration`, `012-sales-person-auto-commission`.
+**Specs cerradas en cola:** `004-pagos-clientes-mapeo-depositos`, `006-customer-multidocument-identity`, `007-mcv-chile-desktop`, `008-courier-configuration`, `009-chilexpress-shipment-integration`, `012-sales-person-auto-commission`, `014-clasificacion-producto-busqueda`, `015-sales-order-draft-payment-gate`.
 
 **Cierre 007:** 2026-09-17 — Desktop `MCV Chile` verificado.
 
 **Cierre 006:** 2026-09-17 — identidad multidocumento aceptada operativamente.
 
-**No reabrir por defecto:** Specs cerradas `003`–`009` y `012`. No ampliar alcance sin OK de Miguel.
+**No reabrir por defecto:** Specs cerradas `003`–`009`, `012`, `014` y `015`. No ampliar alcance sin OK de Miguel.
 
 La cola de programación vive **en este repositorio**. El README padre `../README.md` es arquitectura/handoff; no es la cola automática de código.
 
