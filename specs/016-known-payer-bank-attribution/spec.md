@@ -1,6 +1,6 @@
 # Spec 016 — Pagadores conocidos para atribución bancaria recurrente
 
-**Estado:** ACTIVA — lista para revisión e implementación por Programador
+**Estado:** ACTIVA — implementada en 16.0.90; permisos §18 corregidos en 16.0.91; pendiente validación en el sitio por rol (§18.12) y decisiones §18.11
 **Fecha:** 2026-10-02
 **Proyecto:** ERPn Custom / FRAgallardo
 **Dependencias:** Spec 004 (Pagos de Clientes / mapeo de depósitos), asignación manual de pagos huérfanos, flujo vigente Bank Transaction → Payment Entry.
@@ -297,9 +297,11 @@ Si no hay registros, mostrar:
 
 > No hay pagadores conocidos asociados.
 
-Acción:
+Acción (solo `KNOWN_PAYER_ADMIN_ROLES`, §18):
 
 **Agregar pagador conocido**
+
+La sección es visible para los cuatro roles de §18; ComercialFRA y Accounts User la ven sin el botón.
 
 Si existen registros, mostrar como mínimo:
 
@@ -337,10 +339,12 @@ Links reales:
 
 Acciones:
 
-- si está activo: **Desactivar asociación**;
-- si está inactivo y no existe conflicto: **Reactivar asociación**;
-- **Ver cliente**;
-- **Ver movimiento de origen**, cuando exista.
+- si está activo: **Desactivar asociación** (solo `KNOWN_PAYER_ADMIN_ROLES`);
+- si está inactivo y no existe conflicto: **Reactivar asociación** (solo `KNOWN_PAYER_ADMIN_ROLES`);
+- **Ver cliente** (los cuatro roles);
+- **Ver movimiento de origen**, cuando exista (los cuatro roles).
+
+Para ComercialFRA y Accounts User la ficha es de solo lectura.
 
 ## 13.3 Diálogo de desactivación
 
@@ -384,14 +388,14 @@ Debe poder navegarse:
 ~~~text
 Bank Transaction
 → Known Payer
-→ Desactivar asociación
+→ Desactivar asociación (solo KNOWN_PAYER_ADMIN_ROLES)
 ~~~
 
 No poner un botón directo de desactivación dentro de Bank Transaction.
 
 ## 13.6 ListView administrativa
 
-Debe existir ListView estándar de Known Payer para roles autorizados.
+Debe existir ListView estándar de Known Payer para Accounts Manager y System Manager (administración) y Accounts User (solo lectura). ComercialFRA no usa la ListView: al abrirla se le redirige a `pagos-huerfanos` con el aviso "La lista de pagadores conocidos es administrativa. Consúltelos desde la ficha del cliente."
 
 Filtros mínimos:
 
@@ -420,7 +424,7 @@ El acceso operativo continúa siendo Pagos de Clientes.
 
 La administración de la relación vive en Customer → Pagadores conocidos.
 
-Known Payer List puede quedar disponible mediante Desk/búsqueda para perfiles administrativos.
+Known Payer List queda disponible mediante Desk/búsqueda para Accounts User (lectura), Accounts Manager y System Manager.
 
 ---
 
@@ -509,31 +513,276 @@ La aplicación del saldo sigue gobernada por la lógica vigente.
 
 ## 18. Permisos
 
-El Programador debe verificar los roles reales ya utilizados por Pagos de Clientes. No inventar roles nuevos sin necesidad.
+Principio: **UI operativa ≠ administración** y **backend operativo ≠ backend administrativo**. `ComercialFRA` opera Pagos de Clientes sin convertirse en usuario contable.
 
-### ComercialFRA / rol operativo equivalente
+### 18.1 Grupos de roles (código: `erpn_custom/chile/payment_roles.py`)
 
-Debe poder:
+| Grupo | Roles | Uso |
+|---|---|---|
+| `PAYMENT_OPERATION_ROLES` | ComercialFRA, Accounts User, Accounts Manager, System Manager | Operación de pagos: listar, asignar, recordar, consultar |
+| `KNOWN_PAYER_ADMIN_ROLES` | Accounts Manager, System Manager | Administración de Known Payer: alta manual, desactivar, reactivar |
 
-- ver pagadores conocidos;
-- crear una relación desde **Sí, recordar**;
-- abrir el Known Payer;
-- agregar manualmente un pagador si corresponde a sus permisos funcionales.
+Cada método backend valida el grupo que corresponde a la operación; no existe una lista única de roles permitidos. Ningún archivo define listas propias de estos roles: todos importan de `payment_roles.py`.
 
-### Rol financiero/administrativo equivalente
+`ComercialFRA` es un **rol operativo, no administrativo**: opera pagos y aprende Known Payer desde el flujo; no administra relaciones ni recibe permisos contables.
 
-Debe poder:
+### 18.2 Matriz UI (normativa)
 
-- crear;
-- desactivar;
-- reactivar;
-- consultar ListView e histórico.
+| Acción UI | ComercialFRA | Accounts User | Accounts Manager | System Manager |
+|---|---|---|---|---|
+| Ver Workspace `Pagos de Clientes` | Sí | Sí | Sí | Sí |
+| Ver página `Pagos huérfanos` | Sí | Sí | Sí | Sí |
+| Ver detalle de depósito huérfano | Sí | Sí | Sí | Sí |
+| Asignar huérfano a Customer | Sí | Sí | Sí | Sí |
+| Ver diálogo `¿Recordar este RUT...?` | Sí | Sí | Sí | Sí |
+| Ejecutar `Sí, recordar` | Sí | Sí | Sí | Sí |
+| Ver sección `Pagadores conocidos` en Customer | Sí | Sí | Sí | Sí |
+| Abrir ficha `Known Payer` | Sí, lectura | Sí, lectura | Sí | Sí |
+| Ver link desde Bank Transaction a Known Payer | Sí | Sí | Sí | Sí |
+| Crear Known Payer manualmente desde administración | No | No | Sí | Sí |
+| Ver ListView administrativa de Known Payer | No | Lectura opcional | Sí | Sí |
+| Desactivar asociación | No | No | Sí | Sí |
+| Reactivar asociación | No | No | Sí | Sí |
+| Eliminar físicamente Known Payer | No | No | No operativo | Solo excepcional/admin técnico |
 
-### System Manager
+### 18.3 Matriz backend (normativa)
 
-Control completo.
+| Operación backend | ComercialFRA | Accounts User | Accounts Manager | System Manager |
+|---|---|---|---|---|
+| Listar pagos huérfanos | Sí | Sí | Sí | Sí |
+| Consultar detalle para asignación | Sí | Sí | Sí | Sí |
+| Asignar depósito huérfano a Customer | Sí | Sí | Sí | Sí |
+| Crear Known Payer desde `Sí, recordar` | Sí | Sí | Sí | Sí |
+| Consultar Known Payer | Sí | Sí | Sí | Sí |
+| Resolver Customer mediante Known Payer | Sí, vía flujo | Sí | Sí | Sí |
+| Ejecutar mapping operativo permitido | Sí, vía flujo | Sí | Sí | Sí |
+| Crear Known Payer manualmente fuera del flujo | No | No | Sí | Sí |
+| Desactivar Known Payer | No | No | Sí | Sí |
+| Reactivar Known Payer | No | No | Sí | Sí |
+| Modificar libremente campos administrativos | No | No | Sí | Sí |
+| Borrar físicamente Known Payer | No | No | No operativo | Solo excepcional/admin técnico |
 
-La eliminación física no debe ser una acción operativa normal para ComercialFRA.
+### 18.4 Separación UI / backend
+
+- Una pantalla visible no implica permiso backend.
+- Un permiso backend no implica que la acción se muestre en UI. Ejemplo: ComercialFRA crea un Known Payer mediante el flujo controlado `Sí, recordar`, pero no ve ni ejecuta Desactivar/Reactivar.
+- Ocultar un botón es solo presentación. La autorización real se valida siempre en servidor, también ante llamadas directas a la API.
+
+### 18.5 Rutas, páginas y workspaces afectados
+
+| Elemento | Ruta | Roles con acceso | Dónde se define |
+|---|---|---|---|
+| Workspace `Pagos de Clientes` | `/app/pagos-de-clientes` | `PAYMENT_OPERATION_ROLES` | Roles del Workspace; ComercialFRA agregado por patch `v0_0_36` |
+| Page `Pagos huérfanos` | `/app/pagos-huerfanos` | `PAYMENT_OPERATION_ROLES` | Roles de la Page; ComercialFRA por patch `v0_0_36` |
+| Page `Pagos de Clientes / Vinculador` | `/app/vinculador-pagos` | `PAYMENT_OPERATION_ROLES` | Roles de la Page; ComercialFRA por patch `v0_0_36` |
+| Workspace Sidebar y Desktop Icon `Pagos de Clientes` | — | Sin roles propios; la visibilidad la dan el Workspace y las Pages | `workspace_sidebar/`, `desktop_icon/` |
+| Pantalla de aplicaciones | — | `PAYMENT_OPERATION_ROLES` | `hooks.add_to_apps_screen` → `deposit_mapping.has_vinculador_permission` |
+| Ficha Known Payer | `/app/known-payer/<name>` | Los cuatro roles (ComercialFRA y Accounts User: lectura) | Permisos DocType §18.8 |
+| ListView Known Payer | `/app/known-payer` | Accounts User (lectura), Accounts Manager, System Manager | Permisos DocType + `known_payer_list.js` redirige a ComercialFRA a `pagos-huerfanos` |
+| Ficha Customer, sección `Pagadores conocidos` | `/app/customer/<name>` | Los cuatro roles | `public/js/customer.js` + `known_payer.customer_known_payers` |
+| Ficha Bank Transaction | `/app/bank-transaction/<name>` | Los cuatro roles (ComercialFRA: lectura) | Permisos DocType §18.8 + `public/js/bank_transaction.js` |
+
+Los accesos a `Deposit Mapping Settings`, `Deposit Mapping Run` y `Deposit Mapping Attempt` del sidebar no cambian: ComercialFRA no recibe permisos sobre esos DocTypes (ver §18.11).
+
+### 18.6 Botones y elementos visibles por rol
+
+| Elemento | Ubicación | ComercialFRA | Accounts User | Accounts Manager | System Manager |
+|---|---|---|---|---|---|
+| `Asignar` | Page Pagos huérfanos | Ve | Ve | Ve | Ve |
+| `Asignar a Customer` | Bank Transaction huérfano | Ve | Ve | Ve | Ve |
+| `Vincular pagos` | Page Vinculador | Ve | Ve | Ve | Ve |
+| Diálogo `¿Recordar este RUT de origen…?` con `Sí, recordar` / `No` | Tras asignar | Ve | Ve | Ve | Ve |
+| `Ver pagador conocido` / `Revisar asociación` | Tras `Sí, recordar` | Ve | Ve | Ve | Ve |
+| Sección `Pagadores conocidos` con links | Customer | Ve | Ve | Ve | Ve |
+| `Agregar pagador conocido` | Customer | No ve | No ve | Ve | Ve |
+| `Ver cliente`, `Ver movimiento de origen` | Known Payer | Ve | Ve | Ve | Ve |
+| `Desactivar asociación` | Known Payer activo | No ve | No ve | Ve | Ve |
+| `Reactivar asociación` | Known Payer inactivo | No ve | No ve | Ve | Ve |
+| Botón `Guardar` / edición de campos | Known Payer | No ve (solo lectura) | No ve (solo lectura) | Ve | Ve |
+| Link `Pagador conocido` + método de identificación | Bank Transaction | Ve | Ve | Ve | Ve |
+| Botón de desactivación | Bank Transaction | No existe para ningún rol | | | |
+
+Condiciones en código: `Agregar pagador conocido` depende de `can_create` (permiso DocType create); Desactivar/Reactivar dependen de `Accounts Manager` o `System Manager` en `known_payer.js`.
+
+### 18.7 Métodos backend afectados
+
+| Método | Clase | Grupo / control | Validación en servidor |
+|---|---|---|---|
+| `chile.page.vinculador_pagos.vinculador_pagos.dashboard` | Operativo | `PAYMENT_OPERATION_ROLES` | `frappe.only_for` |
+| `chile.page.vinculador_pagos.vinculador_pagos.assign_orphan` | Operativo | `PAYMENT_OPERATION_ROLES` | `frappe.only_for` + `has_vinculador_permission` en `assign_orphan_deposit` |
+| `chile.page.vinculador_pagos.vinculador_pagos.enqueue_mapping` | Operativo | `PAYMENT_OPERATION_ROLES` | `frappe.only_for` |
+| `chile.deposit_mapping.assign_orphan_deposit` (interno) | Operativo | `PAYMENT_OPERATION_ROLES` | `has_vinculador_permission`; asignación y Payment Entry dentro de `accounting_context` |
+| `chile.deposit_mapping.run_deposit_mapping` (job) | Operativo | Corre como el usuario que lo encoló; el scheduler corre como Administrator | Mapeo y realización dentro de `accounting_context`; no depende del rol interactivo cuando lo lanza el scheduler |
+| `chile.deposit_mapping.apply_party_for_bank_transaction` (ingesta Banco de Chile) | Sistema | No whitelisted | Sin cambios |
+| `chile.known_payer.remember_payer` | Operativo | `PAYMENT_OPERATION_ROLES` | `frappe.only_for` + depósito asignado a ese Customer + candados + inserción controlada (`flags.learning_flow`) |
+| `chile.known_payer.customer_known_payers` | Consulta | Permiso DocType read | `frappe.has_permission`; devuelve `can_create` para la UI |
+| `chile.known_payer.deactivate` | Administrativo | `KNOWN_PAYER_ADMIN_ROLES` | `frappe.only_for` + bloqueo de fila |
+| `chile.known_payer.reactivate` | Administrativo | `KNOWN_PAYER_ADMIN_ROLES` | `frappe.only_for` + bloqueo de fila + candados |
+| Alta manual (formulario, `frappe.client.insert`, importación) | Administrativo | `KNOWN_PAYER_ADMIN_ROLES` | Permiso DocType create + `validate_known_payer` rechaza altas sin `learning_flow` de roles no administrativos |
+| Edición de Known Payer | Administrativo | Permiso DocType write (Accounts Manager, System Manager) | `customer`, `payer_tax_id`, `source` son set_only_once; `active` solo cambia vía `deactivate`/`reactivate` |
+| Borrado físico | Admin técnico | System Manager | Permiso DocType delete solo System Manager |
+
+### 18.8 Permisos de DocType
+
+| DocType | ComercialFRA | Accounts User | Accounts Manager | System Manager |
+|---|---|---|---|---|
+| Known Payer | read | read, report | create, write, read, report, export, print (sin delete) | completo |
+| Bank Transaction | read (nuevo, patch `v0_0_36`) | sin cambios | sin cambios | sin cambios |
+| Payment Entry, GL Entry, Journal Entry, configuración contable | **ninguno nuevo** | sin cambios | sin cambios | sin cambios |
+
+Sin permiso write, ComercialFRA y Accounts User no pueden modificar `active`, `disabled_by`, `disabled_on`, `customer` ni `payer_tax_id`.
+
+### 18.9 Backend controlado (sin permisos contables para ComercialFRA)
+
+La asignación y la realización de la Spec 004 (`update_bank_transaction` + `create_payment_entry_bts` de ERPNext) validan permisos del usuario de sesión. Cuando el usuario no tiene `Accounts User`, `Accounts Manager` ni `System Manager`, el backend ejecuta solo ese tramo dentro de `chile.elevation.accounting_context`, siempre después de validar `PAYMENT_OPERATION_ROLES`, y restaura la sesión al terminar. El usuario real queda en `Deposit Mapping Run.requested_by` y como owner del `Deposit Mapping Attempt` de la asignación manual; el Bank Transaction actualizado y el Payment Entry generado en ese tramo quedan con modified_by/owner Administrator.
+
+Lo único que recibe ComercialFRA es: roles del Workspace y de las dos Pages, read en Bank Transaction y read en Known Payer.
+
+### 18.10 Comportamiento ante acceso no autorizado
+
+| Intento | Resultado |
+|---|---|
+| Rol fuera de `PAYMENT_OPERATION_ROLES` abre Workspace o Page | Frappe no muestra el Workspace; la ruta de la Page devuelve "No permitido" |
+| Llamada a método operativo sin `PAYMENT_OPERATION_ROLES` | `frappe.PermissionError` (HTTP 403) desde `frappe.only_for`; sin efectos |
+| ComercialFRA o Accounts User llaman `deactivate` / `reactivate` | `frappe.PermissionError` (HTTP 403); la relación no cambia |
+| ComercialFRA o Accounts User crean Known Payer fuera de `Sí, recordar` | Rechazo por permiso DocType create; si existiera ese permiso, `validate_known_payer` lanza `PermissionError`: "Solo Accounts Manager o System Manager crean pagadores conocidos fuera de \"Sí, recordar\"." |
+| Cambio directo del check `active` | Error "Use Desactivar asociación o Reactivar asociación." |
+| ComercialFRA o Accounts User editan la ficha Known Payer | Ficha de solo lectura; una escritura vía API se rechaza por permiso write |
+| ComercialFRA abre `/app/known-payer` | Redirección a `pagos-huerfanos` con el aviso de §13.6 |
+
+### 18.11 Decisiones abiertas (bloqueos documentados)
+
+1. **Alcance de la lectura de Bank Transaction.** El read de ComercialFRA es necesario para abrir el detalle y el link a Known Payer, pero alcanza a todos los movimientos bancarios (también retiros). Limitarlo a depósitos de clientes requiere una regla adicional (por ejemplo, condición de consulta por permiso) que esta Spec no define. Decide: Arquitecto / Miguel.
+2. **Owner del Payment Entry.** Con ComercialFRA el Payment Entry queda con owner Administrator; el usuario real queda en el Run y en el intento. Decide si es aceptable: Miguel.
+3. **Links de Deposit Mapping en el sidebar.** Para ComercialFRA siguen visibles o no según cómo Frappe v16 filtre el sidebar por permisos; si son visibles, al abrirlos Frappe muestra "No permitido". PENDIENTE DE VERIFICACIÓN en el sitio; ocultarlos requiere decisión.
+
+La eliminación física no es una acción operativa: solo System Manager, de forma excepcional.
+
+### 18.12 Checklist de implementación
+
+Marcado `[x]` = implementado en código en `16.0.91`. `[ ]` = pendiente de validación en el sitio o de decisión.
+
+**A. Documentación**
+
+- [x] Actualizar `specs/016-known-payer-bank-attribution/spec.md`.
+- [x] Incorporar ambas matrices de permisos.
+- [x] Eliminar referencias que dejen ComercialFRA fuera del flujo.
+- [x] Actualizar `README.md` y eliminar la frase "ComercialFRA fuera".
+- [x] Documentar que ComercialFRA es rol operativo, no administrativo.
+
+**B. Constantes de autorización**
+
+- [x] `PAYMENT_OPERATION_ROLES` = ComercialFRA, Accounts User, Accounts Manager, System Manager (`chile/payment_roles.py`).
+- [x] `KNOWN_PAYER_ADMIN_ROLES` = Accounts Manager, System Manager.
+- [x] Sin listas divergentes: `deposit_mapping.py`, `vinculador_pagos.py` y `known_payer.py` importan de `payment_roles.py`.
+
+**C. Workspace `Pagos de Clientes`**
+
+- [x] ComercialFRA en roles del Workspace (patch `v0_0_36`).
+- [x] Accounts User, Accounts Manager y System Manager continúan.
+- [x] Sin permisos adicionales sobre módulos contables.
+
+**D. Page `Pagos huérfanos`**
+
+- [x] ComercialFRA en roles de la Page (patch `v0_0_36`).
+- [ ] Confirmar en el sitio que ComercialFRA abre la página directamente.
+- [x] `dashboard` acepta ComercialFRA.
+- [ ] Confirmar en el sitio que `Asignar` funciona con ComercialFRA.
+
+**E. Vinculador / Pagos de Clientes**
+
+- [x] `vinculador_pagos.py` usa `PAYMENT_OPERATION_ROLES`.
+- [x] Todos los `frappe.only_for()` revisados y clasificados (§18.7).
+
+**F. `deposit_mapping.py`**
+
+- [x] `ALLOWED_ROLES` eliminado; `has_vinculador_permission` usa `PAYMENT_OPERATION_ROLES`.
+- [x] Solo operaciones del flujo operativo; sin funciones administrativas abiertas.
+- [x] El scheduler corre como Administrator y no depende del rol interactivo.
+- [x] Idempotencia y concurrencia sin cambios (mismos bloqueos y savepoints).
+
+**G. DocType `Known Payer`**
+
+- [x] ComercialFRA: read. Accounts User: read, report. Accounts Manager: administra. System Manager: completo.
+- [x] Sin write para ComercialFRA.
+- [x] `Sí, recordar` crea mediante método backend controlado.
+- [x] ComercialFRA no puede modificar `active`, `disabled_by`, `disabled_on`, `customer`, `payer_tax_id`.
+
+**H. `known_payer.py`**
+
+- [x] `remember_payer` → `PAYMENT_OPERATION_ROLES`.
+- [x] `deactivate` y `reactivate` → `KNOWN_PAYER_ADMIN_ROLES`.
+- [x] Alta manual → `KNOWN_PAYER_ADMIN_ROLES` (permiso DocType + validación en servidor).
+- [x] Permisos validados en backend aunque el botón esté oculto.
+- [x] Candado de RUT activo único y candado de RUT principal sin cambios.
+
+**I. UI de `Known Payer`**
+
+- [x] Ficha de solo lectura para ComercialFRA y Accounts User.
+- [x] Desactivar/Reactivar según estado para Accounts Manager y System Manager; ocultos para los demás.
+- [x] Backend rechaza llamadas directas no autorizadas.
+
+**J. Customer**
+
+- [x] Sección `Pagadores conocidos` visible para los cuatro roles, con links a Known Payer.
+- [x] `Agregar pagador conocido` solo con permiso create (Accounts Manager, System Manager).
+- [x] Sin edición inline; desactivar solo desde la ficha Known Payer.
+
+**K. Bank Transaction**
+
+- [x] Método de identificación y link `Pagador conocido` visibles.
+- [x] Sin botón Desactivar en Bank Transaction.
+- [ ] Alcance de la lectura para ComercialFRA (§18.11, decisión 1).
+
+**L. Seguridad negativa** (en el sitio)
+
+- [ ] ComercialFRA → `deactivate` por API: rechazado.
+- [ ] ComercialFRA → `reactivate` por API: rechazado.
+- [ ] Accounts User → `deactivate` por API: rechazado.
+- [ ] Accounts User → `reactivate` por API: rechazado.
+- [ ] ComercialFRA crea Known Payer fuera de `Sí, recordar`: rechazado.
+- [ ] Accounts User crea Known Payer fuera de flujo: rechazado.
+- [ ] Accounts Manager administra: permitido.
+- [ ] System Manager administra: permitido.
+
+**M. Pruebas con ComercialFRA** (en el sitio)
+
+- [ ] Entra a `Pagos de Clientes`.
+- [ ] Abre `Pagos huérfanos` y lista huérfanos.
+- [ ] Selecciona Customer y ejecuta `Asignar`.
+- [ ] Responde `Sí, recordar`; se crea exactamente un Known Payer.
+- [ ] Lo abre, lo ve desde Customer y sigue el link desde Bank Transaction.
+- [ ] No ve `Desactivar` ni `Reactivar`, y no puede ejecutarlos por API.
+- [ ] No obtiene permisos generales de contabilidad (Payment Entry, GL Entry, Journal Entry).
+
+**N. Pruebas con Accounts User** (en el sitio)
+
+- [ ] Opera pagos y aprende Known Payer desde el flujo.
+- [ ] Consulta Known Payer.
+- [ ] No desactiva, no reactiva, no crea manualmente.
+
+**O. Pruebas con Accounts Manager** (en el sitio)
+
+- [ ] Opera pagos y crea Known Payer desde aprendizaje.
+- [ ] Crea Known Payer manualmente.
+- [ ] Desactiva y reactiva.
+- [ ] Revisa la ListView.
+- [ ] Los candados continúan funcionando.
+
+**P. Pruebas con System Manager** (en el sitio)
+
+- [ ] Ejecuta todos los flujos y administra Known Payer sin romper validaciones de integridad.
+
+**Q. No regresión funcional** (en el sitio)
+
+- [ ] RUT principal sigue teniendo prioridad.
+- [ ] Segundo depósito de Known Payer se atribuye automáticamente.
+- [ ] Al desactivar, el siguiente depósito vuelve a huérfano si no hay otra regla.
+- [ ] No se duplica Payment Entry.
+- [ ] No se aplica dinero automáticamente a OV.
+- [ ] No se altera la evidencia bancaria original.
+- [ ] El scheduler de mapping sigue funcionando.
+- [ ] La asignación manual existente sigue funcionando.
 
 ---
 
@@ -712,6 +961,25 @@ Intentar registrar el mismo RUT activo para otro Customer y verificar bloqueo.
 
 Intentar registrar como pagador de B un RUT que ya es tax_id de A y verificar bloqueo.
 
+### Flujo F — permisos por rol (§18)
+
+Usuario solo `ComercialFRA`:
+
+1. entra a Pagos de Clientes;
+2. ve Pagos huérfanos;
+3. asigna un huérfano;
+4. responde Sí, recordar;
+5. puede abrir el Known Payer creado;
+6. no puede desactivarlo;
+7. no puede reactivarlo;
+8. no accede a administración contable general.
+
+Usuario `Accounts User`: mismo flujo operativo, sin desactivar/reactivar.
+Usuario `Accounts Manager`: flujo completo; crea manualmente, desactiva, reactiva y administra relaciones.
+Usuario `System Manager`: control completo.
+
+Detalle obligatorio de pruebas positivas y negativas: checklist §18.12, bloques L a Q. Cada prueba se ejecuta con un usuario que tenga **solo** el rol bajo prueba.
+
 ---
 
 ## 25. No alcance
@@ -803,7 +1071,7 @@ Antes de programar, el Programador debe:
 4. identificar la función canónica actual de normalización de RUT;
 5. identificar el servicio real que resuelve Customer y realiza Payment Entry;
 6. verificar campos de trazabilidad existentes antes de crear otros;
-7. revisar permisos reales de ComercialFRA y roles financieros;
+7. aplicar los grupos `PAYMENT_OPERATION_ROLES` y `KNOWN_PAYER_ADMIN_ROLES` según §18 (matrices, métodos y checklist); toda decisión de permisos no cubierta por §18 se documenta como bloqueo en §18.11;
 8. proponer mecanismo de integridad y concurrencia para los candados;
 9. presentar plan de archivos, patch/migración, UI y pruebas antes de escribir código;
 10. no ampliar alcance hacia aplicación automática a OV ni aprendizaje heurístico.
@@ -845,5 +1113,37 @@ Y además se comprueban ambos candados:
 mismo RUT pagador activo en otro Customer → BLOQUEADO
 RUT principal de otro Customer como Known Payer → BLOQUEADO
 ~~~
+
+Permisos (§18). No basta con que ComercialFRA vuelva a ver el Workspace; debe comprobarse la cadena completa:
+
+~~~text
+ComercialFRA
+→ Pagos de Clientes
+→ Pagos huérfanos
+→ Asignar
+→ Sí, recordar
+→ Known Payer creado
+→ consulta permitida
+→ administración bloqueada
+~~~
+
+y simultáneamente:
+
+~~~text
+Accounts Manager
+→ Known Payer
+→ Desactivar
+→ Reactivar
+→ permitido
+~~~
+
+La Spec 016 no se considera lista para cierre hasta que:
+
+1. la matriz esté reflejada en código;
+2. la UI respete esa matriz;
+3. el backend valide esa matriz independientemente de la UI;
+4. los cuatro perfiles hayan sido probados (checklist §18.12, bloques L a Q), con permisos positivos y negativos;
+5. no se hayan entregado permisos contables innecesarios a ComercialFRA;
+6. las decisiones abiertas de §18.11 estén resueltas por Miguel o el Arquitecto.
 
 La aceptación debe incluir pruebas automáticas, prueba UI con usuario operativo y evidencia de que no se duplicaron Payment Entries ni se modificó la evidencia bancaria original.

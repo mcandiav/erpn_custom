@@ -1,7 +1,6 @@
 from erpn_custom.chile.matching import NO_MATCH, classify_rut
 
 KNOWN_PAYER = "Known Payer"
-MANAGER_ROLES = ("System Manager", "Accounts Manager")
 
 OWN_PRIMARY = "own_primary"
 OTHER_PRIMARY = "other_primary"

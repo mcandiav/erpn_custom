@@ -6,8 +6,7 @@ from erpn_custom.chile.deposit_mapping import (
 	get_pagos_clientes_data,
 )
 from erpn_custom.chile.known_payer import learning_offer
-
-ALLOWED = ("System Manager", "Accounts Manager", "Accounts User")
+from erpn_custom.chile.payment_roles import PAYMENT_OPERATION_ROLES as ALLOWED
 
 
 @frappe.whitelist()

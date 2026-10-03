@@ -3,12 +3,16 @@ from frappe.utils import escape_html, now_datetime
 
 from erpn_custom.chile import known_payer_rules as rules
 from erpn_custom.chile.matching import EXACT_TAX_ID, index_customers_by_normalized_tax_id
+from erpn_custom.chile.payment_roles import (
+	KNOWN_PAYER_ADMIN_ROLES,
+	PAYMENT_OPERATION_ROLES,
+	can_admin_known_payers,
+)
 from erpn_custom.chile.rut import normalize_chilean_tax_id
 from erpn_custom.identity.customer import get_chile_rut_customers
 from erpn_custom.identity.filters import chile_rut_customer_filters
 
 DOCTYPE = "Known Payer"
-PAYMENT_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
 
 
 def resolve_customer_from_bank_payer(tax_id, customers_by_rut=None):
@@ -60,6 +64,11 @@ def validate_known_payer(doc):
 		frappe.throw(f"RUT pagador inválido: {escape_html(doc.payer_tax_id or '')}")
 	doc.payer_tax_id_normalized = normalized
 	if doc.is_new():
+		if not doc.flags.learning_flow and not can_admin_known_payers(frappe.get_roles()):
+			frappe.throw(
+				'Solo Accounts Manager o System Manager crean pagadores conocidos fuera de "Sí, recordar".',
+				frappe.PermissionError,
+			)
 		doc.active = 1
 		doc.confirmed_by = doc.confirmed_by or frappe.session.user
 		doc.confirmed_on = doc.confirmed_on or now_datetime()
@@ -95,7 +104,7 @@ def learning_offer(bank_transaction, customer):
 
 @frappe.whitelist()
 def remember_payer(bank_transaction, customer):
-	frappe.only_for(PAYMENT_ROLES)
+	frappe.only_for(PAYMENT_OPERATION_ROLES)
 	row = frappe.db.get_value(
 		"Bank Transaction",
 		bank_transaction,
@@ -135,8 +144,10 @@ def remember_payer(bank_transaction, customer):
 			"source_bank_transaction": row.name,
 		}
 	)
+	doc.flags.learning_flow = True
 	try:
-		doc.insert()
+		# DocType create stays admin-only; the flow is authorized by the operation-role check above.
+		doc.insert(ignore_permissions=True)
 	except (frappe.UniqueValidationError, frappe.DuplicateEntryError):
 		frappe.db.rollback()
 		frappe.clear_messages()
@@ -149,7 +160,7 @@ def remember_payer(bank_transaction, customer):
 
 @frappe.whitelist()
 def deactivate(name):
-	frappe.only_for(rules.MANAGER_ROLES)
+	frappe.only_for(KNOWN_PAYER_ADMIN_ROLES)
 	lock_active(name)
 	doc = frappe.get_doc(DOCTYPE, name)
 	if not doc.active:
@@ -162,7 +173,7 @@ def deactivate(name):
 
 @frappe.whitelist()
 def reactivate(name):
-	frappe.only_for(rules.MANAGER_ROLES)
+	frappe.only_for(KNOWN_PAYER_ADMIN_ROLES)
 	lock_active(name)
 	doc = frappe.get_doc(DOCTYPE, name)
 	if doc.active:

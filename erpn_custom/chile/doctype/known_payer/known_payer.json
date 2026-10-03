@@ -158,7 +158,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-02 22:00:00",
+ "modified": "2026-10-02 23:30:00",
  "modified_by": "Administrator",
  "module": "Chile",
  "name": "Known Payer",
@@ -187,11 +187,9 @@
    "write": 1
   },
   {
-   "create": 1,
    "read": 1,
    "report": 1,
-   "role": "Accounts User",
-   "write": 1
+   "role": "Accounts User"
   }
  ],
  "search_fields": "customer,payer_name",

@@ -5,10 +5,12 @@ from frappe.utils import now_datetime
 
 from erpn_custom.chile.attempt import conflict_reason, serialize_candidates
 from erpn_custom.chile.concurrency import is_stale_run
+from erpn_custom.chile.elevation import accounting_context
 from erpn_custom.chile.known_payer import lock_active, mark_used, resolve_customer_from_bank_payer
 from erpn_custom.chile.known_payer_rules import KNOWN_PAYER
 from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, index_customers_by_normalized_tax_id
 from erpn_custom.chile.orphan_rules import MANUAL_REASON, MANUAL_RULE, assignment_conflict, orphan_eligibility
+from erpn_custom.chile.payment_roles import can_operate_payments
 from erpn_custom.chile.rut import normalize_chilean_tax_id
 from erpn_custom.chile.schedule import interval_due
 from erpn_custom.identity.customer import get_chile_rut_customers
@@ -20,11 +22,9 @@ JOB_ID = "erpn_custom:deposit_mapping"
 RULE_VERSION = "exact-tax-id-v1"
 ELIGIBLE_STATUSES = ("Unreconciled",)
 
-ALLOWED_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
-
 
 def has_vinculador_permission():
-    return bool(set(frappe.get_roles()) & set(ALLOWED_ROLES))
+    return can_operate_payments(frappe.get_roles())
 
 
 def enqueue_from_scheduler():
@@ -225,10 +225,11 @@ def run_deposit_mapping(run_name=None):
         run.save(ignore_permissions=True)
         frappe.db.commit()
 
-        metrics = _process_batches(run)
         from erpn_custom.chile.realize import realize_pending_attributed_deposits
 
-        realize_pending_attributed_deposits()
+        with accounting_context():
+            metrics = _process_batches(run)
+            realize_pending_attributed_deposits()
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if metrics["error_count"] and (metrics["mapped_count"] or metrics["no_match_count"] or metrics["conflict_count"]):
             status = "Partial"
@@ -383,7 +384,8 @@ def assign_orphan_deposit(bank_transaction, customer):
         }
 
     if row.party == customer:
-        realization = _realize(row.name)
+        with accounting_context():
+            realization = _realize(row.name)
         payment_entry = (realization or {}).get("payment_entry") or row.get("custom_payment_entry")
         return {
             "ok": True,
@@ -429,7 +431,8 @@ def assign_orphan_deposit(bank_transaction, customer):
 
     try:
         frappe.db.savepoint("orphan_assign")
-        _apply_customer(row, customer, run.name, rule=MANUAL_RULE)
+        with accounting_context():
+            _apply_customer(row, customer, run.name, rule=MANUAL_RULE)
         _record_attempt(
             run_name=run.name,
             row=row,
@@ -439,7 +442,8 @@ def assign_orphan_deposit(bank_transaction, customer):
             rule=MANUAL_RULE,
             reason=MANUAL_REASON,
         )
-        realization = _realize(row.name)
+        with accounting_context():
+            realization = _realize(row.name)
         payment_entry = (realization or {}).get("payment_entry")
         run_status = "Success"
         if not (realization or {}).get("ok"):
