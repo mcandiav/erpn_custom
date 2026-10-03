@@ -100,6 +100,9 @@ function render_orphans(page, orphans) {
 						indicator: "green",
 					});
 					refresh_orphans(page);
+					frappe.require("/assets/erpn_custom/js/known_payer_learning.js", () =>
+						erpn_custom.known_payer.offer_learning(msg)
+					);
 				} else {
 					frappe.msgprint(msg.message || msg.reason || __("Error"));
 				}

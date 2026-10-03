@@ -1,0 +1,204 @@
+{
+ "actions": [],
+ "autoname": "KP-.#####",
+ "creation": "2026-10-02 22:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "payer_tax_id",
+  "payer_tax_id_normalized",
+  "payer_name",
+  "column_break_status",
+  "active",
+  "source",
+  "source_bank_transaction",
+  "last_used_on",
+  "section_audit",
+  "confirmed_by",
+  "confirmed_on",
+  "column_break_audit",
+  "disabled_by",
+  "disabled_on",
+  "section_notes",
+  "notes",
+  "active_rut_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cliente",
+   "options": "Customer",
+   "reqd": 1,
+   "search_index": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "payer_tax_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "RUT pagador",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "payer_tax_id_normalized",
+   "fieldtype": "Data",
+   "label": "RUT normalizado",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "payer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Nombre informado por banco"
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Activo",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "Manual",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Origen",
+   "options": "Bank Reconciliation\nManual\nMigration",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "source_bank_transaction",
+   "fieldtype": "Link",
+   "label": "Movimiento de origen",
+   "options": "Bank Transaction",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "last_used_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Último uso",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_audit",
+   "fieldtype": "Section Break",
+   "label": "Auditoría"
+  },
+  {
+   "fieldname": "confirmed_by",
+   "fieldtype": "Link",
+   "label": "Confirmado por",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "confirmed_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Confirmado el",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_audit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "disabled_by",
+   "fieldtype": "Link",
+   "label": "Desactivado por",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "disabled_on",
+   "fieldtype": "Datetime",
+   "label": "Desactivado el",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Observaciones"
+  },
+  {
+   "fieldname": "active_rut_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Clave RUT activo",
+   "no_copy": 1,
+   "read_only": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-02 22:00:00",
+ "modified_by": "Administrator",
+ "module": "Chile",
+ "name": "Known Payer",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "write": 1
+  }
+ ],
+ "search_fields": "customer,payer_name",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "payer_tax_id",
+ "track_changes": 1
+}

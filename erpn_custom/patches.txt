@@ -43,3 +43,4 @@ erpn_custom.patches.v0_0_31_comercialfra_order_flow_perms
 erpn_custom.patches.v0_0_32_comercialfra_reservation_write
 erpn_custom.patches.v0_0_33_shopper_role
 erpn_custom.patches.v0_0_34_sales_order_items_optional
+erpn_custom.patches.v0_0_35_known_payer

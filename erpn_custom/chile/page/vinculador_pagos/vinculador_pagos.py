@@ -5,6 +5,7 @@ from erpn_custom.chile.deposit_mapping import (
 	enqueue_deposit_mapping,
 	get_pagos_clientes_data,
 )
+from erpn_custom.chile.known_payer import learning_offer
 
 ALLOWED = ("System Manager", "Accounts Manager", "Accounts User")
 
@@ -29,4 +30,7 @@ def dashboard(exception_start=0, exception_limit=50, orphan_start=0, orphan_limi
 @frappe.whitelist()
 def assign_orphan(bank_transaction, customer):
 	frappe.only_for(ALLOWED)
-	return assign_orphan_deposit(bank_transaction, customer)
+	result = assign_orphan_deposit(bank_transaction, customer)
+	if result.get("ok") and result.get("result") in ("assigned", "already_assigned"):
+		result["learn"] = learning_offer(result["bank_transaction"], result["customer"])
+	return result

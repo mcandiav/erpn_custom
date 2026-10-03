@@ -5,7 +5,9 @@ from frappe.utils import now_datetime
 
 from erpn_custom.chile.attempt import conflict_reason, serialize_candidates
 from erpn_custom.chile.concurrency import is_stale_run
-from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, classify_rut, index_customers_by_normalized_tax_id
+from erpn_custom.chile.known_payer import lock_active, mark_used, resolve_customer_from_bank_payer
+from erpn_custom.chile.known_payer_rules import KNOWN_PAYER
+from erpn_custom.chile.matching import CONFLICT, EXACT_TAX_ID, NO_MATCH, index_customers_by_normalized_tax_id
 from erpn_custom.chile.orphan_rules import MANUAL_REASON, MANUAL_RULE, assignment_conflict, orphan_eligibility
 from erpn_custom.chile.rut import normalize_chilean_tax_id
 from erpn_custom.chile.schedule import interval_due
@@ -565,9 +567,25 @@ def _map_one(row, customers_by_rut, run_name, trigger="Manual"):
             reason="Bank Transaction ya tenia party",
         )
         return "already_mapped_count"
-    normalized = normalize_chilean_tax_id(row.custom_rut_del_pagador)
+    resolution = resolve_customer_from_bank_payer(row.custom_rut_del_pagador, customers_by_rut)
+    normalized = resolution.normalized
     _set_normalized(row.name, normalized)
-    rule, names = classify_rut(normalized, customers_by_rut)
+    rule, names = resolution.method, resolution.customers
+    if rule == KNOWN_PAYER and lock_active(resolution.known_payer):
+        _apply_customer(row, names[0], run_name, rule=KNOWN_PAYER, known_payer=resolution.known_payer)
+        _record_attempt(
+            run_name=run_name,
+            row=row,
+            trigger=trigger,
+            resultado="Mapped",
+            normalized=normalized,
+            customer=names[0],
+            candidates=names,
+            rule=KNOWN_PAYER,
+            reason=f"Pagador conocido {resolution.known_payer}",
+        )
+        mark_used(resolution.known_payer)
+        return "mapped_count"
     if rule == EXACT_TAX_ID:
         _apply_customer(row, names[0], run_name)
         _record_attempt(
@@ -640,7 +658,7 @@ def _record_attempt(
     ).insert(ignore_permissions=True)
 
 
-def _apply_customer(row, customer, run_name, rule=None):
+def _apply_customer(row, customer, run_name, rule=None, known_payer=None):
     from erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool import (
         update_bank_transaction,
     )
@@ -698,16 +716,14 @@ def _apply_customer(row, customer, run_name, rule=None):
     ):
         if before.get(field) != after.get(field):
             frappe.throw(f"Se altero evidencia {field} en {row.name}")
-    frappe.db.set_value(
-        "Bank Transaction",
-        row.name,
-        {
-            "custom_attribution_rule": attribution_rule,
-            "custom_attribution_run": run_name,
-            "custom_mapping_status": "Mapped",
-        },
-        update_modified=True,
-    )
+    attribution = {
+        "custom_attribution_rule": attribution_rule,
+        "custom_attribution_run": run_name,
+        "custom_mapping_status": "Mapped",
+    }
+    if known_payer:
+        attribution["custom_known_payer"] = known_payer
+    frappe.db.set_value("Bank Transaction", row.name, attribution, update_modified=True)
 
 
 def _set_normalized(name, normalized):
