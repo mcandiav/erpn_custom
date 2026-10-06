@@ -1,6 +1,6 @@
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 _frappe = MagicMock()
@@ -32,21 +32,14 @@ class D(dict):
 	__getattr__ = dict.get
 
 
-def purchased(**values):
+def purchased(name="ENC-2026-00401", **values):
 	row = {
-		"name": "ENC-2026-00401",
+		"name": name,
 		"status": "Open",
 		"purchase_status": "PURCHASED",
 		"reception_status": "PENDING",
 		"purchase_barcode": QR,
-		"source_type": "UNKNOWN_ITEM",
-		"expected_item": None,
-		"shopper_user": "shopper@fragallardo.com",
 		"purchased_on": datetime(2026, 10, 1, 12, 0),
-		"purchase_supplier": "MK Outlet",
-		"purchase_price": 59.9,
-		"purchase_product_image": "/private/files/p.jpg",
-		"purchase_label_image": "/private/files/l.jpg",
 	}
 	row.update(values)
 	return D(row)
@@ -63,9 +56,9 @@ class ReceptionCase(unittest.TestCase):
 		for target, name, value in (
 			(reception, "frappe", self.frappe),
 			(reception, "_", lambda msg: msg),
-			(reception, "flt", lambda v, *a, **k: round(float(v or 0), a[0] if a else 9)),
 			(reception, "cint", lambda v: int(v or 0)),
 			(reception, "now_datetime", lambda: NOW),
+			(reception, "getdate", lambda *a: date(2026, 10, 6)),
 		):
 			patcher = patch.object(target, name, value)
 			patcher.start()
@@ -73,11 +66,17 @@ class ReceptionCase(unittest.TestCase):
 
 
 class TestRules(ReceptionCase):
-	def test_role_gate(self):
+	def test_receptor_gate(self):
 		self.assertTrue(reception.is_receptor(["FRAreceptor"]))
 		self.assertTrue(reception.is_receptor(["System Manager"]))
 		self.assertFalse(reception.is_receptor(["ShopperFRA"]))
 		self.assertFalse(reception.is_receptor(["ComercialFRA", "Sales User"]))
+
+	def test_return_to_stock_gate(self):
+		self.assertTrue(reception.can_return_to_stock(["ComercialFRA"]))
+		self.assertTrue(reception.can_return_to_stock(["System Manager"]))
+		self.assertFalse(reception.can_return_to_stock(["FRAreceptor"]))
+		self.assertFalse(reception.can_return_to_stock(["ShopperFRA"]))
 
 	def test_code_is_opaque(self):
 		self.assertEqual(reception.clean_code(f"  {QR}\n"), QR)
@@ -88,160 +87,151 @@ class TestRules(ReceptionCase):
 		rows = [D(name="A", purchase_barcode=QR), D(name="B", purchase_barcode=QR.lower())]
 		self.assertEqual([r.name for r in reception.exact_matches(rows, QR)], ["A"])
 
-	def test_oldest_pending_purchase_gets_the_unit(self):
+	def test_oldest_purchase_first(self):
 		rows = [
-			D(name="ENC-3", reception_status="PENDING", purchased_on=datetime(2026, 10, 3)),
-			D(name="ENC-1", reception_status="RECEIVED", purchased_on=datetime(2026, 9, 1)),
-			D(name="ENC-2", reception_status="PENDING", purchased_on=datetime(2026, 10, 2)),
+			D(name="ENC-3", purchased_on=datetime(2026, 10, 3)),
+			D(name="ENC-1", purchased_on=datetime(2026, 9, 1)),
+			D(name="ENC-2", purchased_on=datetime(2026, 10, 2)),
 		]
-		self.assertEqual(reception.pick_candidate(rows).name, "ENC-2")
-		self.assertIsNone(reception.pick_candidate([rows[1]]))
-		self.assertIsNone(reception.pick_candidate([]))
+		self.assertEqual([r.name for r in reception.oldest_first(rows)], ["ENC-1", "ENC-2", "ENC-3"])
 
-	def test_receive_pending(self):
-		self.assertEqual(reception.receive_decision(purchased(), "r1"), "receive")
+	def test_receivable(self):
+		self.assertTrue(reception.is_receivable(purchased()))
+		for values in ({"purchase_status": "PENDING"}, {"status": "Cancelled"}, {"reception_status": "RECEIVED"}):
+			self.assertFalse(reception.is_receivable(purchased(**values)))
+		self.assertFalse(reception.is_receivable(None))
 
-	def test_receive_retry_same_user_is_idempotent(self):
-		row = purchased(reception_status="RECEIVED", received_by="r1")
-		self.assertEqual(reception.receive_decision(row, "r1"), "already_done")
-		with self.assertRaises(_Throw):
-			reception.receive_decision(row, "r2")
-
-	def test_receive_requires_purchase(self):
-		for values in ({"purchase_status": "PENDING"}, {"status": "Cancelled"}, {"reception_status": "RESOLVED_TO_ENC"}):
+	def test_return_decision(self):
+		self.assertEqual(reception.return_decision(purchased(reception_status="RECEIVED")), "return")
+		self.assertEqual(reception.return_decision(purchased(reception_status="RESOLVED_TO_STOCK")), "already_done")
+		for row in (None, purchased(), purchased(reception_status="RECEIVED", status="Cancelled")):
 			with self.assertRaises(_Throw):
-				reception.receive_decision(purchased(**values), "r1")
-		with self.assertRaises(_Throw):
-			reception.receive_decision(None, "r1")
-
-	def test_resolve_requires_received(self):
-		with self.assertRaises(_Throw):
-			reception.resolve_decision(purchased(), "ITEM-1")
-		self.assertEqual(reception.resolve_decision(purchased(reception_status="RECEIVED"), "ITEM-1"), "resolve")
-
-	def test_no_silent_double_resolution(self):
-		row = purchased(reception_status="RESOLVED_TO_ENC", resolved_item="ITEM-1")
-		self.assertEqual(reception.resolve_decision(row, "ITEM-1"), "already_done")
-		with self.assertRaises(_Throw):
-			reception.resolve_decision(row, "ITEM-2")
-
-	def test_valid_item(self):
-		reception.require_valid_item({"name": "ITEM-1", "disabled": 0, "has_variants": 0})
-		for item in (
-			None,
-			{"name": "ENCARGO-PENDIENTE"},
-			{"name": "ITEM-1", "disabled": 1},
-			{"name": "TEMPLATE", "has_variants": 1},
-		):
-			with self.assertRaises(_Throw):
-				reception.require_valid_item(item)
-
-	def test_known_item_mismatch_needs_confirmation(self):
-		row = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
-		reception.require_mismatch_confirmed(row, "ITEM-1", 0)
-		reception.require_mismatch_confirmed(row, "ITEM-2", 1)
-		with self.assertRaises(_Throw):
-			reception.require_mismatch_confirmed(row, "ITEM-2", 0)
-
-	def test_master_code_belongs_to_one_item(self):
-		self.assertEqual(reception.barcode_link_decision(None, "ITEM-1"), "add")
-		self.assertEqual(reception.barcode_link_decision("ITEM-1", "ITEM-1"), "already_done")
-		with self.assertRaises(_Throw):
-			reception.barcode_link_decision("ITEM-9", "ITEM-1")
+				reception.return_decision(row)
 
 
-class TestFlows(ReceptionCase):
+class TestReceiveScan(ReceptionCase):
+	"""Encargos live in a dict; get_all, the row lock and set_value read and write it like the database."""
+
 	def setUp(self):
 		super().setUp()
 		log = patch.object(reception, "_log")
 		self.log = log.start()
 		self.addCleanup(log.stop)
+		card = patch.object(reception, "_card", lambda name: {"name": name})
+		card.start()
+		self.addCleanup(card.stop)
+		self.store = {}
+		self.frappe.get_all = self._get_all
+		self.db.get_value = lambda doctype, name, *a, **k: D(self.store[name]) if name in self.store else None
+		self.db.set_value = MagicMock(side_effect=lambda doctype, name, values, **k: self.store[name].update(values))
 
-	def test_shopper_is_rejected(self):
-		with patch.object(self.frappe, "get_roles", lambda: ["ShopperFRA"]):
-			with self.assertRaises(_Throw):
-				reception.mark_received("ENC-2026-00401", QR)
-		self.db.set_value.assert_not_called()
+	def _get_all(self, doctype, filters=None, fields=None, **k):
+		return [
+			D(row)
+			for row in self.store.values()
+			if row["reception_status"] == filters["reception_status"]
+			and row["purchase_barcode"].lower() == filters["purchase_barcode"].lower()
+		]
 
-	def test_pilot_scan_detects_encargo_before_item(self):
-		with patch.object(self.frappe, "get_all") as get_all:
-			get_all.side_effect = [[purchased()], []]
-			data = reception.find_candidates(f" {QR} ")
+	def add(self, name, day, **values):
+		self.store[name] = purchased(name, purchased_on=datetime(2026, 10, day), **values)
+
+	def test_pilot_scan_receives_the_encargo(self):
+		self.add("ENC-2026-00401", 1)
+		data = reception.receive_scan(f" {QR} ")
 		self.assertEqual(data["match"], "encargo")
 		self.assertEqual(data["encargo"]["name"], "ENC-2026-00401")
-		self.assertEqual(get_all.call_args_list[0].kwargs["filters"]["purchase_barcode"], QR)
-		self.assertIsNone(data["item"])
-
-	def test_scan_without_encargo(self):
-		with patch.object(self.frappe, "get_all") as get_all:
-			get_all.side_effect = [[purchased(purchase_barcode=QR.lower())], []]
-			data = reception.find_candidates(QR)
-		self.assertEqual(data["match"], "none")
-		self.assertIsNone(data["encargo"])
-
-	def test_scan_when_every_encargo_already_received(self):
-		with patch.object(self.frappe, "get_all") as get_all:
-			get_all.side_effect = [[purchased(reception_status="RECEIVED", received_by="r1")], []]
-			data = reception.find_candidates(QR)
-		self.assertEqual(data["match"], "received")
-		self.assertEqual(len(data["received"]), 1)
-
-	def test_mark_received_records_receptor(self):
-		self.db.get_value.return_value = purchased()
-		reception.mark_received("ENC-2026-00401", QR)
-		self.db.set_value.assert_called_once()
-		values = self.db.set_value.call_args.args[2]
-		self.assertEqual(values, {"reception_status": "RECEIVED", "received_on": NOW, "received_by": "r1@fragallardo.com"})
+		self.assertEqual(data["pending_left"], 0)
+		self.assertEqual(
+			self.db.set_value.call_args.args[2],
+			{"reception_status": "RECEIVED", "received_on": NOW, "received_by": "r1@fragallardo.com"},
+		)
 		self.log.assert_called_once_with("ENC-2026-00401", "RECEIVED", scanned_code=QR)
 
-	def test_mark_received_retry_writes_nothing(self):
-		self.db.get_value.return_value = purchased(reception_status="RECEIVED", received_by="r1@fragallardo.com")
-		reception.mark_received("ENC-2026-00401", QR)
+	def test_four_identical_units_three_encargos(self):
+		self.add("ENC-C", 3)
+		self.add("ENC-A", 1)
+		self.add("ENC-B", 2)
+		results = [reception.receive_scan(QR) for _ in range(4)]
+		self.assertEqual([r.get("encargo", {}).get("name") for r in results[:3]], ["ENC-A", "ENC-B", "ENC-C"])
+		self.assertEqual([r["pending_left"] for r in results[:3]], [2, 1, 0])
+		self.assertEqual(results[3], {"match": "stock", "code": QR})
+		self.assertEqual(self.db.set_value.call_count, 3)
+
+	def test_scan_without_encargo_is_stock(self):
+		self.add("ENC-2026-00401", 1, purchase_barcode=QR.lower())
+		self.assertEqual(reception.receive_scan(QR), {"match": "stock", "code": QR})
 		self.db.set_value.assert_not_called()
 		self.log.assert_not_called()
 
-	def test_resolve_to_encargo(self):
-		self.db.get_value.side_effect = [
-			purchased(reception_status="RECEIVED"),
-			{"name": "ITEM-1", "disabled": 0, "has_variants": 0},
-		]
-		reception.resolve_to_encargo("ENC-2026-00401", "ITEM-1")
-		values = self.db.set_value.call_args.args[2]
+	def test_unit_taken_by_another_receptor_goes_to_the_next(self):
+		self.add("ENC-A", 1)
+		self.add("ENC-B", 2)
+		original = self.db.get_value
+
+		def lock(doctype, name, *a, **k):
+			if name == "ENC-A":
+				self.store["ENC-A"]["reception_status"] = "RECEIVED"
+			return original(doctype, name, *a, **k)
+
+		self.db.get_value = lock
+		data = reception.receive_scan(QR)
+		self.assertEqual(data["encargo"]["name"], "ENC-B")
+		self.assertEqual(self.db.set_value.call_count, 1)
+
+	def test_empty_code_is_rejected(self):
+		with self.assertRaises(_Throw):
+			reception.receive_scan("   ")
+
+	def test_non_receptor_is_rejected(self):
+		self.add("ENC-2026-00401", 1)
+		for roles in (["ShopperFRA"], ["ComercialFRA"]):
+			with patch.object(self.frappe, "get_roles", lambda roles=roles: roles):
+				with self.assertRaises(_Throw):
+					reception.receive_scan(QR)
+		self.db.set_value.assert_not_called()
+
+
+class TestReturnToStock(ReceptionCase):
+	def setUp(self):
+		super().setUp()
+		self.frappe.get_roles = lambda: ["ComercialFRA"]
+		log = patch.object(reception, "_log")
+		self.log = log.start()
+		self.addCleanup(log.stop)
+
+	def test_comercial_returns_received_unit(self):
+		self.db.get_value.return_value = purchased(reception_status="RECEIVED")
+		reception.return_to_stock("ENC-2026-00401", notes=" Color distinto ")
 		self.assertEqual(
-			values, {"resolved_item": "ITEM-1", "resolved_by": "r1@fragallardo.com", "reception_status": "RESOLVED_TO_ENC"}
+			self.db.set_value.call_args.args[2],
+			{"reception_status": "RESOLVED_TO_STOCK", "resolved_by": "r1@fragallardo.com"},
 		)
-		self.assertEqual(self.db.set_value.call_args.args[0], "Encargo")
+		self.log.assert_called_once_with("ENC-2026-00401", "RETURNED_TO_STOCK", scanned_code=QR, notes="Color distinto")
 
-	def test_resolve_links_code_when_confirmed(self):
-		self.db.get_value.side_effect = [
-			purchased(reception_status="RECEIVED"),
-			{"name": "ITEM-1", "disabled": 0, "has_variants": 0},
-		]
-		with patch.object(reception, "_link_code") as link:
-			reception.resolve_to_encargo("ENC-2026-00401", "ITEM-1", link_code=1)
-		link.assert_called_once_with("ITEM-1", QR)
+	def test_reason_is_required(self):
+		self.db.get_value.return_value = purchased(reception_status="RECEIVED")
+		with self.assertRaises(_Throw):
+			reception.return_to_stock("ENC-2026-00401", notes="  ")
+		self.db.set_value.assert_not_called()
 
-	def test_annul_purchase_keeps_evidence_and_reopens(self):
-		self.db.get_value.side_effect = [
-			purchased(reception_status="RECEIVED", received_by="r1@fragallardo.com"),
-			{"name": "ITEM-WRONG", "disabled": 0, "has_variants": 0},
-		]
-		reception.annul_purchase("ENC-2026-00401", "ITEM-WRONG", notes="Color distinto")
-		event = self.log.call_args
-		self.assertEqual(event.args, ("ENC-2026-00401", "PURCHASE_ANNULLED"))
-		self.assertEqual(event.kwargs["item"], "ITEM-WRONG")
-		self.assertEqual(event.kwargs["purchase_barcode"], QR)
-		self.assertEqual(event.kwargs["shopper_user"], "shopper@fragallardo.com")
-		self.assertEqual(event.kwargs["purchase_product_image"], "/private/files/p.jpg")
-		values = self.db.set_value.call_args.args[2]
-		self.assertEqual(values["purchase_status"], "PENDING")
-		self.assertEqual(values["reception_status"], "PENDING")
-		self.assertIsNone(values["purchase_barcode"])
-
-	def test_annul_requires_received(self):
+	def test_requires_received(self):
 		self.db.get_value.return_value = purchased()
 		with self.assertRaises(_Throw):
-			reception.annul_purchase("ENC-2026-00401", "ITEM-1")
+			reception.return_to_stock("ENC-2026-00401", notes="Color distinto")
+		self.db.set_value.assert_not_called()
+
+	def test_repeat_writes_nothing(self):
+		self.db.get_value.return_value = purchased(reception_status="RESOLVED_TO_STOCK")
+		reception.return_to_stock("ENC-2026-00401", notes="Color distinto")
+		self.db.set_value.assert_not_called()
+		self.log.assert_not_called()
+
+	def test_receptor_cannot_return(self):
+		self.frappe.get_roles = lambda: ["FRAreceptor"]
+		self.db.get_value.return_value = purchased(reception_status="RECEIVED")
+		with self.assertRaises(_Throw):
+			reception.return_to_stock("ENC-2026-00401", notes="Color distinto")
 		self.db.set_value.assert_not_called()
 
 

@@ -1,16 +1,6 @@
 const RC_METHOD = "erpn_custom.encargo.reception.";
-const RC_RETURN_KEY = "erpn_custom_reception_return";
-const RC_ATTRIBUTES = [
-	["custom_departamento", "Departamento"],
-	["custom_color", "Color"],
-	["custom_talla", "Talla"],
-	["custom_taco", "Taco"],
-	["custom_manga", "Manga"],
-	["custom_tamano", "Tamaño"],
-	["custom_tono", "Tono"],
-	["custom_contenido", "Contenido"],
-	["model", "Modelo"],
-];
+// Same library and settings as the shopper page; decodes in JS where the browser has no BarcodeDetector (iPhone).
+const RC_SCANNER_SRC = "/assets/frappe/node_modules/html5-qrcode/html5-qrcode.min.js";
 
 frappe.pages["recepcion-chile"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
@@ -27,531 +17,278 @@ frappe.pages["recepcion-chile"].on_page_show = function (wrapper) {
 	}
 };
 
+frappe.pages["recepcion-chile"].on_page_hide = function (wrapper) {
+	if (wrapper.reception) {
+		wrapper.reception.stop_camera();
+	}
+};
+
+const rc_escape = (value) => frappe.utils.escape_html(value == null ? "" : String(value));
+
 class ReceptionStation {
 	constructor(page) {
 		this.page = page;
-		this.busy = false;
-		this.tab = "PENDING";
+		this.queue = [];
+		this.working = false;
+		this.view = "pending";
+		this.scanner = null;
+		this.scanner_lib = null;
 		this.page.main.html(`
-			<div class="rc-scan" style="margin: 8px 0 16px;">
-				<label style="font-size: 18px; font-weight: 700;">${__("ESCANEAR PRODUCTO")}</label>
-				<input type="text" class="form-control rc-code" autocomplete="off" spellcheck="false"
-					placeholder="${__("Escanea la etiqueta o escribe el código y presiona Enter")}"
-					style="font-size: 22px; height: 56px;">
-			</div>
-			<div class="rc-alert"></div>
-			<div class="rc-case"></div>
-			<div class="rc-list-box" style="margin-top: 24px;">
-				<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;">
-					<div class="btn-group rc-tabs">
-						<button class="btn btn-default btn-sm" data-tab="PENDING">${__("Comprados no recibidos")}</button>
-						<button class="btn btn-default btn-sm" data-tab="RECEIVED">${__("Apartados sin resolver")}</button>
-						<button class="btn btn-default btn-sm" data-tab="RESOLVED_TO_ENC">${__("Resueltos")}</button>
-					</div>
-					<input type="text" class="form-control input-sm rc-search" style="max-width: 320px;"
-						placeholder="${__("Buscar: ENC, OV, cliente, marca, código, lugar")}">
+			<style>
+				.rc-wrap { max-width: 720px; margin: 0 auto; }
+				.rc-row { display: flex; gap: 8px; }
+				.rc-code { font-size: 20px; height: 56px; }
+				.rc-camera-btn { height: 56px; font-size: 18px; font-weight: 700; white-space: nowrap; }
+				.rc-reader { margin-top: 12px; border-radius: 8px; overflow: hidden; }
+				.rc-result { margin-top: 16px; padding: 24px 16px; border-radius: 12px; text-align: center; }
+				.rc-result-encargo { background: #fff3cd; border: 4px solid #f0ad4e; color: #5c3c00; }
+				.rc-result-stock { background: #e3f0ff; border: 4px solid #2f80ed; color: #0b3b7a; }
+				.rc-result-title { font-size: 34px; font-weight: 800; letter-spacing: 1px; }
+				.rc-result-enc { font-size: 44px; font-weight: 800; margin: 8px 0; word-break: break-all; }
+				.rc-result-detail { font-size: 16px; }
+				.rc-tabs { display: flex; gap: 8px; margin: 24px 0 8px; }
+				.rc-tabs button { flex: 1; height: 44px; font-weight: 600; }
+				.rc-card { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; }
+				.rc-card-title { font-weight: 700; }
+				@media (max-width: 480px) {
+					.rc-result-title { font-size: 28px; }
+					.rc-result-enc { font-size: 34px; }
+				}
+			</style>
+			<div class="rc-wrap">
+				<div class="rc-row">
+					<input type="text" class="form-control rc-code" autocomplete="off" spellcheck="false"
+						inputmode="text" placeholder="${__("Código y Enter")}">
+					<button class="btn btn-primary rc-camera-btn">${__("ESCANEAR")}</button>
 				</div>
-				<div class="rc-list"></div>
+				<div class="rc-reader"></div>
+				<div class="rc-result-box"></div>
+				<div class="rc-tabs">
+					<button class="btn btn-default" data-view="pending">${__("Comprados no recibidos")}</button>
+					<button class="btn btn-default" data-view="today">${__("Recibidos hoy")}</button>
+				</div>
+				<input type="text" class="form-control rc-search" placeholder="${__("Buscar: ENC, OV, cliente, marca, código")}">
+				<div class="rc-list" style="margin-top: 8px;"></div>
 			</div>
 		`);
 		this.$code = this.page.main.find(".rc-code");
-		this.$alert = this.page.main.find(".rc-alert");
-		this.$case = this.page.main.find(".rc-case");
+		this.$reader = this.page.main.find(".rc-reader");
+		this.$result = this.page.main.find(".rc-result-box");
 		this.$list = this.page.main.find(".rc-list");
 		this.$search = this.page.main.find(".rc-search");
 		this.$code.on("keydown", (e) => {
 			if (e.key === "Enter") {
 				e.preventDefault();
-				this.scan(this.$code.val());
+				this.enqueue(this.$code.val());
+				this.$code.val("");
 			}
 		});
+		this.page.main.find(".rc-camera-btn").on("click", () => this.toggle_camera());
 		this.page.main.find(".rc-tabs button").on("click", (e) => {
-			this.tab = $(e.currentTarget).data("tab");
+			this.view = $(e.currentTarget).data("view");
 			this.load_list();
 		});
 		this.$search.on("input", frappe.utils.debounce(() => this.load_list(), 300));
-		this.$list.on("click", "[data-encargo]", (e) => {
-			e.preventDefault();
-			this.open_from_list($(e.currentTarget).data("encargo"), $(e.currentTarget).data("status"));
-		});
 		this.load_list();
 	}
 
 	on_show() {
-		const saved = JSON.parse(localStorage.getItem(RC_RETURN_KEY) || "null");
-		localStorage.removeItem(RC_RETURN_KEY);
-		if (saved && saved.encargo) {
-			this.open_case(saved.encargo, saved.since);
-			return;
-		}
 		this.focus();
 	}
 
 	focus() {
-		if (!this.$alert.children().length && !this.$case.children().length) {
-			this.$code.prop("disabled", false).val("").trigger("focus");
+		// A touch screen would pop the keyboard on every focus; a Bluetooth scanner there needs one tap on the field.
+		if (!("ontouchstart" in window)) {
+			this.$code.trigger("focus");
 		}
 	}
 
-	lock_scanner() {
-		this.$code.prop("disabled", true);
-	}
-
-	reset() {
-		this.$alert.empty();
-		this.$case.empty();
-		this.item_control = null;
-		this.focus();
-		this.load_list();
-	}
-
-	call(method, args, freeze_message) {
-		// A pending promise on double click or server error: the follow-up never runs twice.
-		if (this.busy) {
-			return new Promise(() => {});
-		}
-		this.busy = true;
-		this.page.main.find(".rc-action").prop("disabled", true);
-		return new Promise((resolve) => {
-			frappe.call({
-				method: RC_METHOD + method,
-				args,
-				freeze: true,
-				freeze_message,
-				callback: (r) => resolve(r.message),
-				always: () => {
-					this.busy = false;
-					this.page.main.find(".rc-action").prop("disabled", false);
-				},
-			});
-		});
-	}
-
-	scan(value) {
+	enqueue(value) {
+		// Identical units are scanned in a row: every read is kept and sent one at a time, in order.
 		const code = String(value || "").trim();
-		if (!code || this.busy) {
+		if (!code) {
 			return;
 		}
-		this.call("find_candidates", { code }, __("Buscando")).then((data) => {
-			this.$case.empty();
-			this.lock_scanner();
-			if (data.match === "encargo") {
-				this.show_detected(data.encargo, data.code, data.pending_count);
-			} else if (data.match === "received") {
-				this.show_already_received(data);
-			} else {
-				this.show_no_encargo(data);
-			}
-		});
+		this.queue.push(code);
+		this.process();
 	}
 
-	show_detected(enc, code, pending_count) {
-		const others =
-			pending_count > 1
-				? `<div style="font-size: 16px; margin-top: 8px;">${__(
-						"Hay {0} Encargos comprados con este código; esta unidad va al de compra más antigua.",
-						[pending_count]
-				  )}</div>`
-				: "";
-		this.$alert.html(`
-			<div class="rc-detected" role="alert" style="border: 6px solid #b45309; background: #fef3c7; color: #1f2937;
-				border-radius: 12px; padding: 24px; text-align: center;">
-				<div style="font-size: 28px; font-weight: 800; letter-spacing: 2px;">${__("ENCARGO DETECTADO")}</div>
-				<div style="font-size: 72px; font-weight: 900; line-height: 1.1; margin: 12px 0; word-break: break-all;">
-					${esc(enc.name)}</div>
-				<div style="font-size: 26px; font-weight: 800;">${__("APARTAR / CLASIFICAR ENCARGO")}</div>
-				<div style="font-size: 18px; margin-top: 12px;">${esc(enc.description)} · ${esc(enc.brand)}</div>
-				<div style="font-size: 15px; margin-top: 4px;">${esc(enc.sales_order)} · ${esc(enc.customer)}</div>
-				${others}
-				<div style="font-size: 13px; margin-top: 8px; word-break: break-all;">${__("Código")}: ${esc(code)}</div>
-				<div style="margin-top: 20px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-					<button class="btn btn-primary btn-lg rc-action rc-received" style="font-size: 20px; padding: 12px 32px;">
-						${__("APARTADO / CONTINUAR")}</button>
-					<button class="btn btn-default btn-lg rc-action rc-detail">${__("VER DETALLE")}</button>
-					<button class="btn btn-default btn-lg rc-action rc-not-matching">${__("NO CORRESPONDE")}</button>
-				</div>
-			</div>
-		`);
-		this.$alert.find(".rc-received").on("click", () => {
-			this.call("mark_received", { encargo: enc.name, code }, __("Apartando")).then(() => {
-				frappe.show_alert({ message: __("{0} apartado", [enc.name]), indicator: "green" });
-				this.$alert.empty();
-				this.open_case(enc.name);
-			});
-		});
-		this.$alert.find(".rc-detail").on("click", () => open_encargo(enc.name));
-		this.$alert.find(".rc-not-matching").on("click", () => this.not_matching(enc.name, code));
-		this.$alert.find(".rc-received").trigger("focus");
-	}
-
-	not_matching(encargo, code) {
-		frappe.prompt(
-			[{ fieldname: "notes", fieldtype: "Small Text", label: __("Observación (opcional)") }],
-			(values) => {
-				this.call("not_matching", { encargo, code, notes: values.notes }, __("Registrando")).then(() => {
-					frappe.show_alert({ message: __("Registrado: no corresponde a {0}", [encargo]), indicator: "orange" });
-					this.reset();
-				});
-			},
-			__("La unidad no corresponde a {0}", [encargo]),
-			__("Registrar")
-		);
-	}
-
-	show_already_received(data) {
-		const rows = data.received
-			.map(
-				(enc) => `<tr>
-					<td style="font-size: 20px; font-weight: 800;">${esc(enc.name)}</td>
-					<td>${esc(enc.description)} · ${esc(enc.brand)}</td>
-					<td>${__("Apartado por {0}", [esc(enc.received_by)])} · ${fmt_dt(enc.received_on)}</td>
-					<td><button class="btn btn-default btn-sm rc-action" data-open="${esc(enc.name)}">${__("Conciliar")}</button></td>
-				</tr>`
-			)
-			.join("");
-		this.$alert.html(`
-			<div role="alert" style="border: 4px solid #6b7280; background: #f3f4f6; border-radius: 12px; padding: 20px;">
-				<div style="font-size: 24px; font-weight: 800;">${__("UNIDAD YA APARTADA")}</div>
-				<div style="margin: 6px 0 12px; word-break: break-all;">${__(
-					"Todos los Encargos con este código ya fueron apartados. Código: {0}",
-					[esc(data.code)]
-				)}</div>
-				<table class="table table-bordered" style="background: #fff;"><tbody>${rows}</tbody></table>
-				<button class="btn btn-default rc-action rc-close">${__("Cerrar y seguir escaneando")}</button>
-			</div>
-		`);
-		this.$alert.find("[data-open]").on("click", (e) => {
-			const name = $(e.currentTarget).data("open");
-			this.$alert.empty();
-			this.open_case(name);
-		});
-		this.$alert.find(".rc-close").on("click", () => this.reset());
-	}
-
-	show_no_encargo(data) {
-		const item = data.item
-			? `<div style="margin-top: 8px;">${__("Item con este código")}: <a href="/app/item/${encodeURIComponent(
-					data.item
-			  )}" target="_blank" rel="noopener">${esc(data.item)}</a></div>`
-			: "";
-		this.$alert.html(`
-			<div role="alert" style="border: 4px solid #1d4ed8; background: #eff6ff; color: #1f2937; border-radius: 12px; padding: 20px;">
-				<div style="font-size: 26px; font-weight: 800;">${__("PRODUCTO SIN ENCARGO IDENTIFICADO")}</div>
-				<div style="font-size: 16px; margin-top: 6px; word-break: break-all;">${__("Código")}: ${esc(data.code)}</div>
-				<div style="font-size: 15px; margin-top: 6px;">${__("Recepción normal de stock: no apartar.")}</div>
-				${item}
-				<div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-					<button class="btn btn-primary btn-lg rc-action rc-stock">${__("INGRESAR A STOCK NORMAL")}</button>
-					<button class="btn btn-default btn-lg rc-action rc-find-item">${__("BUSCAR ITEM")}</button>
-					<button class="btn btn-default btn-lg rc-action rc-find-enc">${__("BUSCAR ENCARGO MANUALMENTE")}</button>
-				</div>
-			</div>
-		`);
-		this.$alert.find(".rc-stock").on("click", () => this.reset()).trigger("focus");
-		this.$alert.find(".rc-find-item").on("click", () => {
-			window.open(data.item ? `/app/item/${encodeURIComponent(data.item)}` : "/app/item", "_blank");
-		});
-		this.$alert.find(".rc-find-enc").on("click", () => {
-			this.$alert.empty();
-			this.tab = "PENDING";
-			this.focus();
-			this.$search.val("").trigger("focus");
-			this.load_list();
-		});
-	}
-
-	open_from_list(encargo, status) {
-		if (status === "RESOLVED_TO_ENC") {
-			open_encargo(encargo);
+	process() {
+		if (this.working || !this.queue.length) {
 			return;
 		}
-		this.call("get_case", { encargo }, __("Abriendo")).then((data) => {
-			this.$alert.empty();
-			this.$case.empty();
-			this.lock_scanner();
-			if (data.encargo.reception_status === "PENDING") {
-				this.show_detected(data.encargo, data.encargo.purchase_barcode, 1);
-			} else {
-				this.render_case(data);
-			}
-			window.scrollTo({ top: 0, behavior: "smooth" });
-		});
-	}
-
-	open_case(encargo, created_since) {
-		this.call("get_case", { encargo }, __("Abriendo")).then((data) => {
-			this.lock_scanner();
-			this.render_case(data);
-			if (created_since) {
-				this.prefill_created_item(created_since);
-			}
-		});
-	}
-
-	render_case(data) {
-		const enc = data.encargo;
-		if (enc.reception_status !== "RECEIVED") {
-			frappe.show_alert({ message: __("{0} ya no está apartado sin resolver", [enc.name]), indicator: "orange" });
-			this.reset();
-			return;
-		}
-		this.case = data;
-		this.$case.html(`
-			<div style="border: 2px solid #d1d5db; border-radius: 12px; padding: 16px;">
-				<div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
-					<div style="font-size: 40px; font-weight: 900;">${esc(enc.name)}</div>
-					<div>${__("Apartado por {0}", [esc(enc.received_by)])} · ${fmt_dt(enc.received_on)}</div>
-				</div>
-				<div class="row" style="margin-top: 12px;">
-					<div class="col-md-6">${side_original(enc)}</div>
-					<div class="col-md-6">${side_purchase(enc)}</div>
-				</div>
-				<hr>
-				<h4>${__("Item real de la unidad")}</h4>
-				<div class="rc-item-hint text-muted" style="margin-bottom: 6px;"></div>
-				<div class="rc-item-field" style="max-width: 480px;"></div>
-				<div class="rc-link-box checkbox" style="margin: 8px 0;">
-					<label><input type="checkbox" class="rc-link-code">
-						${__("Asociar el código comprado a este Item (identificador estable del proveedor)")}</label>
-				</div>
-				<button class="btn btn-default btn-sm rc-action rc-new-item">${__("Crear Item")}</button>
-				<div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
-					<button class="btn btn-success btn-lg rc-action rc-satisfies">${__("SATISFACE ENCARGO")}</button>
-					<button class="btn btn-danger btn-lg rc-action rc-annul">${__("ANULAR COMPRA / ITEM A STOCK")}</button>
-					<button class="btn btn-default btn-lg rc-action rc-later">${__("Dejar pendiente y seguir escaneando")}</button>
-				</div>
-			</div>
-		`);
-		this.item_control = frappe.ui.form.make_control({
-			parent: this.$case.find(".rc-item-field"),
-			df: {
-				fieldname: "item_code",
-				fieldtype: "Link",
-				options: "Item",
-				label: __("Item"),
-				get_query: () => ({ filters: { disabled: 0, has_variants: 0 } }),
-				change: () => this.update_link_box(),
-			},
-			render_input: true,
-		});
-		this.item_control.set_value(data.item || enc.expected_item || "");
-		this.$case.find(".rc-item-hint").text(
-			data.item
-				? __("El código comprado ya identifica al Item {0}.", [data.item])
-				: __("El código comprado no pertenece a ningún Item.")
-		);
-		this.update_link_box();
-		this.$case.find(".rc-new-item").on("click", () => this.create_item(enc));
-		this.$case.find(".rc-satisfies").on("click", () => this.satisfies(enc));
-		this.$case.find(".rc-annul").on("click", () => this.annul(enc));
-		this.$case.find(".rc-later").on("click", () => this.reset());
-	}
-
-	update_link_box() {
-		const enc = this.case && this.case.encargo;
-		const show = enc && enc.purchase_barcode && !this.case.item;
-		this.$case.find(".rc-link-box").toggle(Boolean(show));
-	}
-
-	selected_item() {
-		const item_code = this.item_control && this.item_control.get_value();
-		if (!item_code) {
-			frappe.msgprint(__("Elige o crea el Item real de la unidad."));
-		}
-		return item_code;
-	}
-
-	link_code() {
-		return this.$case.find(".rc-link-code").is(":visible") && this.$case.find(".rc-link-code").is(":checked") ? 1 : 0;
-	}
-
-	satisfies(enc) {
-		const item_code = this.selected_item();
-		if (!item_code) {
-			return;
-		}
-		const send = (confirm_mismatch) =>
-			this.call(
-				"resolve_to_encargo",
-				{ encargo: enc.name, item_code, link_code: this.link_code(), confirm_mismatch },
-				__("Resolviendo")
-			).then(() => {
-				frappe.show_alert({ message: __("{0} satisfecho con {1}", [enc.name, item_code]), indicator: "green" });
-				this.reset();
-			});
-		if (enc.source_type === "KNOWN_ITEM" && enc.expected_item && enc.expected_item !== item_code) {
-			frappe.confirm(
-				__("La venta pidió {0} y elegiste {1}. ¿El producto recibido satisface el Encargo?", [
-					esc(enc.expected_item),
-					esc(item_code),
-				]),
-				() => send(1)
-			);
-			return;
-		}
-		send(0);
-	}
-
-	annul(enc) {
-		const item_code = this.selected_item();
-		if (!item_code) {
-			return;
-		}
-		frappe.prompt(
-			[
-				{
-					fieldtype: "HTML",
-					options: `<p>${__(
-						"La compra se anula: la unidad ({0}) pasa a stock normal y {1} vuelve a la lista del Shopper. La evidencia de la compra queda en la bitácora.",
-						[esc(item_code), esc(enc.name)]
-					)}</p>`,
-				},
-				{ fieldname: "notes", fieldtype: "Small Text", label: __("Motivo"), reqd: 1 },
-			],
-			(values) => {
-				this.call(
-					"annul_purchase",
-					{ encargo: enc.name, item_code, link_code: this.link_code(), notes: values.notes },
-					__("Anulando compra")
-				).then(() => {
-					frappe.show_alert({ message: __("Compra anulada: {0} vuelve al Shopper", [enc.name]), indicator: "orange" });
-					this.reset();
-				});
-			},
-			__("Anular compra de {0}", [enc.name]),
-			__("Anular compra")
-		);
-	}
-
-	create_item(enc) {
-		localStorage.setItem(RC_RETURN_KEY, JSON.stringify({ encargo: enc.name, since: frappe.datetime.now_datetime() }));
-		const values = { item_name: enc.description, description: enc.description, brand: enc.brand, item_group: enc.item_group };
-		RC_ATTRIBUTES.forEach(([field]) => {
-			if (enc[field] && field !== "model") {
-				values[field] = enc[field];
-			}
-		});
-		frappe.new_doc("Item", values);
-	}
-
-	prefill_created_item(since) {
-		frappe.db
-			.get_list("Item", {
-				filters: { owner: frappe.session.user, creation: [">=", since] },
-				fields: ["name"],
-				order_by: "creation desc",
-				limit: 1,
-			})
-			.then((rows) => {
-				if (rows.length && this.item_control) {
-					this.item_control.set_value(rows[0].name);
+		this.working = true;
+		const code = this.queue.shift();
+		frappe.call({
+			method: RC_METHOD + "receive_scan",
+			args: { code },
+			callback: (r) => {
+				if (r.message) {
+					this.show_result(r.message);
 				}
-			});
+			},
+			always: () => {
+				this.working = false;
+				if (this.queue.length) {
+					this.process();
+				} else {
+					this.load_list();
+					this.focus();
+				}
+			},
+		});
+	}
+
+	show_result(data) {
+		if (navigator.vibrate) {
+			navigator.vibrate(data.match === "encargo" ? [200, 100, 200] : 150);
+		}
+		if (data.match === "encargo") {
+			const enc = data.encargo || {};
+			const left = data.pending_left
+				? `<div class="rc-result-detail" style="margin-top: 8px;">${__("Quedan {0} Encargos por recibir con este código", [data.pending_left])}</div>`
+				: "";
+			this.$result.html(`
+				<div class="rc-result rc-result-encargo">
+					<div class="rc-result-title">${__("APARTAR")}</div>
+					<div class="rc-result-enc">${rc_escape(enc.name)}</div>
+					<div class="rc-result-detail">${rc_escape(enc.customer)} · ${rc_escape(enc.sales_order)}</div>
+					<div class="rc-result-detail">${rc_escape(enc.brand)} ${rc_escape(enc.description)}</div>
+					${left}
+				</div>
+			`);
+			return;
+		}
+		this.$result.html(`
+			<div class="rc-result rc-result-stock">
+				<div class="rc-result-title">${__("STOCK NORMAL")}</div>
+				<div class="rc-result-detail">${__("Sin Encargo pendiente")}</div>
+				<div class="rc-result-detail" style="word-break: break-all;">${rc_escape(data.code)}</div>
+			</div>
+		`);
 	}
 
 	load_list() {
-		this.page.main.find(".rc-tabs button").each((_, btn) => {
-			$(btn).toggleClass("btn-primary", $(btn).data("tab") === this.tab).toggleClass("btn-default", $(btn).data("tab") !== this.tab);
+		this.page.main.find(".rc-tabs button").each((_, el) => {
+			$(el).toggleClass("btn-primary", $(el).data("view") === this.view);
+			$(el).toggleClass("btn-default", $(el).data("view") !== this.view);
 		});
 		frappe.call({
 			method: RC_METHOD + "list_reception",
-			args: { search: this.$search.val(), reception_status: this.tab },
-			callback: (r) => {
-				const rows = r.message || [];
-				if (!rows.length) {
-					this.$list.html(`<div class="text-muted">${__("Sin Encargos en esta lista.")}</div>`);
-					return;
-				}
-				const body = rows
-					.map(
-						(row) => `<tr>
-						<td><a href="#" data-encargo="${esc(row.name)}" data-status="${esc(row.reception_status)}"
-							style="font-weight: 700;">${esc(row.name)}</a></td>
-						<td>${esc(row.brand)}</td>
-						<td>${esc(row.description)}</td>
-						<td>${esc(row.sales_order)}<br><span class="text-muted">${esc(row.customer)}</span></td>
-						<td>${esc(row.purchase_supplier || row.proposed_supplier_name)}<br>
-							<span class="text-muted">${esc(row.shopper_user)}</span></td>
-						<td>${fmt_dt(row.purchased_on)}<br><span class="text-muted">${days_since(row.purchased_on)}</span></td>
-						<td style="word-break: break-all; max-width: 200px;">${esc(row.purchase_barcode)}</td>
-						<td>${row.received_on ? `${fmt_dt(row.received_on)}<br><span class="text-muted">${esc(row.received_by)}</span>` : ""}</td>
-					</tr>`
-					)
-					.join("");
-				this.$list.html(`
-					<table class="table table-bordered table-hover">
-						<thead><tr>
-							<th>${__("ENC")}</th><th>${__("Marca")}</th><th>${__("Descripción")}</th>
-							<th>${__("OV / Cliente")}</th><th>${__("Lugar / Shopper")}</th><th>${__("Compra")}</th>
-							<th>${__("Código")}</th><th>${__("Recepción")}</th>
-						</tr></thead>
-						<tbody>${body}</tbody>
-					</table>
-				`);
-			},
+			args: { view: this.view, search: this.$search.val() },
+			callback: (r) => this.render_list(r.message || []),
 		});
 	}
-}
 
-function esc(value) {
-	return frappe.utils.escape_html(value == null ? "" : String(value));
-}
-
-function fmt_dt(value) {
-	return value ? frappe.datetime.str_to_user(value) : "";
-}
-
-function days_since(value) {
-	if (!value) {
-		return "";
+	render_list(rows) {
+		if (!rows.length) {
+			this.$list.html(`<div class="text-muted" style="padding: 12px 0;">${__("Sin registros")}</div>`);
+			return;
+		}
+		this.$list.html(
+			rows
+				.map((row) => {
+					const when =
+						this.view === "today"
+							? `${__("Recibido")} ${rc_escape(frappe.datetime.str_to_user(row.received_on))} · ${rc_escape(row.received_by)}`
+							: `${__("Comprado")} ${rc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rc_escape(
+									row.purchase_supplier || row.proposed_supplier_name
+							  )}`;
+					return `
+						<div class="rc-card">
+							<div class="rc-card-title">${rc_escape(row.name)} · ${rc_escape(row.customer)}</div>
+							<div>${rc_escape(row.brand)} ${rc_escape(row.description)}</div>
+							<div class="text-muted small">${when}</div>
+						</div>
+					`;
+				})
+				.join("")
+		);
 	}
-	const days = frappe.datetime.get_day_diff(frappe.datetime.now_date(), value.slice(0, 10));
-	return days === 0 ? __("hoy") : __("hace {0} días", [days]);
-}
 
-function open_encargo(name) {
-	window.open(`/app/encargo/${encodeURIComponent(name)}`, "_blank");
-}
-
-function image(url, label) {
-	if (!url) {
-		return "";
+	load_scanner() {
+		if (window.__Html5QrcodeLibrary__) {
+			return Promise.resolve(window.__Html5QrcodeLibrary__);
+		}
+		if (!this.scanner_lib) {
+			this.scanner_lib = new Promise((resolve, reject) => {
+				const script = document.createElement("script");
+				script.src = RC_SCANNER_SRC;
+				script.onload = () => resolve(window.__Html5QrcodeLibrary__);
+				script.onerror = () => {
+					this.scanner_lib = null;
+					reject(new Error(__("No se pudo cargar el lector")));
+				};
+				document.head.appendChild(script);
+			});
+		}
+		return this.scanner_lib;
 	}
-	const src = esc(url);
-	return `<a href="${src}" target="_blank" rel="noopener" title="${esc(label)}">
-		<img src="${src}" alt="${esc(label)}" style="max-width: 48%; max-height: 220px; border-radius: 8px; margin: 4px;"></a>`;
-}
 
-function fact(label, value) {
-	return value ? `<div><span class="text-muted">${esc(label)}:</span> ${esc(value)}</div>` : "";
-}
+	camera_error(e) {
+		const text = String((e && (e.name || e.message)) || e || "");
+		if (/NotAllowed|Permission/i.test(text)) return __("Permiso de cámara denegado: habilítalo para este sitio en el navegador");
+		if (/NotFound|Overconstrained/i.test(text)) return __("No se encontró la cámara trasera");
+		if (/NotReadable|in use/i.test(text)) return __("La cámara está en uso por otra app");
+		if (!window.isSecureContext) return __("La cámara requiere https");
+		return __("No se pudo abrir la cámara: {0}", [text]);
+	}
 
-function side_original(enc) {
-	const attributes = RC_ATTRIBUTES.map(([field, label]) => fact(__(label), enc[field])).join("");
-	return `
-		<h5 style="font-weight: 800;">${__("Solicitud original")}</h5>
-		${image(enc.reference_image, __("Imagen de referencia"))}
-		<div style="font-size: 16px; font-weight: 700; margin-top: 6px;">${esc(enc.description)}</div>
-		${fact(__("Marca"), enc.brand)}
-		${fact(__("Grupo"), enc.item_group)}
-		${attributes}
-		${fact(__("Item vendido"), enc.expected_item)}
-		${fact(__("Notas"), enc.notes)}
-		${fact(__("Referencia"), enc.reference_url)}
-		${fact(__("OV"), enc.sales_order)}
-		${fact(__("Cliente"), enc.customer)}
-	`;
-}
+	async stop_camera() {
+		const scanner = this.scanner;
+		this.scanner = null;
+		this.$reader.empty();
+		if (!scanner) {
+			return;
+		}
+		try {
+			await scanner.stop();
+			scanner.clear();
+		} catch (e) {}
+	}
 
-function side_purchase(enc) {
-	return `
-		<h5 style="font-weight: 800;">${__("Compra Shopper")}</h5>
-		${image(enc.purchase_product_image, __("Foto del producto"))}
-		${image(enc.purchase_label_image, __("Foto de etiqueta"))}
-		${fact(__("Lugar"), enc.purchase_supplier || enc.proposed_supplier_name)}
-		${fact(__("Shopper"), enc.shopper_user)}
-		${fact(__("Fecha"), fmt_dt(enc.purchased_on))}
-		${fact(__("Código"), enc.purchase_barcode)}
-		${fact(__("Precio"), enc.purchase_price != null ? format_number(enc.purchase_price, null, 2) : "")}
-	`;
+	async toggle_camera() {
+		if (this.scanner) {
+			await this.stop_camera();
+			return;
+		}
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			frappe.show_alert({ message: __("Este navegador no permite usar la cámara: escribe el código"), indicator: "orange" });
+			return;
+		}
+		let lib;
+		try {
+			lib = await this.load_scanner();
+		} catch (e) {
+			frappe.show_alert({ message: e.message, indicator: "red" });
+			return;
+		}
+		this.$reader.html(`<div id="rc-reader-view"></div>`);
+		const F = lib.Html5QrcodeSupportedFormats;
+		const scanner = new lib.Html5Qrcode("rc-reader-view", {
+			verbose: false,
+			formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
+			experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+		});
+		this.scanner = scanner;
+		try {
+			await scanner.start(
+				{ facingMode: "environment" },
+				{ fps: 10, qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(h, w) * 0.45) }) },
+				async (text) => {
+					// The camera keeps reading the same label: it closes after one read, one unit per press.
+					if (this.scanner !== scanner) {
+						return;
+					}
+					await this.stop_camera();
+					this.enqueue(text);
+				},
+				() => {}
+			);
+		} catch (e) {
+			this.scanner = null;
+			this.$reader.empty();
+			frappe.show_alert({ message: this.camera_error(e), indicator: "red" });
+		}
+	}
 }

@@ -22,17 +22,6 @@
    "collapsible": 0,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Recepción Chile",
-   "link_to": "recepcion-chile",
-   "link_type": "Page",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 0,
-   "collapsible": 0,
-   "indent": 0,
-   "keep_closed": 0,
    "label": "Marca",
    "link_to": "Brand",
    "link_type": "DocType",
@@ -51,7 +40,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-06 00:30:00",
+ "modified": "2026-10-06 01:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
