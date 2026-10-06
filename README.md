@@ -108,7 +108,11 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 ### Spec vigente del Programador
 
-**Spec activa:** `013-encargo-preventa-recepcion` — **Fase D: Recepción Chile**. Fuente implementable: `specs/013-encargo-preventa-recepcion/spec.md`, con corte operativo resumido en `plan.md` y `tasks.md`. Caso piloto obligatorio: `OV-2026-00326 / ENC-2026-00401`, `purchase_barcode = https://qrgo.page.link/JsDVr`. El primer lookup de recepción es por `Encargo.purchase_barcode`; al detectar Encargo la UI debe mostrar warning dominante `ENCARGO DETECTADO / ENC-YYYY-##### / APARTAR`, antes de resolver Item. El Programador debe presentar plan técnico/archivos/rol/idempotencia y esperar OK explícito de Miguel antes de escribir código. `016-known-payer-bank-attribution` queda implementada y en validación funcional, no como frente activo de desarrollo.
+**Spec activa:** `013-encargo-preventa-recepcion` — **Fase D: Recepción Chile pendiente / corte 16.0.96 autorizado**. Fuente implementable: `specs/013-encargo-preventa-recepcion/spec.md`, especialmente `§34.21`; `plan.md` y `tasks.md` resumen el corte técnico vigente. Fases B/C ya están implementadas: DocType Encargo, integración con Sales Order, Item técnico `ENCARGO-PENDIENTE`, lista móvil Shopper, compra con barcode/fotos/precio, intentos `NO ENCONTRADO` y vista `Mis compras`. No reiniciar desde planificación inicial ni volver a pedir OK para programar esta Fase D; el OK funcional ya está dado con las decisiones de Miguel del 2026-10-06. Antes de programar, sólo corresponde la lectura técnica prometida por el Programador en el servidor para confirmar `frappe.ui.Scanner` y el filtro por rol del ícono de escritorio.
+
+**Alcance vigente Fase D:** el receptor escanea una unidad y nada más; cada escaneo consume el Encargo pendiente más antiguo con ese `purchase_barcode`; si no quedan Encargos pendientes, la unidad es stock normal. Si el Encargo recibido no satisface, ComercialFRA lo devuelve a stock con motivo obligatorio y la OV no se toca. Queda fuera de este corte la transformación automática de la línea `ENCARGO-PENDIENTE` de la OV al Item real.
+
+`016-known-payer-bank-attribution` queda implementada y en validación funcional; no es frente activo de desarrollo.
 
 **Última Spec cerrada:** `015-sales-order-draft-payment-gate` — 2026-09-30. OV Draft se guarda sin líneas; Submit exige al menos una línea y pago aplicado > 0; los Encargos llegan al Shopper solo tras Submit. Producto desde `16.0.85`; complementos `16.0.86` (fecha de entrega +7 días), `16.0.87` (botón Ver Encargo en la línea de la OV validada) y `16.0.88` (Encargos (ENC) en el menú Ventas).
 
@@ -122,7 +126,7 @@ Documento: `specs/015-sales-order-draft-payment-gate/spec.md`
 
 Documento: `specs/013-encargo-preventa-recepcion/spec.md`
 
-**Estado 013:** Fases B/C operativas para el caso real. **Fase D implementada en `16.0.93`** (rol `FRAreceptor` desde `16.0.94`) (plan aprobado por Miguel el 2026-10-06, decisiones en Spec §34.20); pendiente migrate y piloto `OV-2026-00326 / ENC-2026-00401` en el sitio para cerrar.
+**Estado 013:** Fase B (modelo Encargo + Sales Order) implementada. Fase C Shopper implementada y validada operativamente en celular en sus flujos principales. **Fase D Recepción Chile sigue pendiente como siguiente corte de programación (`16.0.96`)**: debe reemplazar el diseño anterior por el flujo simplificado definido en Spec §34.21. Las referencias 16.0.93–16.0.95 documentan un intento/diseño previo de recepción y el ajuste de rol `FRAreceptor`, pero no cierran la Fase D vigente.
 
 **Decisiones principales 013:**
 
@@ -133,7 +137,7 @@ Documento: `specs/013-encargo-preventa-recepcion/spec.md`
 - La porción disponible debe reutilizar Stock Reservation estándar de ERPNext; no crear un motor custom de reservas.
 - Shopper externo: página Website/Portal mínima, sin Desk, para ver pendientes y marcar `COMPRADO` / `NO ENCONTRADO`.
 - La identidad definitiva del Item se resuelve bajo control FRA en recepción Chile.
-- Compra equivocada no devuelta → stock normal; el ENC original continúa pendiente.
+- Compra equivocada no devuelta → stock normal mediante acción de ComercialFRA; el ENC queda en `RESOLVED_TO_STOCK` para ese caso y la OV se corrige/anula por flujo estándar si corresponde.
 - No reescribir destructivamente una Sales Order submitted al resolver el Item real.
 
 **Última Spec cerrada:** `012-sales-person-auto-commission` — 2026-09-23. Atribución automática User → Employee → Sales Person → Sales Team en Sales Order (`before_validate`). Producto desde `16.0.35`.
