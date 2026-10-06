@@ -113,7 +113,7 @@ Para esta Spec el comportamiento aplica cuando se cumplan conjuntamente:
 
 No hardcodear correo, nombre ni ID del usuario piloto.
 
-La implementación debe quedar preparada para extender la política posteriormente a otros roles/workspaces FRA (`PagosFRA`, `DespachoFRA`, `RecepcionFRA`) sin reescribir el mecanismo base.
+La implementación debe quedar preparada para extender la política posteriormente a otros roles/workspaces FRA (`EmpaqueFRA`, `RecepcionFRA`) sin reescribir el mecanismo base.
 
 ## 5. Comportamiento requerido
 
@@ -215,7 +215,7 @@ Diseño esperado:
 - cambiar permisos de DocTypes;
 - esconder Ctrl+K;
 - impedir URLs directas a documentos para los que el usuario tenga permiso;
-- resolver en esta Spec PagosFRA / DespachoFRA / RecepcionFRA.
+- resolver en esta Spec EmpaqueFRA / RecepcionFRA.
 
 ## 8. Criterios de aceptación
 

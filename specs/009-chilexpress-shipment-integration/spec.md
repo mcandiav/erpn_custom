@@ -6,7 +6,7 @@
 
 **Status**: Cerrada / aceptada operativamente (2026-09-17). Producto hasta `16.0.21` en sandbox. Evidencia Chilexpress Test: OT `712678881073`, tracking y **etiqueta de envío OK** (File en create). Nota no bloqueante: reprint API Test 404 (reimpresión desde File del create).
 
-**Parent context**: `008-courier-configuration`, `../despachos_transportistas.md`
+**Parent context**: `008-courier-configuration`, `../empaque_transportistas.md`
 
 ## 0. Regla de trabajo
 
@@ -14,7 +14,7 @@ Esta Spec está **cerrada**. No reabrir ni ampliar alcance salvo instrucción ex
 
 Flujo histórico que se cumplió:
 
-1. leer `README.md`, esta Spec, Spec 008 y el documento conceptual `despachos_transportistas.md`;
+1. leer `README.md`, esta Spec, Spec 008 y el documento conceptual `empaque_transportistas.md`;
 2. inspeccionar el DocType `Shipment` real de ERPNext v16;
 3. contrastar documentación Chilexpress vigente;
 4. presentar plan técnico a Miguel;
@@ -54,7 +54,7 @@ Shipment actualizado
 
 - `Sales Order`: compromiso comercial.
 - `Delivery Note`: salida física del inventario.
-- `Shipment`: fuente de verdad del despacho y courier.
+- `Shipment`: fuente de verdad del empaque y courier.
 - `Courier Configuration`: provider, ambiente, credenciales, endpoints y referencia de cuenta.
 - `ChilexpressAdapter`: protocolo específico de Chilexpress.
 
@@ -109,7 +109,7 @@ Regla:
 Standard -> Custom Field -> código custom -> DocType auxiliar
 ```
 
-No crear un DocType paralelo `Despacho`.
+No crear un DocType paralelo `Empaque`.
 
 ## 4. Preflight obligatorio
 
@@ -408,7 +408,7 @@ No crear todos por defecto. Cada uno debe justificarse contra Shipment estándar
 
 ### US1 - Vincular courier al Shipment
 
-Como operador quiero seleccionar `Chilexpress / Test` en un Shipment para que el despacho use una configuración concreta y auditable.
+Como operador quiero seleccionar `Chilexpress / Test` en un Shipment para que el empaque use una configuración concreta y auditable.
 
 **Acceptance**:
 
@@ -546,7 +546,7 @@ Como operador quiero consultar el estado Chilexpress desde Shipment.
 ## 21. Decisiones NO abiertas
 
 1. `Shipment` estándar será la fuente de verdad logística.
-2. No se creará DocType paralelo `Despacho`.
+2. No se creará DocType paralelo `Empaque`.
 3. Chilexpress será el primer Adapter real.
 4. Courier Configuration será la fuente de provider/ambiente/credenciales/endpoints.
 5. Dimensiones reales se toman de Shipment Parcel.

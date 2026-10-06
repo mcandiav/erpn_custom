@@ -1,0 +1,139 @@
+{
+ "actions": [],
+ "creation": "2026-10-06 00:30:00",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "action",
+  "event_on",
+  "user",
+  "scanned_code",
+  "item",
+  "notes",
+  "section_annulled_purchase",
+  "shopper_user",
+  "purchased_on",
+  "purchase_supplier",
+  "proposed_supplier_name",
+  "purchase_barcode",
+  "purchase_price",
+  "purchase_product_image",
+  "purchase_label_image"
+ ],
+ "fields": [
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Acción",
+   "options": "RECEIVED\nNOT_MATCHING\nRESOLVED_TO_ENC\nPURCHASE_ANNULLED",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Fecha",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Receptor",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scanned_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Código escaneado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Observación",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.action=='PURCHASE_ANNULLED'",
+   "fieldname": "section_annulled_purchase",
+   "fieldtype": "Section Break",
+   "label": "Compra anulada"
+  },
+  {
+   "fieldname": "shopper_user",
+   "fieldtype": "Link",
+   "label": "Shopper",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchased_on",
+   "fieldtype": "Datetime",
+   "label": "Fecha de compra",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_supplier_name",
+   "fieldtype": "Data",
+   "label": "Lugar propuesto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_barcode",
+   "fieldtype": "Data",
+   "label": "Barcode comprado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_price",
+   "fieldtype": "Float",
+   "label": "Precio de compra",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_product_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto del producto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_label_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto de etiqueta",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-06 00:30:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo Reception Event",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

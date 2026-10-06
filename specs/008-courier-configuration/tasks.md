@@ -8,7 +8,7 @@
 
 ## Phase 1 — Evidence gate / inspección
 
-- [ ] T001 Leer `README.md`, Spec 008, código de Spec 007 y `despachos_transportistas.md`.
+- [ ] T001 Leer `README.md`, Spec 008, código de Spec 007 y `empaque_transportistas.md`.
 - [ ] T002 Inspeccionar read-only `Chilexpress Settings` en sandbox: DocType, fields, environment y flags de secrets seteados, sin imprimir valores.
 - [ ] T003 Inspeccionar topología actual `Desktop Icon` / `Workspace Sidebar` de `MCV Chile` y `Courier`.
 - [ ] T004 Confirmar archivos/fixtures/patches actuales de Spec 007.

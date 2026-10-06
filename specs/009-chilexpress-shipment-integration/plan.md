@@ -340,4 +340,4 @@ Prueba punta a punta con Shipment de prueba:
 - consolidation rules;
 - cron tracking;
 - auto-selection cheapest/fastest;
-- custom Despacho DocType.
+- custom Empaque DocType.

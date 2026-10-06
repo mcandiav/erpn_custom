@@ -8,7 +8,7 @@
 
 ## Phase 1 — Evidence gate
 
-- [ ] T001 Leer README, Spec 008, Spec 009 y `despachos_transportistas.md`.
+- [ ] T001 Leer README, Spec 008, Spec 009 y `empaque_transportistas.md`.
 - [ ] T002 Inspeccionar `Shipment` estándar ERPNext v16: campos, tablas, docstatus, JS/controlador y creación desde Delivery Note.
 - [ ] T003 Documentar mapping candidato de `carrier`, `carrier_service`, `service_provider`, `shipment_id`, `shipment_amount`, `awb_number`, `tracking_status`.
 - [ ] T004 Inspeccionar `Shipment Parcel` real y confirmar fields de largo/ancho/alto/peso/count.

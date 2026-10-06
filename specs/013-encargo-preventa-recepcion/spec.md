@@ -1431,3 +1431,269 @@ El Shopper informa realidad operacional; **Comercial decide la relación con el 
 5. El mismo ENC puede acumular intentos en fechas y Suppliers distintos.
 6. Al tercer `NOT_FOUND`, el sistema genera una señal de revisión comercial sin cancelar automáticamente el ENC.
 7. El historial de intentos permanece auditable y no se sobrescribe.
+
+## 34. Fase D — Recepción Chile concretada con caso real OV-2026-00326
+
+### 34.1 Caso de aceptación real
+
+- Sales Order: `OV-2026-00326`.
+- Customer: `kevin quijada candia`.
+- Sales Order Item: `42n26msh71`.
+- Encargo: `ENC-2026-00401`.
+- Producto: Cinturon masculino mk / Michael Kors / Cinturones / Hombre / Brown.
+- `purchase_status = PURCHASED`.
+- Shopper: `shopper@fragallardo.com`.
+- Supplier compra: `MK Outlet`.
+- Código escaneado por Shopper: `https://qrgo.page.link/JsDVr`.
+- `reception_status = PENDING`.
+- `resolved_item = vacío`.
+
+La Fase C termina correctamente con la compra y su evidencia. La Fase D comienza cuando FRA recibe físicamente la unidad en Chile.
+
+### 34.2 Regla arquitectónica del código escaneado
+
+El sistema no debe interpretar ni restringir el formato del código. Para la operación, el identificador es el valor bruto que devuelve el lector/cámara, sea EAN, UPC, GTIN, QR, URL contenida en QR, código interno del proveedor u otro formato.
+
+Principio:
+
+`Shopper escanea -> purchase_barcode -> Recepción escanea la misma etiqueta -> coincidencia exacta -> recuperar Encargo`.
+
+Por lo tanto `https://qrgo.page.link/JsDVr` es un identificador operacional válido y no debe rechazarse por ser URL o QR.
+
+### 34.3 Prioridad de búsqueda en Recepción
+
+El primer objetivo del escaneo en Chile es reconocer la unidad comprada y recuperar su Encargo, no resolver inmediatamente el Item maestro.
+
+Orden:
+
+1. Escanear producto recibido.
+2. Buscar Encargo abierto con `purchase_status = PURCHASED`, `purchase_barcode = valor escaneado` y `reception_status` PENDING o RECEIVED.
+3. Si existe coincidencia, abrir directamente la conciliación de ese Encargo.
+4. Si no existe, ofrecer búsqueda de Item o recepción sin Encargo.
+
+### 34.4 UI obligatoria
+
+La función vive en Desk interno: `Encargo -> Recepción Chile`.
+
+La pantalla debe estar orientada al escaneo y mostrar por defecto Encargos comprados pendientes de recepción. Filtros mínimos: Encargo, OV, Customer, código escaneado, marca, Supplier de compra, fecha de compra y estado de recepción.
+
+Al abrir un caso debe mostrar lado a lado `Solicitud original` y `Compra Shopper`, con imágenes, descripción, atributos, Supplier, código y precio.
+
+### 34.5 Recepción física
+
+Acción visible: `MARCAR RECIBIDO`.
+
+Al confirmar:
+- `reception_status = RECEIVED`;
+- `received_on = now`;
+- registrar usuario receptor mediante auditoría/campo definido;
+- no completar `resolved_item` hasta resolver la identidad del Item.
+
+### 34.6 Resolución del Item
+
+Después de recuperar el Encargo por `purchase_barcode`:
+
+1. buscar si ese mismo identificador ya pertenece a un Item;
+2. si existe, proponerlo;
+3. si no existe, permitir buscar un Item existente;
+4. si tampoco existe, permitir creación controlada del Item real;
+5. la confirmación final siempre es humana FRA.
+
+Un QR/URL puede ser un identificador maestro válido si el proveedor lo usa de forma estable y FRA confirma esa identidad. Cuando se asocie por primera vez a un Item, debe validarse unicidad para impedir que el mismo valor identifique dos Items distintos.
+
+### 34.7 Decisión de destino
+
+Una vez resuelto el Item, la UI ofrece exclusivamente:
+
+- `SATISFACE ENCARGO`;
+- `NO SATISFACE — STOCK`.
+
+Si satisface: guardar `resolved_item`, `resolved_by`, `reception_status = RESOLVED_TO_ENC`, conservar la evidencia Shopper y no reescribir destructivamente la OV submitted.
+
+Si no satisface: la unidad sigue el flujo normal de stock; no satisface el Encargo original; la compra equivocada permanece como evidencia y el Encargo vuelve o permanece pendiente mediante transición auditable.
+
+### 34.8 Permisos
+
+`ShopperFRA` no ejecuta Recepción Chile. Comercial/Vendedor pueden consultar según permisos. La conciliación debe ser ejecutada por un rol interno FRA explícito, con permiso para escanear, marcar recibido, resolver/crear Item controlado y confirmar ENC o STOCK. No usar `System Manager` como diseño operacional.
+
+### 34.9 Validaciones
+
+1. No resolver Encargo no `PURCHASED`.
+2. Comparar exactamente el valor escaneado con `purchase_barcode`.
+3. Aceptar QR/URL y otros formatos sin imponer EAN/UPC.
+4. Un identificador maestro no puede pertenecer a dos Items.
+5. `RESOLVED_TO_ENC` exige `resolved_item` válido.
+6. No permitir doble resolución silenciosa.
+7. No asignar la misma unidad física a dos Encargos.
+8. No modificar la solicitud original para hacerla coincidir con lo recibido.
+
+### 34.10 Caso end-to-end obligatorio
+
+Usar `OV-2026-00326 / ENC-2026-00401`: Recepción escanea el QR físico, obtiene `https://qrgo.page.link/JsDVr`, ERP localiza el Encargo por `purchase_barcode`, muestra solicitud y evidencia, marca recibido, resuelve/crea el Item, permite asociar el QR al Item si FRA confirma que es identificador estable y finalmente confirma `SATISFACE ENCARGO`.
+
+### 34.11 Estado
+
+Fase B y Fase C están implementadas para este caso. Fase D — Recepción Chile — permanece pendiente. Los campos base existen; falta UI y lógica server-side de conciliación. El siguiente corte técnico de la Spec 013 debe concentrarse exclusivamente en Fase D.
+
+### 34.12 UI operacional de Recepción Chile
+
+La pantalla de Recepción Chile debe diseñarse como una estación de escaneo y clasificación física. El receptor no debe tener que interpretar una ficha ERP completa para saber qué hacer con la unidad.
+
+Estado inicial:
+
+```text
+RECEPCIÓN CHILE
+
+[ ESCANEAR PRODUCTO ]
+
+Últimos recibidos
+------------------------------------------------
+ENC-2026-00401   Michael Kors   RECIBIDO
+...
+```
+
+El cursor/foco debe permanecer preparado para el siguiente escaneo. Después de procesar una unidad, la pantalla vuelve automáticamente al modo escáner.
+
+### 34.13 Warning inmediato cuando el producto pertenece a un Encargo
+
+Si el valor escaneado coincide exactamente con `purchase_barcode` de un Encargo elegible, la UI debe mostrar inmediatamente un aviso visual dominante antes de cualquier otra acción.
+
+Formato conceptual:
+
+```text
+┌──────────────────────────────────────────────┐
+│              ENCARGO DETECTADO              │
+│                                              │
+│              ENC-2026-00401                 │
+│                                              │
+│         APARTAR / CLASIFICAR ENCARGO        │
+│                                              │
+│  Cinturon masculino mk · Michael Kors       │
+│  OV-2026-00326                              │
+└──────────────────────────────────────────────┘
+```
+
+El identificador `ENC-2026-xxxxx` debe ser el elemento de mayor jerarquía visual. El objetivo operacional es que el receptor pueda leerlo a distancia corta, separar físicamente la unidad y clasificarla inmediatamente.
+
+El warning debe:
+
+- aparecer automáticamente al escanear;
+- no depender de abrir manualmente el Encargo;
+- mostrar siempre el número de Encargo completo;
+- mostrar descripción corta y marca como ayuda secundaria;
+- mantener visible el código hasta que el receptor confirme una acción;
+- ofrecer una acción principal `APARTADO / CONTINUAR` o equivalente;
+- permitir abrir el detalle del Encargo como acción secundaria, no como requisito para seguir trabajando.
+
+### 34.14 Flujo de una coincidencia única
+
+Cuando existe un único Encargo elegible para el código escaneado:
+
+```text
+Escanear
+   ↓
+match exacto con purchase_barcode
+   ↓
+WARNING: ENC-2026-00401
+   ↓
+receptor aparta físicamente la unidad
+   ↓
+[ APARTADO / CONTINUAR ]
+   ↓
+marcar RECEIVED
+   ↓
+resolver Item ahora o dejar pendiente de conciliación
+```
+
+Confirmar `APARTADO / CONTINUAR` debe dejar trazabilidad de recepción física y permitir volver rápidamente al siguiente escaneo.
+
+### 34.15 Caso de varios Encargos con el mismo barcode
+
+El mismo producto puede haber sido comprado para varios clientes y, por lo tanto, varios Encargos pueden compartir el mismo `purchase_barcode`.
+
+En ese caso el sistema no debe asignar silenciosamente la unidad a uno de ellos.
+
+Debe mostrar:
+
+```text
+┌──────────────────────────────────────────────┐
+│       PRODUCTO CON ENCARGOS PENDIENTES      │
+│                                              │
+│  Se encontraron 3 Encargos para este código │
+│                                              │
+│  ENC-2026-00401                             │
+│  ENC-2026-00418                             │
+│  ENC-2026-00427                             │
+│                                              │
+│      SELECCIONAR ENCARGO PARA ESTA UNIDAD   │
+└──────────────────────────────────────────────┘
+```
+
+Cada unidad física escaneada se asigna a un solo Encargo mediante confirmación humana. Después de confirmar uno, ese Encargo deja de estar disponible para otra unidad si ya quedó resuelto.
+
+El sistema puede ordenar candidatos por fecha de compra o antigüedad, pero no debe decidir automáticamente qué Encargo recibe la unidad.
+
+### 34.16 Caso sin Encargo asociado
+
+Si el código escaneado no coincide con ningún Encargo comprado pendiente de recepción, el warning debe ser diferente y no ambiguo:
+
+```text
+PRODUCTO SIN ENCARGO IDENTIFICADO
+
+Código: <valor escaneado>
+
+[ BUSCAR ITEM ]
+[ INGRESAR A STOCK ]
+[ BUSCAR ENCARGO MANUALMENTE ]
+```
+
+No usar el mismo color/señal visual que `ENCARGO DETECTADO`, para evitar que el receptor aparte por error una unidad destinada a stock.
+
+### 34.17 Jerarquía visual y comportamiento
+
+La UI debe priorizar la decisión física sobre la información administrativa:
+
+1. número de Encargo;
+2. instrucción física (`APARTAR / CLASIFICAR ENCARGO`);
+3. descripción / marca;
+4. OV y Customer como contexto secundario;
+5. datos técnicos y trazabilidad en detalle expandible.
+
+El aviso debe ser suficientemente grande y contrastante para uso en una mesa de recepción con escáner/celular. No depender únicamente de color: siempre debe contener texto explícito `ENCARGO DETECTADO` y el número `ENC-...`.
+
+### 34.18 Regla de cierre del warning
+
+El warning de Encargo no desaparece por timeout. Permanece hasta que el receptor realice una acción explícita:
+
+- `APARTADO / CONTINUAR`;
+- `VER DETALLE`;
+- `NO CORRESPONDE`.
+
+`NO CORRESPONDE` no resuelve el Encargo; devuelve la unidad al flujo de revisión manual y conserva el escaneo como evento auditable.
+
+### 34.19 Caso de aceptación visual OV-2026-00326
+
+Para `ENC-2026-00401`, al escanear en Chile:
+
+```text
+https://qrgo.page.link/JsDVr
+```
+
+la primera respuesta visible debe ser:
+
+```text
+ENCARGO DETECTADO
+ENC-2026-00401
+APARTAR / CLASIFICAR ENCARGO
+```
+
+sin exigir previamente abrir la ficha del Encargo ni resolver el Item.
+
+### 34.20 Decisiones de Miguel al aprobar el plan de Fase D (2026-10-06)
+
+1. **Rol operativo:** `ReceptorFRA`, creado por patch dentro de esta Spec. `System Manager` también puede operar. `ComercialFRA` (vendedor) no recibe. Regla general: cuando una Spec necesita un rol nuevo de ERPNext, la Spec lo crea mediante patch.
+2. **Varios Encargos con el mismo código (reemplaza la selección humana de §34.15):** cada escaneo es una unidad física y se asigna automáticamente al Encargo de compra más antigua que aún no tiene unidad recibida. Si llegan 4 unidades para 4 Encargos se escanean 4 veces. Un Encargo comprado sin unidad recibida queda visible como "comprado no recibido" (huérfano). Los Encargos pueden venir de distintos lugares y shoppers.
+3. **Cantidad:** no se reciben cantidades de productos iguales; la recepción es unitaria y por escaneo.
+4. **Compra equivocada:** `ANULAR COMPRA / ITEM A STOCK`. La evidencia de la compra (shopper, fecha, lugar, código, precio, fotos) y el Item real de la unidad quedan en la bitácora de recepción del Encargo; el Encargo vuelve a `purchase_status = PENDING` / `reception_status = PENDING` y reaparece para el Shopper. La unidad sigue el flujo normal de stock.
+5. **Escaneo sin Encargo:** es una recepción normal de artículos de stock (una caja trae artículos de stock y de Encargo). En este corte la UI solo lo identifica; el documento de ingreso a stock queda fuera de alcance (§29).
+6. **Usuario receptor:** queda identificado en cada acción del escaneo (`received_by` y bitácora con usuario, fecha y código).

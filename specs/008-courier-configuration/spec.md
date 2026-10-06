@@ -6,7 +6,7 @@
 
 **Status**: Cerrada / aceptada operativamente (2026-09-17). Producto `16.0.9` en `derp.at-once.cl`. Conectividad Chilexpress Test (coverage/rating/shipping) verificada.
 
-**Parent context**: `007-mcv-chile-desktop`, `despachos_transportistas.md`
+**Parent context**: `007-mcv-chile-desktop`, `empaque_transportistas.md`
 
 ## 0. Regla de trabajo para el Programador
 

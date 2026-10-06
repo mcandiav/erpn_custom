@@ -61,7 +61,9 @@
   "section_reception",
   "reception_status",
   "received_on",
-  "resolved_by"
+  "received_by",
+  "resolved_by",
+  "reception_events"
  ],
  "fields": [
   {
@@ -356,7 +358,8 @@
    "fieldname": "purchase_barcode",
    "fieldtype": "Data",
    "label": "Barcode comprado",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "purchase_price",
@@ -422,6 +425,7 @@
    "in_standard_filter": 1,
    "label": "Reception Status",
    "options": "PENDING\nRECEIVED\nRESOLVED_TO_ENC\nRESOLVED_TO_STOCK",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -431,16 +435,30 @@
    "read_only": 1
   },
   {
+   "fieldname": "received_by",
+   "fieldtype": "Link",
+   "label": "Recibido por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
    "fieldname": "resolved_by",
    "fieldtype": "Link",
    "label": "Resolved By",
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "reception_events",
+   "fieldtype": "Table",
+   "label": "Bit?cora de recepci?n",
+   "options": "Encargo Reception Event",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-01 10:10:00",
+ "modified": "2026-10-06 00:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
