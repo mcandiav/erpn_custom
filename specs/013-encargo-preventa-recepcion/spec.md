@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-23
 
-**Status**: **ACTIVE — DEFINICIÓN FUNCIONAL CERRADA / PLANIFICACIÓN TÉCNICA AUTORIZADA**. Spec vigente después del cierre aceptado de `012-sales-person-auto-commission`. El Programador debe inspeccionar ERPNext/Frappe v16, presentar plan técnico y pruebas contra esta Spec y esperar OK explícito de Miguel antes de escribir código.
+**Status**: **ACTIVE — FASE D RECEPCIÓN CHILE PENDIENTE / CORTE 16.0.96 AUTORIZADO**. Fases B/C ya están implementadas en el repositorio: DocType Encargo, integración con Sales Order, Item técnico `ENCARGO-PENDIENTE`, Shopper mobile, compra con barcode/fotos/precio, intentos `NO ENCONTRADO` y vista `Mis compras`. No reiniciar desde planificación inicial. La Fase D vigente debe implementarse según §34.21, después de la lectura técnica de servidor indicada por el Programador para confirmar `frappe.ui.Scanner` y el filtrado por rol del ícono de escritorio.
 
 **Parent context**: arquitectura FRAgallardo, flujo Encargo/Preventa, Sales Order, compras Miami, recepción de cajas Chile, Item/Barcode de ERPNext/Frappe v16.
 
@@ -1278,9 +1278,9 @@ El documento exacto que realiza el ingreso contable/Stock Ledger (Purchase Recei
 
 ---
 
-## 30. Orden de implementación solicitado
+## 30. Orden histórico de implementación
 
-El Programador debe proponer y luego ejecutar, tras OK, en este orden:
+Esta sección conserva el orden original de la Spec 013 para contexto. **No es el gate vigente ni debe usarse para recomenzar la planificación inicial**: Fase B y Fase C ya fueron implementadas. El siguiente trabajo del Programador es únicamente la Fase D de recepción definida en §34.21.
 
 ### Fase A — inspección y plan
 
@@ -1290,7 +1290,7 @@ El Programador debe proponer y luego ejecutar, tras OK, en este orden:
 4. presentar archivos a crear/modificar;
 5. presentar estrategia de idempotencia, concurrencia y rollback;
 6. presentar pruebas;
-7. esperar OK de Miguel.
+7. esperar OK de Miguel. **Estado: cumplido para Fases B/C; para Fase D el OK funcional vigente está documentado en §34.21.**
 
 ### Fase B — modelo y Sales Order
 
@@ -1531,9 +1531,13 @@ Si no satisface: la unidad sigue el flujo normal de stock; no satisface el Encar
 
 Usar `OV-2026-00326 / ENC-2026-00401`: Recepción escanea el QR físico, obtiene `https://qrgo.page.link/JsDVr`, ERP localiza el Encargo por `purchase_barcode`, muestra solicitud y evidencia, marca recibido, resuelve/crea el Item, permite asociar el QR al Item si FRA confirma que es identificador estable y finalmente confirma `SATISFACE ENCARGO`.
 
-### 34.11 Estado
+### 34.11 Estado vigente
 
-Fase B y Fase C están implementadas para este caso. Fase D — Recepción Chile — permanece pendiente. Los campos base existen; falta UI y lógica server-side de conciliación. El siguiente corte técnico de la Spec 013 debe concentrarse exclusivamente en Fase D.
+Fase B y Fase C están implementadas para este caso. La Fase C Shopper está operativa y validada en celular en sus flujos principales.
+
+Fase D — Recepción Chile — permanece pendiente como corte de programación `16.0.96`. El diseño vigente ya no es la conciliación amplia con selección manual de Item en el primer paso, sino el flujo simplificado de §34.21: el receptor escanea una unidad, el sistema detecta el Encargo pendiente más antiguo para ese código o informa stock normal, y ComercialFRA resuelve la devolución a stock cuando el Encargo recibido no satisface.
+
+Las referencias técnicas previas a recepción deben tratarse como diseño/implementación anterior no cerrada para el corte vigente. El siguiente trabajo debe concentrarse exclusivamente en Fase D según §34.21, sin reabrir Fases B/C ni la Spec 016.
 
 ### 34.12 UI operacional de Recepción Chile
 
@@ -1694,6 +1698,22 @@ sin exigir previamente abrir la ficha del Encargo ni resolver el Item.
 1. **Rol operativo:** `FRAreceptor` (creado inicialmente como `ReceptorFRA` y renombrado en `16.0.94`), creado por patch dentro de esta Spec. `System Manager` también puede operar. `ComercialFRA` (vendedor) no recibe. Regla general: cuando una Spec necesita un rol nuevo de ERPNext, la Spec lo crea mediante patch. Los roles futuros se nombran `FRA` + rol en minúscula (`FRAempaque`); `ComercialFRA` y `ShopperFRA` no se renombran.
 2. **Varios Encargos con el mismo código (reemplaza la selección humana de §34.15):** cada escaneo es una unidad física y se asigna automáticamente al Encargo de compra más antigua que aún no tiene unidad recibida. Si llegan 4 unidades para 4 Encargos se escanean 4 veces. Un Encargo comprado sin unidad recibida queda visible como "comprado no recibido" (huérfano). Los Encargos pueden venir de distintos lugares y shoppers.
 3. **Cantidad:** no se reciben cantidades de productos iguales; la recepción es unitaria y por escaneo.
-4. **Compra equivocada:** `ANULAR COMPRA / ITEM A STOCK`. La evidencia de la compra (shopper, fecha, lugar, código, precio, fotos) y el Item real de la unidad quedan en la bitácora de recepción del Encargo; el Encargo vuelve a `purchase_status = PENDING` / `reception_status = PENDING` y reaparece para el Shopper. La unidad sigue el flujo normal de stock.
+4. **Compra equivocada / no satisface:** ya no se devuelve al Shopper. Si el Encargo recibido no satisface, ComercialFRA ejecuta `DEVOLVER A STOCK` con motivo obligatorio; el Encargo pasa a `RESOLVED_TO_STOCK`, la unidad sigue como stock normal y la OV se corrige o anula con el flujo estándar de ERPNext si corresponde. La compra no se borra y la evidencia permanece en bitácora.
 5. **Escaneo sin Encargo:** es una recepción normal de artículos de stock (una caja trae artículos de stock y de Encargo). En este corte la UI solo lo identifica; el documento de ingreso a stock queda fuera de alcance (§29).
 6. **Usuario receptor:** queda identificado en cada acción del escaneo (`received_by` y bitácora con usuario, fecha y código).
+
+### 34.21 Corte vigente Fase D — Recepción Chile 16.0.96
+
+Decisión funcional aprobada por Miguel el 2026-10-06:
+
+1. **El receptor escanea y nada más.** Cada escaneo representa una unidad física. La UI debe estar optimizada para celular o lector Bluetooth: campo de código, botón `ESCANEAR`, cierre del escáner después de cada lectura para evitar doble lectura de la misma unidad, y resultado grande.
+2. **Asignación determinística por antigüedad.** Al escanear, el servidor busca Encargos con el mismo `purchase_barcode` y estado pendiente de recepción. Si existe al menos uno, toma el Encargo pendiente más antiguo para ese código, lo marca `RECEIVED`, registra receptor/hora/bitácora y devuelve `APARTAR / ENC-YYYY-#####`.
+3. **Stock normal cuando no hay Encargo pendiente.** Si el código no tiene Encargo comprado pendiente, o ya se recibieron todos los Encargos para ese código, la respuesta visible es `STOCK NORMAL`. En este corte no se crea el documento de ingreso de stock.
+4. **Servidor.** Implementar `receive_scan(code)` para `FRAreceptor` y `System Manager`, con bloqueo de filas/idempotencia. Implementar `return_to_stock(encargo, notes)` para `ComercialFRA` y `System Manager`, exigiendo Encargo recibido y motivo obligatorio.
+5. **Eliminar rutas obsoletas del diseño anterior.** `not_matching`, `resolve_to_encargo` y `annul_purchase` dejan de ser parte del contrato vigente. También sale la sección de bitácora `Compra anulada`, porque la compra no se borra.
+6. **UI Recepción Chile.** Debe vivir como ícono dentro de `MCV Chile`, visible para `FRAreceptor` y `System Manager`, con barra lateral propia. Se quita `Recepción Chile` de la barra lateral de Encargo. Listas de consulta mínimas: `Comprados no recibidos` y `Recibidos hoy`.
+7. **Resultado visual.** Coincidencia con Encargo: `APARTAR / ENC-YYYY-#####` en ámbar. Sin Encargo pendiente: `STOCK NORMAL` en azul. El número de Encargo debe ser el dato dominante.
+8. **Permisos.** Patch `v0_0_39`: `FRAreceptor` queda sin permisos directos de DocType; opera sólo por la página/endpoints autorizados. `ComercialFRA` no ve el ícono de recepción, pero sí ve el botón `DEVOLVER A STOCK` en Encargo recibido.
+9. **Botón ComercialFRA.** En el formulario de Encargo, mostrar `DEVOLVER A STOCK` sólo cuando el Encargo está recibido y sólo para `ComercialFRA` / `System Manager`; debe pedir motivo obligatorio y no tocar la OV.
+10. **Transformación automática OV -> Item real fuera de alcance.** Este corte no reemplaza automáticamente la línea `ENCARGO-PENDIENTE` de una OV enviada por el Item real comprado. Queda como fase posterior de Arquitectura definir: de dónde sale el Item, cómo se crea si no existe bajo la clasificación de Spec 014, y cómo se reemplaza o corrige una línea de OV ya enviada.
+11. **Pruebas obligatorias.** Cuatro unidades idénticas con tres Encargos asignan los tres Encargos más antiguos y la cuarta devuelve stock; código sin Encargo devuelve stock; usuario sin rol es rechazado; `DEVOLVER A STOCK` exige recibido y motivo; ComercialFRA puede devolver y `FRAreceptor` no; piloto `https://qrgo.page.link/JsDVr` muestra `APARTAR ENC-2026-00401` y un segundo escaneo, sin más Encargos pendientes, muestra `STOCK NORMAL`; `v0_0_39` debe aparecer en Patch Log después del migrate.
