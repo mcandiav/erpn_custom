@@ -57,11 +57,13 @@
 - [x] D063 Devolver a stock exige Encargo recibido y motivo.
 - [x] D064 ComercialFRA puede devolver; FRAreceptor no.
 - [x] D065 Sintaxis JS con node.
-- [ ] D066 Piloto `https://qrgo.page.link/JsDVr`: primer escaneo muestra `APARTAR ENC-2026-00401`.
+- [x] D066 Piloto `https://qrgo.page.link/JsDVr`: primer escaneo muestra `APARTAR ENC-2026-00401`. (`receptor@fragallardo.com`, 2026-10-06 01:36.)
 - [ ] D067 Segundo escaneo del piloto, sin Encargos pendientes restantes, muestra `STOCK NORMAL`.
-- [ ] D068 Usuario sólo `FRAreceptor`: ve ícono y no abre Encargos ni Items.
+- [x] D068 Usuario sólo `FRAreceptor`: ve ícono y no abre Encargos ni Items. (Ícono visible; Encargo y Sales Order 403. Item: solo *select* estándar de `Desk User` en ERPNext 16, código y nombre sin precios; limitación aceptada.)
 - [ ] D069 ComercialFRA sin rol `FRAreceptor`: no ve ícono.
 - [ ] D070 ComercialFRA ve `DEVOLVER A STOCK` en Encargo recibido.
+
+**Cierre 2026-10-06 (decisión de Miguel):** Fase D cerrada con D053, D067, D069 y D070 sin ejecutar en piloto. El escritorio del receptor conserva los íconos estándar de Frappe 16 para todo usuario Desk; no se filtra (intento previo sin éxito en Spec 011).
 
 ## Fuera de alcance documentado
 
