@@ -1,180 +1,140 @@
-# Plan técnico — Spec 013 Fase D: Recepción Chile
+# Plan técnico — Spec 013 Fase D: Recepción Chile 16.0.96
 
 ## Objetivo
 
-Implementar únicamente la Fase D de la Spec 013: recepción física, identificación por escaneo, recuperación del Encargo comprado, resolución del Item y clasificación final ENC o STOCK.
+Implementar el corte vigente de Recepción Chile: el receptor escanea una unidad física, el sistema decide si debe apartarse para un Encargo o si corresponde a stock normal, y ComercialFRA puede devolver a stock un Encargo recibido que no satisface.
 
 Caso piloto obligatorio:
 
 - OV: `OV-2026-00326`
 - Encargo: `ENC-2026-00401`
 - purchase_barcode: `https://qrgo.page.link/JsDVr`
-- estado actual: `PURCHASED / PENDING / resolved_item vacío`
+- expectativa: primer escaneo muestra `APARTAR ENC-2026-00401`; cuando no queden Encargos pendientes para ese código, el siguiente escaneo muestra `STOCK NORMAL`.
 
 ## Invariantes
 
-1. El valor del escáner es opaco: EAN, UPC, QR, URL, código interno u otro formato son válidos.
+1. El valor escaneado es opaco: EAN, UPC, QR, URL, código interno u otro formato son válidos.
 2. El primer lookup es `Encargo.purchase_barcode`, no Item.
-3. Escanear una unidad que pertenece a un Encargo debe producir warning inmediato con el número ENC dominante.
-4. El receptor debe poder apartar físicamente la unidad antes de resolver Item.
-5. Resolver Item y clasificar ENC/STOCK son pasos posteriores y humanos.
-6. No modificar Sales Order submitted.
-7. No crear Warehouse virtual de Encargos.
-8. No tocar Frappe/ERPNext core.
-9. No usar System Manager como rol operacional de recepción.
+3. Cada escaneo representa una unidad física.
+4. El receptor no resuelve Item ni decide si el producto satisface; escanea y aparta.
+5. Si hay Encargo pendiente para el código, se toma el pendiente más antiguo.
+6. Si no hay Encargo pendiente, la unidad es stock normal.
+7. La OV no se modifica en este corte.
+8. No crear Warehouse virtual de Encargos.
+9. No tocar Frappe/ERPNext core.
+10. No usar System Manager como rol operacional normal, aunque puede operar como administrador.
 
-## UI
+## Verificación técnica previa
 
-Ruta operacional interna:
+Antes de programar, hacer lectura de servidor para confirmar:
 
-`Encargo -> Recepción Chile`
+- existencia y uso de `frappe.ui.Scanner` en Frappe 16.28.0;
+- forma correcta de filtrar el ícono de escritorio por rol.
 
-La Page debe iniciar con foco en escaneo.
+Esta verificación no reabre la planificación funcional.
 
-### Estado inicial
+## Backend
+
+Métodos vigentes:
+
+- `receive_scan(code)`
+  - roles: `FRAreceptor`, `System Manager`;
+  - hace trim técnico de extremos;
+  - bloquea Encargos elegibles con ese código;
+  - elige el Encargo pendiente más antiguo;
+  - marca `RECEIVED`, receptor y hora;
+  - registra bitácora;
+  - devuelve tipo `encargo` con número ENC o tipo `stock`.
+
+- `return_to_stock(encargo, notes)`
+  - roles: `ComercialFRA`, `System Manager`;
+  - exige Encargo recibido;
+  - exige motivo obligatorio;
+  - pasa a `RESOLVED_TO_STOCK`;
+  - registra usuario, motivo y bitácora;
+  - no toca la OV.
+
+Eliminar del contrato vigente:
+
+- `not_matching`;
+- `resolve_to_encargo`;
+- `annul_purchase`;
+- sección de bitácora "Compra anulada".
+
+## UI Recepción Chile
+
+Ruta operacional:
+
+`MCV Chile -> Recepción Chile`
+
+Requisitos:
+
+- Page mobile-first para celular y lector Bluetooth;
+- campo de código siempre listo;
+- botón `ESCANEAR` usando el escáner Desk si está disponible;
+- cerrar escáner después de cada lectura para evitar doble lectura;
+- resultado grande y claro;
+- listas: `Comprados no recibidos` y `Recibidos hoy`.
+
+Resultado con Encargo:
 
 ```text
-RECEPCIÓN CHILE
-
-[ ESCANEAR PRODUCTO ]
-
-Pendientes de recepción
-ENC              Marca          Descripción
-ENC-2026-00401   Michael Kors   Cinturon masculino mk
-```
-
-### Match único
-
-Al encontrar un solo Encargo elegible:
-
-```text
-ENCARGO DETECTADO
-
+APARTAR
 ENC-2026-00401
-
-APARTAR / CLASIFICAR ENCARGO
-
-Cinturon masculino mk · Michael Kors
-OV-2026-00326
 ```
 
-El warning no desaparece por timeout.
+Usar señal ámbar y número ENC como dato dominante.
 
-Acciones:
-
-- `APARTADO / CONTINUAR` — principal;
-- `VER DETALLE` — secundaria;
-- `NO CORRESPONDE` — secundaria.
-
-### Múltiples Encargos con el mismo código
-
-Mostrar todos los ENC candidatos y exigir selección humana. No asignar automáticamente.
-
-### Sin Encargo
-
-Mostrar:
+Resultado sin Encargo pendiente:
 
 ```text
-PRODUCTO SIN ENCARGO IDENTIFICADO
-Código: <valor>
-
-[ BUSCAR ITEM ]
-[ INGRESAR A STOCK ]
-[ BUSCAR ENCARGO MANUALMENTE ]
+STOCK NORMAL
 ```
 
-## Backend mínimo esperado
+Usar señal azul.
 
-El Programador debe proponer nombres finales, pero conceptualmente se requieren métodos equivalentes a:
+## Accesos y permisos
 
-- `find_reception_candidate(scanned_code)`
-- `mark_received(encargo)`
-- `resolve_item(encargo, item_code, scanned_code)`
-- `resolve_to_encargo(encargo, item_code)`
-- `resolve_to_stock(encargo, item_code)`
+- `desktop_icon/recepcion_chile.json`: ícono dentro de `MCV Chile`, sólo para `FRAreceptor` y `System Manager`.
+- `workspace_sidebar/recepcion_chile.json`: barra lateral propia del ícono.
+- Quitar `Recepción Chile` de la barra lateral de Encargo.
+- Patch `v0_0_39`: quitar a `FRAreceptor` permisos directos de DocType; opera por página/endpoints.
+- `ComercialFRA` no ve el ícono de recepción.
 
-Todo cambio de estado debe validar estado previo y ejecutarse server-side.
+## ComercialFRA
 
-## Lookup de recepción
+En formulario Encargo:
 
-Buscar Encargo con:
-
-- `status = Open`
-- `purchase_status = PURCHASED`
-- `purchase_barcode = scanned_code`
-- `reception_status in (PENDING, RECEIVED)`
-
-No normalizar ni transformar el código antes de comparar, salvo trim técnico de extremos si el escáner pudiera introducir espacios.
-
-## Resolución de Item
-
-Después de recuperar el Encargo:
-
-1. buscar Item Barcode por valor exacto;
-2. si existe uno, proponer Item;
-3. si no existe, permitir búsqueda manual;
-4. si no existe Item correcto, permitir creación controlada;
-5. si FRA confirma que el código es identificador estable, asociarlo al Item validando unicidad.
-
-## Estados
-
-### APARTADO / CONTINUAR
-
-- reception_status -> RECEIVED
-- received_on -> now
-- dejar resolved_item vacío si todavía no se resolvió Item
-
-### SATISFACE ENCARGO
-
-- resolved_item = Item
-- resolved_by = usuario
-- reception_status = RESOLVED_TO_ENC
-
-### NO SATISFACE — STOCK
-
-- no forzar Item como solución del ENC
-- conservar historial de compra y recepción
-- derivar la unidad al flujo normal de stock
-- devolver/reabrir la obligación de compra del ENC mediante transición auditable
-
-## Permisos
-
-Crear o reutilizar un rol operacional semántico para Recepción Chile.
-
-Debe poder:
-
-- acceder a la Page;
-- escanear;
-- marcar recibido;
-- buscar/proponer Item;
-- iniciar creación controlada de Item;
-- resolver a ENC o STOCK.
-
-ShopperFRA: sin acceso.
-VendedorFRA / ComercialFRA: consulta del resultado según permisos, sin facultad implícita de conciliación.
-
-## Pruebas críticas
-
-1. Código QR/URL del caso real localiza ENC-2026-00401.
-2. Warning muestra el ENC completo en primer plano.
-3. Confirmar apartado cambia a RECEIVED.
-4. Reload conserva estado/fecha.
-5. Código compartido por varios ENC exige selección.
-6. Código sin ENC no genera asignación.
-7. Item existente por barcode se propone.
-8. Código nuevo puede asociarse a Item controladamente.
-9. Un código maestro no puede quedar en dos Items.
-10. SATISFACE ENCARGO exige Item válido.
-11. Doble click/reintento no duplica ni resuelve dos veces.
-12. ShopperFRA no accede.
-13. OV submitted queda intacta.
-14. Caso piloto termina en RESOLVED_TO_ENC si el producto es correcto.
+- botón `DEVOLVER A STOCK`;
+- visible sólo con Encargo recibido;
+- visible sólo para `ComercialFRA` y `System Manager`;
+- motivo obligatorio;
+- llama `return_to_stock`;
+- no cambia la OV.
 
 ## Fuera de alcance
 
+- transformación automática de la línea `ENCARGO-PENDIENTE` al Item real;
+- creación automática de Item desde compra Shopper;
+- reglas de clasificación Spec 014 para Item nuevo;
+- reemplazar o corregir automáticamente una línea de OV ya enviada;
 - documento definitivo de Stock Ledger;
-- WMS;
-- recepción de cajas completa;
+- WMS o recepción completa de cajas;
 - facturación/contabilidad de compra;
-- automatizar asignación de varios Encargos por similitud;
-- modificar Fase C Shopper salvo regresión demostrada.
+- modificar Fase C Shopper salvo regresión demostrada;
+- reabrir Spec 016.
+
+## Pruebas críticas
+
+1. Cuatro unidades idénticas y tres Encargos: los tres primeros escaneos van a los tres Encargos más antiguos; el cuarto da `STOCK NORMAL`.
+2. Código sin Encargo da `STOCK NORMAL`.
+3. Usuario sin rol es rechazado.
+4. `FRAreceptor` puede escanear pero no devolver a stock.
+5. `ComercialFRA` puede devolver a stock un Encargo recibido.
+6. Devolver a stock exige Encargo recibido y motivo obligatorio.
+7. Piloto `https://qrgo.page.link/JsDVr` muestra `APARTAR ENC-2026-00401`.
+8. Un segundo escaneo del piloto, si ya no quedan Encargos pendientes con ese código, muestra `STOCK NORMAL`.
+9. Después del migrate, `v0_0_39` aparece en Patch Log.
+10. Usuario sólo `FRAreceptor`: ve el ícono dentro de MCV Chile y no abre Encargos ni Items.
+11. `ComercialFRA` sin `FRAreceptor`: no ve el ícono.
+12. ComercialFRA ve `DEVOLVER A STOCK` en Encargo recibido y la OV no cambia.
