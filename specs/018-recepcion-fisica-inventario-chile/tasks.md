@@ -1,6 +1,6 @@
 # Tasks - Spec 018 Recepción física e inventario Chile
 
-Estado: EN EJECUCION (16.0.98 programada: etapas 1-3 y acciones de etapas 4-5)
+Estado: EN CIERRE (16.0.98 etapas 1-3; 16.0.99 etapas 4-5 y ajustes del piloto). Falta: deploy 16.0.99, ícono como ComercialFRA y escaneo real en celular
 Fecha: 2026-10-06
 
 ## Etapa 1 - Modelo y configuración
@@ -17,7 +17,7 @@ Fecha: 2026-10-06
 - [x] Crear patch de bodega Recepcion Encargos - FRAG.
 - [x] Validar que no se cree cuenta contable automáticamente.
 - [x] Pruebas unitarias del modelo y configuración.
-- [ ] Confirmar Patch Log tras migrate.
+- [x] Confirmar Patch Log tras migrate (v0_0_40, 2026-10-06 11:17:09).
 
 ## Etapa 2 - Backend recepción
 
@@ -42,7 +42,7 @@ Fecha: 2026-10-06
 - [x] Stock normal -> Matriz - FRAG.
 - [x] Verificar mecanismo estándar de reserva ERPNext para KNOWN_ITEM.
 - [x] Documentar fallback si la reserva estándar no aplica a la bodega de apartados.
-- [ ] Ejecutar pruebas 1-17 y 20-24 de Spec §20.
+- [x] Ejecutar pruebas 1-17 y 20-24 de Spec §20 (unittests con ERPNext simulado; integración real cubierta por el piloto).
 
 ## Etapa 3 - UI FRAreceptor
 
@@ -55,7 +55,7 @@ Fecha: 2026-10-06
 
 ## Etapa 4 - UI ComercialFRA
 
-- [ ] Crear navegación MCV Chile > Recepción.
+- [x] Crear navegación MCV Chile > Recepción (ícono Recepción Comercial, 16.0.99).
 - [x] Crear Apartados.
 - [x] Crear Pendientes de clasificación.
 - [x] Crear Excepciones barcode.
@@ -66,7 +66,7 @@ Fecha: 2026-10-06
 - [x] Liberar reserva cuando corresponda.
 - [x] Transferir Recepcion Encargos - FRAG -> Matriz - FRAG.
 - [x] Motivo obligatorio y auditoría.
-- [ ] Pruebas de permisos ComercialFRA/FRAreceptor/System Manager.
+- [x] Pruebas de permisos ComercialFRA/FRAreceptor/System Manager (TestPermissions, 16.0.99).
 
 ## Etapa 5 - Regularización
 
@@ -74,17 +74,17 @@ Fecha: 2026-10-06
 - [x] Reutilizar servicio de recepción.
 - [x] Generar scan_event_id de migración.
 - [x] Bloquear acción si falta cuenta transitoria.
-- [ ] Regularizar ENC-2026-00401.
-- [ ] Verificar Item.
-- [ ] Verificar Stock Entry.
-- [ ] Verificar received_qty = 1 para caso piloto.
-- [ ] Verificar bitácora completa.
-- [ ] Ejecutar prueba 19 y 25 de Spec §20.
-- [ ] Actualizar README y bitácora técnica.
+- [x] Regularizar ENC-2026-00401 (RCU-2026-00001, APARTAR).
+- [x] Verificar Item (FRA-00001 creado).
+- [x] Verificar Stock Entry (MOV-2026-00001, 4.936,25 CLP; importe del documento corregido en 16.0.99 para nuevos movimientos).
+- [x] Verificar received_qty = 1 para caso piloto.
+- [x] Verificar bitácora completa (evento de regularización con nota y usuario desde 16.0.99).
+- [x] Ejecutar prueba 19 y 25 de Spec §20.
+- [x] Actualizar README y bitácora técnica.
 - [ ] Piloto final en celular.
 
 ## Precondiciones operativas antes de producción
 
-- [ ] Configurador crea Compras Shopper por regularizar - FRAG en el padre contable correcto.
-- [ ] Configurador selecciona la cuenta en Configuración Recepción FRA.
-- [ ] Confirmar Currency Exchange USD->CLP operativo o cargar tasa de respaldo.
+- [x] Configurador crea Compras Shopper por regularizar - FRAG en el padre contable correcto (Inventarios por pagar - FRAG).
+- [x] Configurador selecciona la cuenta en Configuración Recepción FRA.
+- [x] Confirmar Currency Exchange USD->CLP operativo o cargar tasa de respaldo (frankfurter.dev - v2; respaldo 980).

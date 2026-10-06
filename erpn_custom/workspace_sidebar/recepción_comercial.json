@@ -1,0 +1,38 @@
+{
+ "creation": "2026-10-06 12:10:00",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "package-check",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Recepción Comercial",
+   "link_to": "recepcion-comercial",
+   "link_type": "Page",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 0,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Encargos",
+   "link_to": "Encargo",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-06 12:10:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Recepción Comercial",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Recepción Comercial"
+}

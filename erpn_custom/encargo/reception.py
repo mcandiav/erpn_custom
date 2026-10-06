@@ -386,7 +386,11 @@ def _count_received(unit, enc):
 	frappe.db.set_value(
 		"Encargo", enc.name, received_values(enc, unit.received_on, unit.received_by), update_modified=True
 	)
-	_log(enc.name, "RECEIVED", unit.received_by, scanned_code=unit.scanned_code)
+	if unit.is_migration:
+		# _advance runs as Administrator; the owner is the System Manager who ran the regularization.
+		_log(enc.name, "RECEIVED", unit.owner, scanned_code=unit.scanned_code, notes=_("Regularización {0}").format(unit.name))
+	else:
+		_log(enc.name, "RECEIVED", unit.received_by, scanned_code=unit.scanned_code)
 
 
 def _reserve(unit, enc):

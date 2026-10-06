@@ -205,6 +205,8 @@ def make_receipt(company, item_code, warehouse, rate, account, remarks):
 			"qty": 1,
 			"t_warehouse": warehouse,
 			"basic_rate": flt(rate),
+			# A manual rate skips the server-side amount; without it the entry totals read 0.
+			"basic_amount": flt(rate),
 			"set_basic_rate_manually": 1,
 			"expense_account": account,
 		},

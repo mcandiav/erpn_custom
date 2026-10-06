@@ -1,3 +1,5 @@
+import json
+import os
 import sys
 import unittest
 from contextlib import nullcontext
@@ -217,6 +219,16 @@ class TestAdvance(ReceptionCase):
 		values = self.db.set_value.call_args.args[2]
 		self.assertEqual((values["received_qty"], values["reception_status"]), (1, "RECEIVED"))
 		self.inv["reserve_unit"].assert_not_called()
+		reception._log.assert_called_once_with(self.enc.name, "RECEIVED", "r1@fragallardo.com", scanned_code=QR)
+
+	def test_regularized_unit_logs_who_regularized(self):
+		u = self.encargo_unit()
+		u.update(is_migration=1, owner="admin@fragallardo.com")
+		reception._advance(u)
+		self.assertEqual(u.status, reception.POSTED)
+		reception._log.assert_called_once_with(
+			self.enc.name, "RECEIVED", "admin@fragallardo.com", scanned_code=QR, notes="Regularización RCU-2026-00001"
+		)
 
 	def test_known_item_unit_is_reserved(self):
 		self.enc = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
@@ -315,6 +327,55 @@ class TestEndpoints(ReceptionCase):
 		self.frappe.get_roles = lambda: ["ComercialFRA"]
 		with self.assertRaises(_Throw):
 			reception.regularize_previous_receptions()
+
+
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _roles_in(*parts):
+	with open(os.path.join(APP_DIR, *parts), encoding="utf-8") as f:
+		return {row["role"] for row in json.load(f)["roles"]}
+
+
+class TestPermissions(ReceptionCase):
+	ENDPOINTS = {
+		"receive_scan": lambda: reception.receive_scan(QR, SCAN_ID),
+		"list_reception": lambda: reception.list_reception(),
+		"list_units": lambda: reception.list_units(),
+		"resolve_unit": lambda: reception.resolve_unit("RCU-1"),
+		"return_unit": lambda: reception.return_unit("RCU-1", "Motivo"),
+		"regularize": lambda: reception.regularize_previous_receptions(),
+	}
+	DENIED = {
+		"FRAreceptor": ("list_units", "resolve_unit", "return_unit", "regularize"),
+		"ComercialFRA": ("receive_scan", "list_reception", "regularize"),
+		"ShopperFRA": tuple(ENDPOINTS),
+	}
+
+	def test_each_role_is_denied_outside_its_job(self):
+		for role, endpoints in self.DENIED.items():
+			self.frappe.get_roles = lambda role=role: [role]
+			for endpoint in endpoints:
+				with self.subTest(role=role, endpoint=endpoint), self.assertRaises(_Throw):
+					self.ENDPOINTS[endpoint]()
+		self.frappe.get_doc.assert_not_called()
+		self.db.set_value.assert_not_called()
+
+	def test_pages_and_icons_follow_the_role_split(self):
+		receptor = {"FRAreceptor", "System Manager"}
+		commercial = {"ComercialFRA", "System Manager"}
+		self.assertEqual(_roles_in("encargo", "page", "recepcion_chile", "recepcion_chile.json"), receptor)
+		self.assertEqual(_roles_in("encargo", "page", "recepcion_comercial", "recepcion_comercial.json"), commercial)
+		self.assertEqual(_roles_in("desktop_icon", "recepción_chile.json"), receptor)
+		self.assertEqual(_roles_in("desktop_icon", "recepción_comercial.json"), commercial)
+
+	def test_commercial_icon_opens_the_commercial_page(self):
+		with open(os.path.join(APP_DIR, "desktop_icon", "recepción_comercial.json"), encoding="utf-8") as f:
+			icon = json.load(f)
+		with open(os.path.join(APP_DIR, "workspace_sidebar", "recepción_comercial.json"), encoding="utf-8") as f:
+			sidebar = json.load(f)
+		self.assertEqual((icon["parent_icon"], icon["link_type"], icon["link_to"]), ("MCV Chile", "Workspace Sidebar", sidebar["name"]))
+		self.assertIn(("Page", "recepcion-comercial"), [(i["link_type"], i["link_to"]) for i in sidebar["items"]])
 
 
 if __name__ == "__main__":

@@ -66,6 +66,15 @@ class TestRates(InventoryCase):
 			self.assertEqual(inventory.exchange_rate("USD", "CLP", "2026-10-01 12:00"), (940.0, "ERPNEXT"))
 		setup.get_exchange_rate.assert_called_once_with("USD", "CLP", "2026-10-01", "for_buying")
 
+	def test_receipt_carries_amount_with_manual_rate(self):
+		with patch.object(inventory, "frappe") as frappe:
+			se = frappe.new_doc.return_value
+			se.name = "MOV-1"
+			self.assertEqual(inventory.make_receipt("FRAgallardo", "FRA-1", "W", 4936.25, "ACC", "r"), "MOV-1")
+		row = se.append.call_args.args[1]
+		self.assertEqual((row["basic_rate"], row["basic_amount"], row["set_basic_rate_manually"]), (4936.25, 4936.25, 1))
+		se.submit.assert_called_once()
+
 	def test_stock_rate_is_never_zero(self):
 		self.assertEqual(inventory.choose_stock_rate(0, 15000, 12000), (15000.0, "VALUATION"))
 		self.assertEqual(inventory.choose_stock_rate(None, 0, 12000), (12000.0, "LAST_INCOMING"))
