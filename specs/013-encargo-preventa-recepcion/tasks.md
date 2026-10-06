@@ -1,67 +1,70 @@
-# Tasks — Spec 013 Fase D: Recepción Chile
+# Tasks — Spec 013 Fase D: Recepción Chile 16.0.96
 
-## Gate de arquitectura
+## Gate técnico
 
-- [x] D001 Leer README + Spec 013 §29, §34 y este plan.
-- [x] D002 Inspeccionar Frappe/ERPNext v16 y código actual de Encargo/Shopper.
-- [x] D003 Presentar archivos a crear/modificar, rol propuesto y estrategia de idempotencia.
-- [x] D004 Esperar OK explícito de Miguel antes de programar.
+- [ ] D001 Leer README + Spec 013 §34.21 + este plan.
+- [ ] D002 Confirmar en servidor Frappe 16.28.0 la disponibilidad/uso de `frappe.ui.Scanner`.
+- [ ] D003 Confirmar cómo filtra por rol el ícono de escritorio.
+- [x] D004 OK funcional de Miguel para el corte 16.0.96: recibido el 2026-10-06.
+- [ ] D005 No reabrir Fases B/C ni Spec 016.
 
 ## Backend
 
-- [x] D010 Implementar búsqueda exacta por `purchase_barcode` sobre Encargos PURCHASED pendientes.
-- [x] D011 Soportar match cero, uno y múltiples.
-- [x] D012 Implementar transición PENDING -> RECEIVED con timestamp y usuario.
-- [x] D013 Implementar búsqueda/propuesta de Item por identificador.
-- [x] D014 Validar unicidad del identificador al asociarlo a Item.
-- [x] D015 Implementar resolución RECEIVED -> RESOLVED_TO_ENC.
-- [x] D016 Implementar ruta explícita NO SATISFACE -> STOCK sin destruir historia.
-- [x] D017 Proteger doble click, reintento y doble resolución.
+- [ ] D010 Implementar `receive_scan(code)`.
+- [ ] D011 Autorizar `receive_scan` sólo para `FRAreceptor` y `System Manager`.
+- [ ] D012 Buscar por `purchase_barcode` exacto, con trim técnico de extremos.
+- [ ] D013 Bloquear Encargos elegibles y tomar el pendiente más antiguo.
+- [ ] D014 Marcar `RECEIVED`, receptor y hora.
+- [ ] D015 Registrar evento en bitácora.
+- [ ] D016 Devolver respuesta `encargo` con número ENC o `stock`.
+- [ ] D017 Implementar `return_to_stock(encargo, notes)`.
+- [ ] D018 Autorizar `return_to_stock` sólo para `ComercialFRA` y `System Manager`.
+- [ ] D019 Exigir Encargo recibido y motivo obligatorio para devolver a stock.
+- [ ] D020 Pasar Encargo a `RESOLVED_TO_STOCK` sin tocar OV.
+- [ ] D021 Eliminar `not_matching`, `resolve_to_encargo`, `annul_purchase` y bitácora "Compra anulada" del contrato vigente.
 
-## UI
+## UI Recepción Chile
 
-- [x] D020 Crear acceso `Encargo -> Recepción Chile`.
-- [x] D021 Crear Page orientada a escaneo con foco persistente.
-- [x] D022 Mostrar pendientes PURCHASED/PENDING.
-- [x] D023 Match único: warning dominante `ENCARGO DETECTADO / ENC-YYYY-##### / APARTAR`.
-- [x] D024 Warning no desaparece por timeout.
-- [x] D025 Acciones: APARTADO / CONTINUAR, VER DETALLE, NO CORRESPONDE.
-- [x] D026 Múltiples ENC con mismo código: asignación automática al de compra más antigua (decisión Miguel, Spec §34.20).
-- [x] D027 Sin match: PRODUCTO SIN ENCARGO IDENTIFICADO + acciones Item/Stock/Buscar ENC.
-- [x] D028 Conciliación lado a lado Solicitud original vs Compra Shopper.
-- [x] D029 Después de completar una unidad, volver automáticamente al modo escáner.
+- [ ] D030 Crear Page `Recepción Chile` mobile-first.
+- [ ] D031 Campo de código compatible con lector Bluetooth.
+- [ ] D032 Botón `ESCANEAR` con cámara mediante escáner Desk si aplica.
+- [ ] D033 Cerrar escáner después de cada lectura.
+- [ ] D034 Resultado `APARTAR / ENC-YYYY-#####` en ámbar.
+- [ ] D035 Resultado `STOCK NORMAL` en azul.
+- [ ] D036 Lista `Comprados no recibidos`.
+- [ ] D037 Lista `Recibidos hoy`.
 
-## Permisos
+## Acceso y permisos
 
-- [x] D030 Definir rol interno de recepción o justificar reutilización de uno existente.
-- [x] D031 ShopperFRA sin acceso.
-- [x] D032 VendedorFRA/ComercialFRA sólo consulta salvo permiso explícito adicional.
-- [x] D033 No depender de System Manager para operación normal.
+- [ ] D040 Crear `desktop_icon/recepcion_chile.json` dentro de MCV Chile para `FRAreceptor` y `System Manager`.
+- [ ] D041 Crear `workspace_sidebar/recepcion_chile.json`.
+- [ ] D042 Quitar `Recepción Chile` de la barra lateral de Encargo.
+- [ ] D043 Patch `v0_0_39`: quitar a `FRAreceptor` permisos directos de DocType.
+- [ ] D044 Verificar Patch Log después del migrate.
 
-## Caso piloto
+## ComercialFRA
 
-- [ ] D040 Abrir Recepción Chile.
-- [ ] D041 Escanear `https://qrgo.page.link/JsDVr`.
-- [ ] D042 Confirmar que localiza únicamente/correctamente `ENC-2026-00401` según candidatos vigentes.
-- [ ] D043 Confirmar warning visual con número ENC dominante.
-- [ ] D044 Marcar APARTADO / CONTINUAR -> RECEIVED.
-- [ ] D045 Resolver Item.
-- [ ] D046 Confirmar SATISFACE ENCARGO.
-- [ ] D047 Verificar resolved_item + resolved_by + received_on + RESOLVED_TO_ENC.
-- [ ] D048 Verificar OV-2026-00326 sin reescritura destructiva.
+- [ ] D050 Botón `DEVOLVER A STOCK` en Encargo recibido.
+- [ ] D051 Visible sólo para `ComercialFRA` y `System Manager`.
+- [ ] D052 Motivo obligatorio.
+- [ ] D053 Confirmar que la OV no cambia.
 
-## Regresión
+## Pruebas
 
-- [ ] D050 Compra Shopper continúa igual.
-- [ ] D051 Barcode EAN/UPC continúa funcionando.
-- [ ] D052 QR/URL funciona como valor opaco.
-- [ ] D053 Dos ENC con mismo código no se asignan solos.
-- [ ] D054 Código sin ENC no contamina ningún Encargo.
-- [ ] D055 Reload/reintento conserva consistencia.
+- [ ] D060 Unittests: 4 unidades idénticas y 3 Encargos van a los 3 más antiguos y la cuarta da stock.
+- [ ] D061 Código sin Encargo da stock.
+- [ ] D062 Usuario sin rol es rechazado.
+- [ ] D063 Devolver a stock exige Encargo recibido y motivo.
+- [ ] D064 ComercialFRA puede devolver; FRAreceptor no.
+- [ ] D065 Sintaxis JS con node.
+- [ ] D066 Piloto `https://qrgo.page.link/JsDVr`: primer escaneo muestra `APARTAR ENC-2026-00401`.
+- [ ] D067 Segundo escaneo del piloto, sin Encargos pendientes restantes, muestra `STOCK NORMAL`.
+- [ ] D068 Usuario sólo `FRAreceptor`: ve ícono y no abre Encargos ni Items.
+- [ ] D069 ComercialFRA sin rol `FRAreceptor`: no ve ícono.
+- [ ] D070 ComercialFRA ve `DEVOLVER A STOCK` en Encargo recibido.
 
-## Cierre
+## Fuera de alcance documentado
 
-- [ ] D060 Evidencia visual del caso piloto.
-- [ ] D061 Tests server-side y JS/UI aprobados.
-- [x] D062 Versionar patch de producto y documentar README técnico.
-- [ ] D063 Aceptación de Miguel.
+- [x] D080 Transformación automática `ENCARGO-PENDIENTE` -> Item real queda como fase posterior de Arquitectura.
+- [x] D081 Creación automática de Item con clasificación Spec 014 queda fuera de este corte.
+- [x] D082 Reemplazo/corrección automática de línea de OV enviada queda fuera de este corte.
