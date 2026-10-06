@@ -38,6 +38,12 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 - `ENC-` (Encargo) sin cambio. Clientes, proveedores y productos no se tocan.
 - El nombre interno (`FAC-`, `NC-`, `NE-`) no es el folio SII del DTE.
 
+### Nomenclatura de roles (desde 2026-10-06)
+
+- Roles nuevos: prefijo `FRA` + rol, sin espacio (`FRAEmpaque`, `FRAPagos`…), para que queden juntos en la lista de Roles.
+- Roles existentes sin renombrar (decisión Miguel 2026-10-06): `ComercialFRA`, `ShopperFRA`, `ReceptorFRA`.
+- Cada Spec que necesita un rol nuevo lo crea mediante patch.
+
 **Bitácora**
 
 | Fecha | Versión | Cambio | Motivo | Validación |
