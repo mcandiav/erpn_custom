@@ -1,5 +1,20 @@
+const SHIPMENT_ADDRESS_PARTY = {
+	delivery_address_name: { type_field: "delivery_to_type", prefix: "delivery" },
+	pickup_address_name: { type_field: "pickup_from_type", prefix: "pickup" },
+};
+
 frappe.ui.form.on("Shipment", {
+	setup(frm) {
+		Object.entries(SHIPMENT_ADDRESS_PARTY).forEach(([fieldname, cfg]) => {
+			frm.fields_dict[fieldname].df.get_route_options_for_new_doc = () => {
+				_set_address_dynamic_link(frm, cfg);
+				return {};
+			};
+		});
+	},
+
 	refresh(frm) {
+		frappe.dynamic_link = null;
 		frm.set_query("custom_courier_configuration", () => ({
 			filters: { enabled: 1 },
 		}));
@@ -10,6 +25,18 @@ frappe.ui.form.on("Shipment", {
 		_render_courier_actions(frm);
 	},
 });
+
+// Address form (address.js) links a new Address to frappe.dynamic_link only when
+// dynamic_link.doc is the form the user came from, so doc must be this Shipment.
+function _set_address_dynamic_link(frm, cfg) {
+	const party_type = frm.doc[cfg.type_field];
+	const party_field = `${cfg.prefix}_${frappe.model.scrub(party_type || "")}`;
+	if (!["Customer", "Supplier"].includes(party_type) || !frm.doc[party_field]) {
+		frappe.dynamic_link = null;
+		return;
+	}
+	frappe.dynamic_link = { doctype: party_type, doc: frm.doc, fieldname: party_field };
+}
 
 function _render_courier_actions(frm) {
 	frm.remove_custom_button(__("Validar courier"));
