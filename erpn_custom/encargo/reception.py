@@ -4,7 +4,7 @@ from frappe.utils import cint, flt, now_datetime
 
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
 
-RECEPTOR_ROLE = "ReceptorFRA"
+RECEPTOR_ROLE = "FRAreceptor"
 ALLOWED_ROLES = (RECEPTOR_ROLE, "System Manager")
 OPEN_RECEPTION = ("PENDING", "RECEIVED")
 CODE_MAX = 140

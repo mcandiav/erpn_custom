@@ -57,7 +57,7 @@ class ReceptionCase(unittest.TestCase):
 		# A private frappe per test: the shared mock belongs to whichever test module loaded first.
 		self.frappe = MagicMock()
 		self.frappe.throw = _throw
-		self.frappe.get_roles = lambda: ["ReceptorFRA"]
+		self.frappe.get_roles = lambda: ["FRAreceptor"]
 		self.frappe.session = D(user="r1@fragallardo.com")
 		self.db = self.frappe.db
 		for target, name, value in (
@@ -74,7 +74,7 @@ class ReceptionCase(unittest.TestCase):
 
 class TestRules(ReceptionCase):
 	def test_role_gate(self):
-		self.assertTrue(reception.is_receptor(["ReceptorFRA"]))
+		self.assertTrue(reception.is_receptor(["FRAreceptor"]))
 		self.assertTrue(reception.is_receptor(["System Manager"]))
 		self.assertFalse(reception.is_receptor(["ShopperFRA"]))
 		self.assertFalse(reception.is_receptor(["ComercialFRA", "Sales User"]))
