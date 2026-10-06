@@ -1,3 +1,5 @@
+import json
+import os
 import unittest
 
 from erpn_custom.chile.mcv_desktop_contract import (
@@ -35,6 +37,26 @@ class TestMCVChileDesktopHelpers(unittest.TestCase):
 		self.assertTrue(is_workspace_placeholder("null"))
 		self.assertFalse(is_workspace_placeholder('[{"id":"x"}]'))
 		self.assertFalse(is_workspace_placeholder("not-empty"))
+
+
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+class TestAppLevelEntityFileNames(unittest.TestCase):
+	"""remove_orphan_entities deletes a standard app-level record unless
+	<folder>/<frappe.scrub(name)>.json exists; scrub keeps accents."""
+
+	def test_file_name_matches_scrubbed_name(self):
+		for folder in ("desktop_icon", "workspace_sidebar"):
+			path = os.path.join(APP_DIR, folder)
+			for filename in sorted(os.listdir(path)):
+				if not filename.endswith(".json"):
+					continue
+				with open(os.path.join(path, filename), encoding="utf-8") as f:
+					name = json.load(f)["name"]
+				expected = name.lower().replace(" ", "_").replace("-", "_") + ".json"
+				with self.subTest(folder=folder, name=name):
+					self.assertEqual(filename, expected)
 
 
 try:

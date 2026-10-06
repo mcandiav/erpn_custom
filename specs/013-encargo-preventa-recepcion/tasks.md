@@ -40,7 +40,7 @@
 - [x] D041 Crear `workspace_sidebar/recepcion_chile.json`.
 - [x] D042 Quitar `Recepción Chile` de la barra lateral de Encargo.
 - [x] D043 Patch `v0_0_39`: quitar a `FRAreceptor` permisos directos de DocType.
-- [ ] D044 Verificar Patch Log después del migrate.
+- [x] D044 Verificar Patch Log después del migrate. (`v0_0_39` registrado; el mismo migrate borró el ícono como huérfano por el nombre de archivo sin tilde, corregido en 16.0.97.)
 
 ## ComercialFRA
 
