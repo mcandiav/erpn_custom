@@ -51,7 +51,7 @@ Fecha: 2026-10-06
 - [x] Mantener Cliente y OV de solo lectura junto con ENC.
 - [x] Implementar historial de sesión.
 - [x] Validar sintaxis JS.
-- [ ] Probar lectura real en celular.
+- [x] Probar lectura real en celular (ENC-2026-00001, producto desconocido; faltó grupo de producto en el Encargo; al completarlo, RCU-2026-00002 POSTED, IQNR94465, 8.762,94 CLP).
 
 ## Etapa 4 - UI ComercialFRA
 
@@ -81,7 +81,7 @@ Fecha: 2026-10-06
 - [x] Verificar bitácora completa (evento de regularización con nota y usuario desde 16.0.99).
 - [x] Ejecutar prueba 19 y 25 de Spec §20.
 - [x] Actualizar README y bitácora técnica.
-- [ ] Piloto final en celular.
+- [x] Piloto final en celular (16.0.99): receptor escanea, ComercialFRA resuelve clasificación, unidad pasa a Apartados con stock.
 
 ## Precondiciones operativas antes de producción
 
