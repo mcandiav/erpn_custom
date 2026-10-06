@@ -1,0 +1,352 @@
+{
+ "actions": [],
+ "autoname": "RCU-.YYYY.-.#####",
+ "creation": "2026-10-06 11:00:00",
+ "description": "Una unidad física escaneada en Recepción Chile (Spec 018). La graba y modifica solo el servicio de recepción.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "status",
+  "destination",
+  "scanned_code",
+  "scan_event_id",
+  "is_migration",
+  "column_break_header",
+  "received_on",
+  "received_by",
+  "message",
+  "section_demand",
+  "encargo",
+  "sales_order",
+  "sales_order_item",
+  "customer",
+  "column_break_demand",
+  "item",
+  "item_name",
+  "item_created",
+  "section_inventory",
+  "warehouse",
+  "stock_entry",
+  "stock_reservation_entry",
+  "reservation_note",
+  "column_break_inventory",
+  "purchase_currency",
+  "purchase_price",
+  "purchased_on",
+  "exchange_rate",
+  "exchange_rate_source",
+  "incoming_rate",
+  "rate_source",
+  "section_resolution",
+  "resolved_on",
+  "resolved_by",
+  "column_break_resolution",
+  "returned_on",
+  "returned_by",
+  "return_reason",
+  "return_transfer"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Estado",
+   "options": "POSTED\nPENDING_CLASSIFICATION\nPENDING_BARCODE_APPROVAL\nPENDING_COST\nPENDING_CONFIGURATION\nRETURNED_TO_STOCK",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Destino",
+   "options": "ENCARGO\nSTOCK",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "scanned_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Código escaneado",
+   "length": 140,
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "scan_event_id",
+   "fieldtype": "Data",
+   "label": "Scan event id",
+   "length": 64,
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_migration",
+   "fieldtype": "Check",
+   "label": "Regularización",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_header",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "received_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Recibido el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "received_by",
+   "fieldtype": "Link",
+   "label": "Recibido por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Motivo pendiente",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_demand",
+   "fieldtype": "Section Break",
+   "label": "Demanda e Item"
+  },
+  {
+   "fieldname": "encargo",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Encargo",
+   "options": "Encargo",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Orden de Venta",
+   "options": "Sales Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "label": "Sales Order Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Cliente",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_demand",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Nombre del Item",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "item_created",
+   "fieldtype": "Check",
+   "label": "Item creado en la recepción",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_inventory",
+   "fieldtype": "Section Break",
+   "label": "Inventario y costo"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Bodega actual",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Entrada de stock",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_reservation_entry",
+   "fieldtype": "Link",
+   "label": "Reserva de stock",
+   "options": "Stock Reservation Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reservation_note",
+   "fieldtype": "Small Text",
+   "label": "Nota de reserva",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_inventory",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchase_currency",
+   "fieldtype": "Link",
+   "label": "Moneda de compra",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_price",
+   "fieldtype": "Float",
+   "label": "Precio de compra",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchased_on",
+   "fieldtype": "Datetime",
+   "label": "Comprado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Tipo de cambio usado",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exchange_rate_source",
+   "fieldtype": "Select",
+   "label": "Origen del tipo de cambio",
+   "options": "\nSAME_CURRENCY\nERPNEXT\nFALLBACK",
+   "read_only": 1
+  },
+  {
+   "fieldname": "incoming_rate",
+   "fieldtype": "Float",
+   "label": "Costo unitario de entrada",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rate_source",
+   "fieldtype": "Select",
+   "label": "Origen del costo",
+   "options": "\nSHOPPER\nVALUATION\nLAST_INCOMING",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_resolution",
+   "fieldtype": "Section Break",
+   "label": "Resolución"
+  },
+  {
+   "fieldname": "resolved_on",
+   "fieldtype": "Datetime",
+   "label": "Resuelto el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_by",
+   "fieldtype": "Link",
+   "label": "Resuelto por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_resolution",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "returned_on",
+   "fieldtype": "Datetime",
+   "label": "Devuelto a stock el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "returned_by",
+   "fieldtype": "Link",
+   "label": "Devuelto por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "return_reason",
+   "fieldtype": "Small Text",
+   "label": "Motivo de devolución",
+   "read_only": 1
+  },
+  {
+   "fieldname": "return_transfer",
+   "fieldtype": "Link",
+   "label": "Transferencia a Matriz",
+   "options": "Stock Entry",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-06 11:00:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Recepcion Unidad",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 0,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  },
+  {
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ComercialFRA"
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager"
+  }
+ ],
+ "search_fields": "scanned_code,encargo,item",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "scanned_code",
+ "track_changes": 1
+}

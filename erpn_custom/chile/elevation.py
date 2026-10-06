@@ -6,14 +6,12 @@ from erpn_custom.chile.payment_roles import needs_accounting_elevation
 
 
 @contextmanager
-def accounting_context():
-	"""ERPNext's update_bank_transaction / create_payment_entry_bts check permissions as the
-	session user; operational roles run them as Administrator without gaining DocType rights.
-	Callers must have validated PAYMENT_OPERATION_ROLES first."""
-	if not needs_accounting_elevation(frappe.get_roles()):
+def administrator_context():
+	"""Runs ERPNext internals as Administrator; callers must have checked the operational role first."""
+	user = frappe.session.user
+	if user == "Administrator":
 		yield
 		return
-	user = frappe.session.user
 	sid = frappe.session.sid
 	data = frappe.session.data
 	form_dict = frappe.local.form_dict
@@ -25,3 +23,15 @@ def accounting_context():
 		frappe.session.sid = sid
 		frappe.session.data = data
 		frappe.local.form_dict = form_dict
+
+
+@contextmanager
+def accounting_context():
+	"""ERPNext's update_bank_transaction / create_payment_entry_bts check permissions as the
+	session user; operational roles run them as Administrator without gaining DocType rights.
+	Callers must have validated PAYMENT_OPERATION_ROLES first."""
+	if not needs_accounting_elevation(frappe.get_roles()):
+		yield
+		return
+	with administrator_context():
+		yield

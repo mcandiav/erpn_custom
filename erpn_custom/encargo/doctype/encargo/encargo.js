@@ -5,7 +5,7 @@ frappe.ui.form.on("Encargo", {
 		render_reference_url_link(frm);
 		render_purchase_images_preview(frm);
 		show_customer_contact_alert(frm);
-		add_return_to_stock_button(frm);
+		add_reception_button(frm);
 		frm.set_query("supplier", () => ({
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
@@ -95,33 +95,14 @@ function render_purchase_images_preview(frm) {
 	);
 }
 
-// A wrong purchase is handled by sales: the unit goes to normal stock and the order line is cancelled separately.
-function add_return_to_stock_button(frm) {
-	if (frm.doc.reception_status !== "RECEIVED" || !frappe.user.has_role(["ComercialFRA", "System Manager"])) {
+// Units are returned to stock one by one from the commercial reception view (Spec 018 §14).
+function add_reception_button(frm) {
+	if (frm.doc.purchase_status !== "PURCHASED" || !frappe.user.has_role(["ComercialFRA", "System Manager"])) {
 		return;
 	}
-	frm.add_custom_button(__("Devolver a stock"), () => {
-		frappe.prompt(
-			[{ fieldname: "notes", fieldtype: "Small Text", label: __("Motivo"), reqd: 1 }],
-			(values) => {
-				frappe.call({
-					method: "erpn_custom.encargo.reception.return_to_stock",
-					args: { encargo: frm.doc.name, notes: values.notes },
-					freeze: true,
-					callback(r) {
-						if (r.message) {
-							frappe.show_alert({
-								message: __("Encargo devuelto a stock. Anula la línea o la OV {0}.", [frm.doc.sales_order]),
-								indicator: "green",
-							});
-							frm.reload_doc();
-						}
-					},
-				});
-			},
-			__("Devolver a stock"),
-			__("Devolver")
-		);
+	frm.add_custom_button(__("Ver recepción"), () => {
+		frappe.route_options = { search: frm.doc.name };
+		frappe.set_route("recepcion-comercial");
 	});
 }
 

@@ -23,12 +23,25 @@ frappe.pages["recepcion-chile"].on_page_hide = function (wrapper) {
 	}
 };
 
+const RC_HISTORY_MAX = 15;
+
 const rc_escape = (value) => frappe.utils.escape_html(value == null ? "" : String(value));
+
+// One id per physical read, created before sending: retries reuse it so the server never counts a unit twice.
+function rc_scan_id() {
+	if (window.crypto && crypto.randomUUID) {
+		return crypto.randomUUID();
+	}
+	const bytes = new Uint8Array(16);
+	(window.crypto || window.msCrypto).getRandomValues(bytes);
+	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 class ReceptionStation {
 	constructor(page) {
 		this.page = page;
 		this.queue = [];
+		this.history = [];
 		this.working = false;
 		this.view = "pending";
 		this.scanner = null;
@@ -43,7 +56,18 @@ class ReceptionStation {
 				.rc-result { margin-top: 16px; padding: 24px 16px; border-radius: 12px; text-align: center; }
 				.rc-result-encargo { background: #fff3cd; border: 4px solid #f0ad4e; color: #5c3c00; }
 				.rc-result-stock { background: #e3f0ff; border: 4px solid #2f80ed; color: #0b3b7a; }
+				.rc-result-warning { background: #fde2e1; border: 4px solid #d9534f; color: #6b1210; }
 				.rc-result-title { font-size: 34px; font-weight: 800; letter-spacing: 1px; }
+				.rc-result-message { margin-top: 8px; font-weight: 600; }
+				.rc-duplicate { margin-top: 8px; font-weight: 800; }
+				.rc-history { margin-top: 12px; }
+				.rc-history-title { font-weight: 700; margin-bottom: 4px; }
+				.rc-history-row { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+					padding: 6px 10px; border-left: 4px solid var(--border-color); margin-bottom: 4px; background: var(--subtle-fg); }
+				.rc-history-encargo { border-left-color: #f0ad4e; }
+				.rc-history-stock { border-left-color: #2f80ed; }
+				.rc-history-warning, .rc-history-failed { border-left-color: #d9534f; }
+				.rc-history-code { font-family: monospace; word-break: break-all; }
 				.rc-result-enc { font-size: 44px; font-weight: 800; margin: 8px 0; word-break: break-all; }
 				.rc-result-detail { font-size: 16px; }
 				.rc-tabs { display: flex; gap: 8px; margin: 24px 0 8px; }
@@ -63,6 +87,7 @@ class ReceptionStation {
 				</div>
 				<div class="rc-reader"></div>
 				<div class="rc-result-box"></div>
+				<div class="rc-history"></div>
 				<div class="rc-tabs">
 					<button class="btn btn-default" data-view="pending">${__("Comprados no recibidos")}</button>
 					<button class="btn btn-default" data-view="today">${__("Recibidos hoy")}</button>
@@ -74,6 +99,8 @@ class ReceptionStation {
 		this.$code = this.page.main.find(".rc-code");
 		this.$reader = this.page.main.find(".rc-reader");
 		this.$result = this.page.main.find(".rc-result-box");
+		this.$history = this.page.main.find(".rc-history");
+		this.$history.on("click", ".rc-retry", (e) => this.retry($(e.currentTarget).attr("data-id")));
 		this.$list = this.page.main.find(".rc-list");
 		this.$search = this.page.main.find(".rc-search");
 		this.$code.on("keydown", (e) => {
@@ -109,7 +136,23 @@ class ReceptionStation {
 		if (!code) {
 			return;
 		}
-		this.queue.push(code);
+		const read = { code, id: rc_scan_id(), state: "queued", result: null };
+		this.history.unshift(read);
+		this.history = this.history.slice(0, RC_HISTORY_MAX);
+		this.queue.push(read);
+		this.render_history();
+		this.process();
+	}
+
+	retry(id) {
+		// Same id: if the first call did reach the server, it answers DUPLICADO instead of a second unit.
+		const read = this.history.find((row) => row.id === id);
+		if (!read || read.state !== "failed") {
+			return;
+		}
+		read.state = "queued";
+		this.queue.push(read);
+		this.render_history();
 		this.process();
 	}
 
@@ -118,17 +161,26 @@ class ReceptionStation {
 			return;
 		}
 		this.working = true;
-		const code = this.queue.shift();
+		const read = this.queue.shift();
+		read.state = "sending";
+		this.render_history();
 		frappe.call({
 			method: RC_METHOD + "receive_scan",
-			args: { code },
+			type: "POST",
+			args: { code: read.code, scan_event_id: read.id },
 			callback: (r) => {
 				if (r.message) {
+					read.state = "done";
+					read.result = r.message;
 					this.show_result(r.message);
 				}
 			},
 			always: () => {
+				if (read.state !== "done") {
+					read.state = "failed";
+				}
 				this.working = false;
+				this.render_history();
 				if (this.queue.length) {
 					this.process();
 				} else {
@@ -141,30 +193,66 @@ class ReceptionStation {
 
 	show_result(data) {
 		if (navigator.vibrate) {
-			navigator.vibrate(data.match === "encargo" ? [200, 100, 200] : 150);
+			navigator.vibrate(data.kind === "encargo" ? [200, 100, 200] : data.kind === "warning" ? [400] : 150);
 		}
-		if (data.match === "encargo") {
-			const enc = data.encargo || {};
-			const left = data.pending_left
-				? `<div class="rc-result-detail" style="margin-top: 8px;">${__("Quedan {0} Encargos por recibir con este código", [data.pending_left])}</div>`
-				: "";
-			this.$result.html(`
-				<div class="rc-result rc-result-encargo">
-					<div class="rc-result-title">${__("APARTAR")}</div>
-					<div class="rc-result-enc">${rc_escape(enc.name)}</div>
-					<div class="rc-result-detail">${rc_escape(enc.customer)} · ${rc_escape(enc.sales_order)}</div>
-					<div class="rc-result-detail">${rc_escape(enc.brand)} ${rc_escape(enc.description)}</div>
-					${left}
-				</div>
-			`);
+		const enc = data.encargo;
+		const duplicate = data.duplicate
+			? `<div class="rc-result-detail rc-duplicate">${__("DUPLICADO: esta lectura ya estaba registrada, no se creó otra unidad")}</div>`
+			: "";
+		const encargo_block = enc
+			? `
+				<div class="rc-result-enc">${rc_escape(enc.name)}</div>
+				<div class="rc-result-detail">${rc_escape(enc.customer)} · ${rc_escape(enc.sales_order)}</div>
+				<div class="rc-result-detail">${rc_escape(enc.brand)} ${rc_escape(enc.description)}</div>
+				<div class="rc-result-detail" style="margin-top: 8px;">${__("Recibidas {0} de {1} · faltan {2}", [
+					rc_escape(enc.received_qty || 0),
+					rc_escape(enc.requested_qty || 0),
+					rc_escape(data.pending_receive_qty || 0),
+				])}</div>`
+			: `<div class="rc-result-detail">${rc_escape(data.item_name || data.item || __("Sin Encargo pendiente"))}</div>`;
+		const message = data.message ? `<div class="rc-result-detail rc-result-message">${rc_escape(data.message)}</div>` : "";
+		this.$result.html(`
+			<div class="rc-result rc-result-${rc_escape(data.kind)}">
+				<div class="rc-result-title">${rc_escape(__(data.screen))}</div>
+				${encargo_block}
+				<div class="rc-result-detail" style="word-break: break-all;">${rc_escape(data.code)}</div>
+				${message}
+				${duplicate}
+			</div>
+		`);
+	}
+
+	render_history() {
+		if (!this.history.length) {
+			this.$history.empty();
 			return;
 		}
-		this.$result.html(`
-			<div class="rc-result rc-result-stock">
-				<div class="rc-result-title">${__("STOCK NORMAL")}</div>
-				<div class="rc-result-detail">${__("Sin Encargo pendiente")}</div>
-				<div class="rc-result-detail" style="word-break: break-all;">${rc_escape(data.code)}</div>
-			</div>
+		const label = {
+			queued: __("En cola"),
+			sending: __("Enviando"),
+			failed: __("Falló"),
+		};
+		this.$history.html(`
+			<div class="rc-history-title">${__("Lecturas de esta sesión")}</div>
+			${this.history
+				.map((read) => {
+					const state = read.state === "done" ? __(read.result.screen) + (read.result.duplicate ? " · " + __("DUPLICADO") : "") : label[read.state];
+					const enc = read.result && read.result.encargo ? " · " + rc_escape(read.result.encargo.name) : "";
+					const retry =
+						read.state === "failed"
+							? `<button class="btn btn-xs btn-warning rc-retry" data-id="${rc_escape(read.id)}">${__("Reintentar")}</button>`
+							: "";
+					return `
+						<div class="rc-history-row rc-history-${rc_escape(read.result ? read.result.kind : read.state)}">
+							<div style="min-width: 0;">
+								<div class="rc-history-code">${rc_escape(read.code)}</div>
+								<div class="small">${rc_escape(state)}${enc}</div>
+							</div>
+							${retry}
+						</div>
+					`;
+				})
+				.join("")}
 		`);
 	}
 
@@ -185,25 +273,34 @@ class ReceptionStation {
 			this.$list.html(`<div class="text-muted" style="padding: 12px 0;">${__("Sin registros")}</div>`);
 			return;
 		}
-		this.$list.html(
-			rows
-				.map((row) => {
-					const when =
-						this.view === "today"
-							? `${__("Recibido")} ${rc_escape(frappe.datetime.str_to_user(row.received_on))} · ${rc_escape(row.received_by)}`
-							: `${__("Comprado")} ${rc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rc_escape(
-									row.purchase_supplier || row.proposed_supplier_name
-							  )}`;
-					return `
-						<div class="rc-card">
-							<div class="rc-card-title">${rc_escape(row.name)} · ${rc_escape(row.customer)}</div>
-							<div>${rc_escape(row.brand)} ${rc_escape(row.description)}</div>
-							<div class="text-muted small">${when}</div>
-						</div>
-					`;
-				})
-				.join("")
-		);
+		this.$list.html(rows.map((row) => (this.view === "today" ? this.unit_card(row) : this.encargo_card(row))).join(""));
+	}
+
+	unit_card(row) {
+		const who = row.encargo ? `${rc_escape(row.encargo)} · ${rc_escape(row.customer)}` : rc_escape(row.item_name || row.scanned_code);
+		return `
+			<div class="rc-card">
+				<div class="rc-card-title">${rc_escape(__(row.screen))}</div>
+				<div>${who}</div>
+				<div class="text-muted small" style="word-break: break-all;">${rc_escape(row.scanned_code)}</div>
+				<div class="text-muted small">${__("Recibido")} ${rc_escape(frappe.datetime.str_to_user(row.received_on))} · ${rc_escape(
+					row.received_by
+				)}</div>
+			</div>
+		`;
+	}
+
+	encargo_card(row) {
+		return `
+			<div class="rc-card">
+				<div class="rc-card-title">${rc_escape(row.name)} · ${rc_escape(row.customer)}</div>
+				<div>${rc_escape(row.brand)} ${rc_escape(row.description)}</div>
+				<div class="small">${__("Recibidas {0} de {1}", [rc_escape(row.received_qty || 0), rc_escape(row.requested_qty || 0)])}</div>
+				<div class="text-muted small">${__("Comprado")} ${rc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rc_escape(
+					row.purchase_supplier || row.proposed_supplier_name
+				)}</div>
+			</div>
+		`;
 	}
 
 	load_scanner() {

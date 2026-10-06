@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "creation": "2026-10-06 11:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "clearing_account",
+  "fallback_usd_clp_rate"
+ ],
+ "fields": [
+  {
+   "description": "Contrapartida provisional de cada ingreso de inventario de la recepción (Compras Shopper por regularizar - FRAG). La crea el Configurador; mientras esté vacía la recepción registra los escaneos pero no mueve inventario.",
+   "fieldname": "clearing_account",
+   "fieldtype": "Link",
+   "label": "Cuenta transitoria",
+   "options": "Account"
+  },
+  {
+   "description": "Se usa solo cuando ERPNext no tiene tipo de cambio USD -> CLP para la fecha de compra del Shopper. Vacío = la unidad queda pendiente de valorización.",
+   "fieldname": "fallback_usd_clp_rate",
+   "fieldtype": "Float",
+   "label": "Tipo de cambio USD -> CLP de respaldo",
+   "non_negative": 1,
+   "precision": "6"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-06 11:00:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Configuracion Recepcion FRA",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 0,
+   "print": 0,
+   "read": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

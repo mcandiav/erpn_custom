@@ -38,6 +38,8 @@
   "notes",
   "section_qty",
   "requested_qty",
+  "received_qty",
+  "pending_receive_qty",
   "sale_rate",
   "column_break_qty",
   "expected_item",
@@ -50,6 +52,7 @@
   "proposed_supplier_name",
   "column_break_purchase",
   "purchase_barcode",
+  "purchase_currency",
   "purchase_price",
   "purchase_product_image",
   "purchase_label_image",
@@ -286,6 +289,23 @@
    "reqd": 1
   },
   {
+   "default": "0",
+   "description": "Unidades recibidas en Chile e ingresadas al inventario para este Encargo.",
+   "fieldname": "received_qty",
+   "fieldtype": "Float",
+   "label": "Cantidad recibida",
+   "non_negative": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "pending_receive_qty",
+   "fieldtype": "Float",
+   "label": "Pendiente de recibir",
+   "non_negative": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "sale_rate",
    "fieldtype": "Currency",
    "label": "Sale Rate"
@@ -362,6 +382,15 @@
    "search_index": 1
   },
   {
+   "default": "USD",
+   "description": "Moneda del precio de compra del Shopper.",
+   "fieldname": "purchase_currency",
+   "fieldtype": "Link",
+   "label": "Moneda de compra",
+   "options": "Currency"
+  },
+  {
+   "description": "Precio unitario en la moneda de compra.",
    "fieldname": "purchase_price",
    "fieldtype": "Float",
    "label": "Precio de compra",
@@ -458,7 +487,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-06 00:30:00",
+ "modified": "2026-10-06 11:00:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",
