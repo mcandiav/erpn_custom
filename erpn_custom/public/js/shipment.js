@@ -4,17 +4,15 @@ const SHIPMENT_ADDRESS_PARTY = {
 };
 
 frappe.ui.form.on("Shipment", {
-	setup(frm) {
+	refresh(frm) {
+		frappe.dynamic_link = null;
+		// Frappe gives each document its own copy of the field definitions, so a hook set in setup is lost.
 		Object.entries(SHIPMENT_ADDRESS_PARTY).forEach(([fieldname, cfg]) => {
 			frm.fields_dict[fieldname].df.get_route_options_for_new_doc = () => {
 				_set_address_dynamic_link(frm, cfg);
 				return {};
 			};
 		});
-	},
-
-	refresh(frm) {
-		frappe.dynamic_link = null;
 		frm.set_query("custom_courier_configuration", () => ({
 			filters: { enabled: 1 },
 		}));
