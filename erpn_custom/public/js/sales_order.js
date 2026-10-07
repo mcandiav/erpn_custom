@@ -215,6 +215,9 @@ function set_supply_indicator(frm, lines) {
 		}
 		return doc.stock_qty - doc.delivered_qty <= doc.actual_qty ? "green" : "orange";
 	});
+	// The grid keeps its own copy of the docfields; set_indicator_formatter only updates the meta.
+	const formatter = frappe.meta.docfield_map["Sales Order Item"].item_code.formatter;
+	frm.fields_dict.items.grid.update_docfield_property("item_code", "formatter", formatter);
 	frm.refresh_field("items");
 }
 
