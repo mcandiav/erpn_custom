@@ -123,6 +123,22 @@ class TestLineBuckets(SupplyCase):
 		self.assertEqual(buckets, [(supply.COVERED, 1), (supply.PENDING, 1), (supply.EXCEPTION, 1)])
 
 
+class TestLineIndicator(SupplyCase):
+	def test_covered_by_stock_and_encargo_is_green(self):
+		self.assertEqual(supply.line_indicator([(supply.COVERED, 5)]), "green")
+		self.assertEqual(supply.line_indicator([(supply.COVERED, 1), (supply.RECEIVED, 4)]), "green")
+
+	def test_anything_pending_is_orange(self):
+		for label in (supply.PENDING, supply.PURCHASED, supply.EXCEPTION, supply.RECEPTION):
+			self.assertEqual(supply.line_indicator([(supply.COVERED, 1), (label, 1)]), "orange")
+
+	def test_cancelled_line_is_gray(self):
+		self.assertEqual(supply.line_indicator([(supply.CANCELLED, 2)]), "gray")
+
+	def test_empty_line_is_green(self):
+		self.assertEqual(supply.line_indicator([]), "green")
+
+
 class TestConfirmedShortfall(SupplyCase):
 	def order(self, confirmed, shortfalls):
 		doc = MagicMock()

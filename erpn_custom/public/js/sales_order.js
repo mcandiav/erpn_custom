@@ -68,6 +68,7 @@ frappe.ui.form.on("Sales Order", {
 				if (!lines.length) {
 					return;
 				}
+				set_supply_indicator(frm, lines);
 				const box = $('<div class="erpn-line-supply small" style="margin-top: 8px;"></div>');
 				box.append($("<div class='text-muted'>").text(__("Abastecimiento por línea")));
 				lines.forEach((line) => {
@@ -201,6 +202,21 @@ frappe.ui.form.on("Sales Order Item", {
 		show_view_encargo_button(frm, cdn);
 	},
 });
+
+// ERPNext's dot only compares the line warehouse snapshot; units reserved through Encargos never count.
+function set_supply_indicator(frm, lines) {
+	const colors = {};
+	lines.forEach((line) => {
+		colors[line.name] = line.indicator;
+	});
+	frm.set_indicator_formatter("item_code", (doc) => {
+		if (colors[doc.name]) {
+			return colors[doc.name];
+		}
+		return doc.stock_qty - doc.delivered_qty <= doc.actual_qty ? "green" : "orange";
+	});
+	frm.refresh_field("items");
+}
 
 function show_view_encargo_button(frm, cdn) {
 	const grid_row = frm.fields_dict.items.grid.grid_rows_by_docname[cdn];

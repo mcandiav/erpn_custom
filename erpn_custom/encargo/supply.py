@@ -102,6 +102,16 @@ def encargo_totals(encargos):
 	}
 
 
+def line_indicator(buckets):
+	"""Item code dot on a submitted order: green once every unit is covered or set aside."""
+	labels = {label for label, qty in buckets if qty > 0}
+	if not labels:
+		return "green"
+	if labels == {CANCELLED}:
+		return "gray"
+	return "green" if labels <= {COVERED, RECEIVED} else "orange"
+
+
 def summary(buckets):
 	return " / ".join(f"{frappe.format_value(qty, 'Float')} {_(label).lower()}" for label, qty in buckets)
 
@@ -134,12 +144,14 @@ def order_supply(sales_order):
 		buckets = line_buckets(item.qty, per_line.get(item.name, []), doc.docstatus == 2)
 		lines.append(
 			{
+				"name": item.name,
 				"idx": item.idx,
 				"item_code": item.item_code,
 				"item_name": item.item_name,
 				"qty": flt(item.qty),
 				"buckets": [{"label": _(label), "qty": qty} for label, qty in buckets],
 				"summary": summary(buckets),
+				"indicator": line_indicator(buckets),
 			}
 		)
 	return {"lines": lines}
