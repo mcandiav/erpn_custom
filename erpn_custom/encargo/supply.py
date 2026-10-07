@@ -30,12 +30,17 @@ ENCARGO_FIELDS = [
 	"purchase_status",
 	"reception_status",
 	"barcode_exception_status",
+	"materialized_qty",
 ]
 
 
 def encargo_buckets(enc, waiting_units=0):
-	"""[(label, qty)] of one Encargo; a purchase splits into received / in reception / in transit."""
-	qty = flt(enc.get("requested_qty"))
+	"""[(label, qty)] of one Encargo still on its ENCARGO-PENDIENTE line.
+
+	Materialized units already moved to their own line (Spec 019), so they are left out here.
+	"""
+	materialized = flt(enc.get("materialized_qty"))
+	qty = max(flt(enc.get("requested_qty")) - materialized, 0)
 	if enc.get("status") == "Cancelled":
 		return [(CANCELLED, qty)]
 	if enc.get("purchase_status") != "PURCHASED":
@@ -47,8 +52,8 @@ def encargo_buckets(enc, waiting_units=0):
 		return [(REJECTED, qty)]
 	received = flt(enc.get("received_qty"))
 	if not received and enc.get("reception_status") in PRE_018_RECEIVED:
-		received = qty
-	received = min(received, qty)
+		received = qty + materialized
+	received = min(max(received - materialized, 0), qty)
 	waiting = min(flt(waiting_units), qty - received)
 	return [(RECEIVED, received), (RECEPTION, waiting), (PURCHASED, qty - received - waiting)]
 
@@ -100,6 +105,10 @@ def order_supply(sales_order):
 		line = _line_of(enc, lines_by_name, lines_by_encargo)
 		if line:
 			per_line.setdefault(line, []).append(encargo_buckets(enc, waiting.get(enc.name, 0)))
+	for item in doc.items:
+		if item.get("custom_encargo_origin") and not item.get("custom_encargo"):
+			# Materialized line: its unit was received and assigned to this order.
+			per_line[item.name] = [[(RECEIVED, flt(item.qty))]]
 	lines = []
 	for item in doc.items:
 		buckets = line_buckets(item.qty, per_line.get(item.name, []), doc.docstatus == 2)

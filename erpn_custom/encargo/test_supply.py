@@ -64,6 +64,12 @@ class TestEncargoBuckets(SupplyCase):
 			[(supply.RECEIVED, 1), (supply.RECEPTION, 1), (supply.PURCHASED, 2)],
 		)
 
+	def test_materialized_units_leave_the_pending_line(self):
+		row = enc(requested_qty=3, materialized_qty=1, purchase_status="PURCHASED", received_qty=2)
+		self.assertEqual(supply.encargo_buckets(row), [(supply.RECEIVED, 1), (supply.RECEPTION, 0), (supply.PURCHASED, 1)])
+		done = enc(requested_qty=1, materialized_qty=1, purchase_status="PURCHASED", received_qty=1)
+		self.assertEqual(sum(q for _l, q in supply.encargo_buckets(done)), 0)
+
 	def test_pre_018_reception_counts_as_received(self):
 		row = enc(requested_qty=2, purchase_status="PURCHASED", reception_status="RESOLVED_TO_ENC")
 		self.assertEqual(supply.encargo_buckets(row)[0], (supply.RECEIVED, 2))

@@ -110,14 +110,18 @@ class CommercialReception {
 			$(el).toggleClass("btn-primary", $(el).data("barcode-view") === this.barcode_view);
 			$(el).toggleClass("btn-default", $(el).data("barcode-view") !== this.barcode_view);
 		});
+		const request = (this.request = (this.request || 0) + 1);
 		if (this.view === "barcode") {
-			this.load_exceptions();
+			this.load_exceptions(request);
 			return;
 		}
 		frappe.call({
 			method: RCC_METHOD + "list_units",
 			args: { view: this.view, search: this.$search.val() },
 			callback: (r) => {
+				if (request !== this.request) {
+					return;
+				}
 				const data = r.message || {};
 				this.rows = data.rows || [];
 				this.$banner.html(
@@ -132,12 +136,15 @@ class CommercialReception {
 		});
 	}
 
-	load_exceptions() {
+	load_exceptions(request) {
 		this.$banner.html("");
 		frappe.call({
 			method: RCC_BARCODE_METHOD + "list_exceptions",
 			args: { view: this.barcode_view, search: this.$search.val() },
 			callback: (r) => {
+				if (request !== this.request) {
+					return;
+				}
 				this.rows = (r.message || {}).rows || [];
 				this.render();
 			},
