@@ -6,7 +6,7 @@ from frappe.utils import cint, flt, getdate, now_datetime, strip_html
 
 from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 from erpn_custom.chile.elevation import administrator_context
-from erpn_custom.encargo import barcode_exception, inventory, materialization
+from erpn_custom.encargo import barcode_exception, demand, inventory, materialization
 
 RECEPTOR_ROLE = "FRAreceptor"
 ALLOWED_ROLES = (RECEPTOR_ROLE, "System Manager")
@@ -43,12 +43,15 @@ CARD_FIELDS = [
 	"proposed_supplier_name",
 	"requested_qty",
 	"received_qty",
+	"pending_receive_qty",
+	"pending_supply_qty",
 	"reception_status",
 	"received_on",
 	"received_by",
 ]
 LOCK_FIELDS = [
 	"name",
+	"creation",
 	"status",
 	"purchase_status",
 	"reception_status",
@@ -87,6 +90,7 @@ UNIT_FIELDS = [
 	"received_on",
 	"received_by",
 	"is_migration",
+	"supply_event",
 	"materialization_status",
 	"materialized_row",
 	"materialization_message",
@@ -150,14 +154,15 @@ def screen(status, destination, has_encargo, materialization_status=None, encarg
 	if status == POSTED and destination == ENCARGO and materialization_status == materialization.ERROR:
 		# The unit is in inventory and still set aside; only the Sales Order link failed (Spec 019 §16).
 		return f"APARTAR - {encargo} - PENDIENTE DE VINCULAR A OV", "warning"
+	suffix = f" - {encargo}" if encargo else ""
 	if status == POSTED:
-		return ("APARTAR", "encargo") if destination == ENCARGO else ("STOCK NORMAL", "stock")
+		return (f"APARTAR{suffix}", "encargo") if destination == ENCARGO else ("STOCK NORMAL", "stock")
 	if status == PENDING_CLASSIFICATION:
 		if has_encargo:
-			return "APARTAR - REQUIERE CLASIFICACION", "warning"
+			return f"APARTAR - REQUIERE CLASIFICACION{suffix}", "warning"
 		return "STOCK NORMAL - REQUIERE CLASIFICACION", "warning"
 	if status == PENDING_BARCODE_APPROVAL:
-		return "APARTAR - REQUIERE COMERCIAL", "warning"
+		return f"APARTAR - REQUIERE COMERCIAL{suffix}", "warning"
 	if status in (PENDING_COST, PENDING_CONFIGURATION):
 		return "RECIBIDO - PENDIENTE DE VALORIZACION", "warning"
 	return "DEVUELTO A STOCK", "stock"
@@ -168,28 +173,21 @@ def exact_matches(rows, code, field="purchase_barcode"):
 	return [row for row in rows if (row.get(field) or "") == code]
 
 
-def encargo_matches(row, code, barcode_items):
-	if (row.get("purchase_barcode") or "") == code:
+def encargo_matches(row, code, barcode_items, event_barcodes=()):
+	"""Compatible demand: a purchase of this exact code, or a known Item that owns the code."""
+	if code in event_barcodes:
 		return True
 	return row.get("source_type") == "KNOWN_ITEM" and row.get("expected_item") in barcode_items
 
 
-def _purchase_order_key(row):
-	return (str(row.get("purchased_on") or ""), row.get("name") or "")
-
-
 def oldest_first(rows):
-	"""Each unit goes to the oldest purchase still waiting for reception (Spec 018 §5, FIFO)."""
-	return sorted(rows, key=_purchase_order_key)
+	"""Each unit goes to the oldest compatible demand: Encargo creation, then name (Spec 020 §8)."""
+	return demand.oldest_first(rows)
 
 
 def is_receivable(row):
-	return bool(
-		row
-		and row.get("status") == "Open"
-		and row.get("purchase_status") == "PURCHASED"
-		and row.get("reception_status") == "PENDING"
-	)
+	"""Spec 020 §8: a purchase is not required; the demand only has to be open."""
+	return bool(row and row.get("status") == "Open")
 
 
 def has_capacity(row, assigned_units):
@@ -198,34 +196,33 @@ def has_capacity(row, assigned_units):
 
 def still_waits_for_unit(row):
 	"""A pending unit resolved later still belongs to its Encargo unless sales closed it meanwhile."""
-	return bool(
-		row
-		and row.get("status") == "Open"
-		and row.get("purchase_status") == "PURCHASED"
-		and row.get("reception_status") != "RESOLVED_TO_STOCK"
-	)
+	return is_receivable(row)
 
 
-def received_values(row, received_on, received_by):
-	received = flt(row.get("received_qty")) + 1
-	requested = flt(row.get("requested_qty"))
-	return {
-		"received_qty": received,
-		"pending_receive_qty": inventory.pending_receive_qty(requested, received),
-		"reception_status": "RECEIVED" if received >= requested else "PENDING",
-		"received_on": received_on,
-		"received_by": received_by,
-	}
+def pick_source(row, events, arrived, pending_supply, code, barcode_items, same_item_events=()):
+	"""(kind, event) for one scanned unit: 'event' = a purchase in transit, 'direct' = new direct reception.
 
-
-def released_values(row, user):
-	received = max(flt(row.get("received_qty")) - 1, 0)
-	return {
-		"received_qty": received,
-		"pending_receive_qty": inventory.pending_receive_qty(row.get("requested_qty"), received),
-		"reception_status": "RESOLVED_TO_STOCK",
-		"resolved_by": user,
-	}
+	1. a purchase in transit of this exact code;
+	2. known Item: a purchase in transit of the same Item that is not waiting for a barcode decision;
+	3. known Item with demand still without source: direct reception (no Shopper purchase needed);
+	4. otherwise the unit is not committed to this demand (Spec 020 §8, §15).
+	"""
+	in_transit = [
+		e
+		for e in sorted(events, key=lambda e: e.get("idx") or 0)
+		if e.get("source_type") == demand.SHOPPER and demand.in_transit_qty(e, arrived.get(e.get("name"), 0)) > 0
+	]
+	for event in in_transit:
+		if (event.get("purchase_barcode") or "") == code:
+			return "event", event
+	if row.get("source_type") != "KNOWN_ITEM" or row.get("expected_item") not in barcode_items:
+		return None, None
+	for event in in_transit:
+		if event.get("name") in same_item_events and event.get("barcode_exception_status") != barcode_exception.PENDING_APPROVAL:
+			return "event", event
+	if flt(pending_supply) > 0:
+		return "direct", None
+	return None, None
 
 
 def return_decision(row):
@@ -241,16 +238,6 @@ def return_decision(row):
 
 def _lock(encargo):
 	return frappe.db.get_value("Encargo", encargo, LOCK_FIELDS, as_dict=True, for_update=True)
-
-
-def _assigned_units(encargo):
-	"""Locking read: sees units committed by another receptor after this transaction started."""
-	return cint(
-		frappe.db.sql(
-			f"select count(*) from `tab{UNIT}` where encargo=%s and status!=%s for update",
-			(encargo, RETURNED),
-		)[0][0]
-	)
 
 
 def _log(encargo, action, user, **values):
@@ -276,32 +263,72 @@ def _card(encargo):
 
 
 def _candidates(code, barcode_items):
-	# A rejected purchase no longer belongs to its Encargo (Spec 017 §8.6).
-	base = {
-		"status": "Open",
-		"purchase_status": "PURCHASED",
-		"reception_status": "PENDING",
-		"barcode_exception_status": ("!=", barcode_exception.REJECTED),
-	}
-	fields = ["name", "purchased_on", "purchase_barcode", "source_type", "expected_item"]
-	rows = frappe.get_all("Encargo", filters={**base, "purchase_barcode": code}, fields=fields)
+	"""Open demand compatible with the code, oldest first; a purchase is not required (Spec 020 §8)."""
+	# Rejected or released purchases no longer belong to their Encargo (Spec 017 §8.6, Spec 020 §15).
+	events = frappe.get_all(
+		demand.EVENT,
+		filters={
+			"parenttype": "Encargo",
+			"source_type": demand.SHOPPER,
+			"status": demand.COMMITTED,
+			"purchase_barcode": code,
+		},
+		fields=["parent", "purchase_barcode"],
+	)
+	by_purchase = {}
+	for event in exact_matches(events, code):
+		by_purchase.setdefault(event.parent, set()).add(event.purchase_barcode)
+	fields = ["name", "creation", "source_type", "expected_item"]
+	rows = []
+	if by_purchase:
+		rows += frappe.get_all("Encargo", filters={"status": "Open", "name": ("in", list(by_purchase))}, fields=fields)
 	if barcode_items:
 		rows += frappe.get_all(
 			"Encargo",
-			filters={**base, "source_type": "KNOWN_ITEM", "expected_item": ("in", barcode_items)},
+			filters={"status": "Open", "source_type": "KNOWN_ITEM", "expected_item": ("in", barcode_items)},
 			fields=fields,
 		)
-	unique = {row.name: row for row in rows if encargo_matches(row, code, barcode_items)}
+	unique = {
+		row.name: row for row in rows if encargo_matches(row, code, barcode_items, by_purchase.get(row.name, ()))
+	}
 	return oldest_first(unique.values())
 
 
+def _same_item_events(row, events):
+	"""Purchases whose code also belongs to the expected Item (another barcode of the same product)."""
+	if row.get("source_type") != "KNOWN_ITEM":
+		return set()
+	return {
+		e.name
+		for e in events
+		if e.get("purchase_barcode") and row.expected_item in inventory.items_for_barcode(e.purchase_barcode)
+	}
+
+
 def _assign_encargo(code, barcode_items):
+	"""(Encargo, kind, event) under lock, or (None, None, None) for normal stock."""
 	for candidate in _candidates(code, barcode_items):
 		# Another receptor may have taken the last unit between the search and the lock.
 		row = _lock(candidate.name)
-		if is_receivable(row) and has_capacity(row, _assigned_units(row.name)):
-			return row
-	return None
+		if not is_receivable(row):
+			continue
+		events = demand.locked_events(row.name)
+		units = demand.locked_units(row.name)
+		if not has_capacity(row, sum(1 for unit in units if demand.is_live_unit(unit))):
+			continue
+		totals = demand.summarize(row.requested_qty, events, units)
+		kind, event = pick_source(
+			row,
+			events,
+			totals.event_received,
+			totals.pending_supply_qty,
+			code,
+			barcode_items,
+			_same_item_events(row, events),
+		)
+		if kind:
+			return row, kind, event
+	return None, None, None
 
 
 def _new_unit(code, scan_event_id, user, received_on=None, is_migration=0):
@@ -319,7 +346,9 @@ def _new_unit(code, scan_event_id, user, received_on=None, is_migration=0):
 	)
 
 
-def _link_encargo(unit, row, destination=ENCARGO):
+def _link_encargo(unit, row, destination=ENCARGO, event=None):
+	"""The cost comes from the purchase the unit satisfies; a direct reception has none (Item cost)."""
+	source = event if event is not None else row
 	unit.update(
 		{
 			"encargo": row.name,
@@ -327,9 +356,10 @@ def _link_encargo(unit, row, destination=ENCARGO):
 			"sales_order_item": row.sales_order_item,
 			"customer": row.customer,
 			"destination": destination,
-			"purchase_currency": row.purchase_currency or inventory.PURCHASE_CURRENCY,
-			"purchase_price": flt(row.purchase_price),
-			"purchased_on": row.purchased_on,
+			"supply_event": event.name if event is not None else None,
+			"purchase_currency": source.get("purchase_currency") or inventory.PURCHASE_CURRENCY,
+			"purchase_price": flt(source.get("purchase_price")),
+			"purchased_on": source.get("purchased_on"),
 		}
 	)
 
@@ -343,7 +373,13 @@ def _resolve_item(unit, enc, barcode_items):
 			return None, barcode_item, None
 		return PENDING_CLASSIFICATION, None, _("El código no corresponde a ningún Item ni Encargo pendiente.")
 	if enc.source_type == "KNOWN_ITEM":
-		if enc.barcode_exception_status == barcode_exception.PENDING_APPROVAL:
+		if enc.expected_item in barcode_items:
+			barcode_item = enc.expected_item
+		# Spec 020 §13: the exception belongs to the purchase event of this unit.
+		event_status = (
+			frappe.db.get_value(demand.EVENT, unit.supply_event, "barcode_exception_status") if unit.supply_event else None
+		)
+		if event_status == barcode_exception.PENDING_APPROVAL:
 			decision = "mismatch"
 		else:
 			# Purchases before Spec 017 still adopt the first code here (§9.2).
@@ -351,9 +387,16 @@ def _resolve_item(unit, enc, barcode_items):
 				enc.expected_item, barcode_item, inventory.item_has_barcodes(enc.expected_item)
 			)
 		if decision == "mismatch":
-			if enc.barcode_exception_status != barcode_exception.PENDING_APPROVAL:
-				barcode_exception.open_exception(enc.name)
-				enc.barcode_exception_status = barcode_exception.PENDING_APPROVAL
+			if not unit.supply_event:
+				return (
+					PENDING_CLASSIFICATION,
+					None,
+					_("El código no corresponde al Item esperado {0} y la unidad no tiene compra asociada.").format(
+						enc.expected_item
+					),
+				)
+			if event_status != barcode_exception.PENDING_APPROVAL:
+				barcode_exception.open_exception(enc.name, unit.supply_event)
 			return (
 				PENDING_BARCODE_APPROVAL,
 				None,
@@ -408,9 +451,7 @@ def _incoming_rate(unit, company, warehouse):
 
 
 def _count_received(unit, enc):
-	frappe.db.set_value(
-		"Encargo", enc.name, received_values(enc, unit.received_on, unit.received_by), update_modified=True
-	)
+	"""Quantities are recomputed by demand.reconcile_encargo_supply once the unit is saved."""
 	if unit.is_migration:
 		# _advance runs as Administrator; the owner is the System Manager who ran the regularization.
 		_log(enc.name, "RECEIVED", unit.owner, scanned_code=unit.scanned_code, notes=_("Regularización {0}").format(unit.name))
@@ -486,9 +527,7 @@ def unit_result(name, duplicate=False):
 		"kind": kind,
 		"code": unit.scanned_code,
 		"encargo": encargo,
-		"pending_receive_qty": inventory.pending_receive_qty(encargo.requested_qty, encargo.received_qty)
-		if encargo
-		else 0,
+		"pending_receive_qty": flt(encargo.pending_receive_qty) if encargo else 0,
 		"item": unit.item,
 		"item_name": unit.item_name,
 		"message": unit.message or unit.materialization_message,
@@ -512,25 +551,42 @@ def receive_scan(code, scan_event_id=None):
 	if existing:
 		return unit_result(existing, duplicate=True)
 	barcode_items = inventory.items_for_barcode(code)
-	unit = _new_unit(code, scan_event_id, frappe.session.user)
-	row = _assign_encargo(code, barcode_items)
+	user = frappe.session.user
+	unit = _new_unit(code, scan_event_id, user)
+	row, kind, event = _assign_encargo(code, barcode_items)
+	if kind == "direct":
+		# Spec 020 §8: a compatible unit satisfies demand without a prior Shopper purchase.
+		event = frappe._dict(
+			name=demand.add_event(
+				row.name, demand.DIRECT, demand.RECEIVED, 1, user, item=row.expected_item, notes=_("Escaneo {0}").format(code)
+			)
+		)
 	if row:
-		_link_encargo(unit, row)
+		_link_encargo(unit, row, ENCARGO, event)
 	try:
 		unit.insert(ignore_permissions=True)
 	except (frappe.DuplicateEntryError, frappe.UniqueValidationError):
 		# The same read arrived twice at once: the first one wins.
 		frappe.db.rollback()
 		return unit_result(_unit_by_scan(scan_event_id), duplicate=True)
+	if kind == "direct":
+		frappe.db.set_value(demand.EVENT, event.name, "reception_unit", unit.name, update_modified=False)
 	with administrator_context():
 		_advance(unit, barcode_items)
-		unit.save(ignore_permissions=True)
+		_save(unit)
 	return unit_result(unit.name)
+
+
+def _save(unit, previous_encargo=None):
+	"""Save the unit, then recompute the demand it belongs (or belonged) to from real data."""
+	unit.save(ignore_permissions=True)
+	for encargo in {unit.encargo, previous_encargo} - {None, ""}:
+		demand.reconcile_encargo_supply(encargo)
 
 
 @frappe.whitelist()
 def list_reception(view="pending", search=None, limit=100):
-	"""Receptor lists: purchased Encargos still waiting for units, and units scanned today."""
+	"""Receptor lists: Encargos with purchased units still in transit, and units scanned today."""
 	_require(is_receptor)
 	limit = min(cint(limit) or 100, 500)
 	text = (search or "").strip()
@@ -571,14 +627,13 @@ def list_reception(view="pending", search=None, limit=100):
 			"customer": ("like", like),
 			"brand": ("like", like),
 			"description": ("like", like),
-			"purchase_barcode": ("like", like),
 		}
 	return frappe.get_all(
 		"Encargo",
-		filters={"status": "Open", "purchase_status": "PURCHASED", "reception_status": "PENDING"},
+		filters={"status": "Open", "pending_receive_qty": (">", 0)},
 		or_filters=or_filters,
 		fields=CARD_FIELDS,
-		order_by="purchased_on asc",
+		order_by="creation asc, name asc",
 		limit_page_length=limit,
 	)
 
@@ -645,7 +700,7 @@ def resolve_unit(unit, item=None):
 		_advance(doc)
 		doc.resolved_on = now_datetime()
 		doc.resolved_by = user
-		doc.save(ignore_permissions=True)
+		_save(doc)
 	return unit_result(doc.name)
 
 
@@ -689,13 +744,17 @@ def detach_rejected(unit, user):
 	_log(encargo, "BARCODE_REJECTED", user, scanned_code=unit.scanned_code, notes=unit.name)
 
 
-def resume_after_barcode_decision(encargo, approved):
-	"""Same Recepcion Unidad, no new scan: approval retries it, rejection sends it to stock."""
+def resume_after_barcode_decision(encargo, approved, supply_event=None):
+	"""Same Recepcion Unidad, no new scan: approval retries it, rejection sends it to stock.
+
+	Spec 020 §13: only the units of the decided purchase event move.
+	"""
 	user = frappe.session.user
 	results = []
-	for name in frappe.get_all(
-		UNIT, filters={"encargo": encargo, "status": PENDING_BARCODE_APPROVAL}, pluck="name", order_by="received_on asc"
-	):
+	filters = {"encargo": encargo, "status": PENDING_BARCODE_APPROVAL}
+	if supply_event:
+		filters["supply_event"] = supply_event
+	for name in frappe.get_all(UNIT, filters=filters, pluck="name", order_by="received_on asc"):
 		with administrator_context():
 			doc = frappe.get_doc(UNIT, name)
 			if not approved:
@@ -706,6 +765,7 @@ def resume_after_barcode_decision(encargo, approved):
 			doc.save(ignore_permissions=True)
 		result = unit_result(doc.name)
 		results.append({"unit": doc.name, "screen": result["screen"], "message": result["message"]})
+	demand.reconcile_encargo_supply(encargo)
 	return results
 
 
@@ -717,6 +777,10 @@ def return_unit(unit, notes=None):
 	notes = clean_notes(notes)
 	if not notes:
 		frappe.throw(_("Indica el motivo de la devolución a stock."))
+	encargo = frappe.db.get_value(UNIT, unit, "encargo")
+	if encargo:
+		# Same lock order as reception: Encargo first, then its units.
+		demand.lock_encargo(encargo, ["name"])
 	row = frappe.db.get_value(UNIT, unit, ["name", "status", "destination"], as_dict=True, for_update=True)
 	if return_decision(row) == "already_done":
 		return unit_result(unit)
@@ -743,10 +807,20 @@ def return_unit(unit, notes=None):
 		)
 		doc.save(ignore_permissions=True)
 		if doc.encargo:
-			enc = _lock(doc.encargo)
-			frappe.db.set_value("Encargo", doc.encargo, released_values(enc, user), update_modified=True)
+			release_unit_source(doc.encargo, doc.supply_event)
 			_log(doc.encargo, "RETURNED_TO_STOCK", user, scanned_code=doc.scanned_code, notes=notes)
+			demand.reconcile_encargo_supply(doc.encargo)
 	return unit_result(unit)
+
+
+def release_unit_source(encargo, supply_event):
+	"""The returned unit stops consuming its source; the demand reopens unless covered otherwise."""
+	if not supply_event:
+		return
+	released = frappe.db.get_value(demand.EVENT, supply_event, "released_qty", for_update=True)
+	if released is None:
+		return
+	frappe.db.set_value(demand.EVENT, supply_event, "released_qty", flt(released) + 1, update_modified=False)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -763,7 +837,8 @@ def regularize_previous_receptions():
 	)
 	results = []
 	for row in rows:
-		if frappe.db.exists(UNIT, {"encargo": row.name}):
+		# Spec 020: Encargos with supply events are already reconciled by the v0_0_43 migration.
+		if frappe.db.exists(UNIT, {"encargo": row.name}) or frappe.db.exists(demand.EVENT, {"parent": row.name}):
 			continue
 		if not row.purchase_barcode:
 			results.append({"encargo": row.name, "unit": "", "screen": _("SIN CÓDIGO"), "message": _("El Encargo no tiene código comprado.")})
@@ -781,7 +856,7 @@ def regularize_previous_receptions():
 			unit.insert(ignore_permissions=True)
 			with administrator_context():
 				_advance(unit)
-				unit.save(ignore_permissions=True)
+				_save(unit)
 		except Exception as e:
 			frappe.db.rollback(save_point="reception_regularize")
 			frappe.clear_messages()

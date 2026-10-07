@@ -1,0 +1,285 @@
+{
+ "actions": [],
+ "creation": "2026-10-07 11:00:00",
+ "description": "Una cantidad abastecida por una fuente concreta (Spec 020). La graban solo los servicios de compra, recepción y abastecimiento.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_type",
+  "status",
+  "qty",
+  "received_qty",
+  "released_qty",
+  "event_on",
+  "user",
+  "migrated_from_legacy",
+  "request_id",
+  "notes",
+  "section_purchase",
+  "shopper_user",
+  "purchased_on",
+  "supplier",
+  "proposed_supplier_name",
+  "purchase_barcode",
+  "purchase_currency",
+  "purchase_price",
+  "column_break_purchase",
+  "purchase_product_image",
+  "purchase_label_image",
+  "section_barcode",
+  "barcode_exception_status",
+  "expected_barcode",
+  "column_break_barcode",
+  "barcode_resolved_on",
+  "barcode_resolved_by",
+  "barcode_resolution_comment",
+  "section_stock",
+  "reception_unit",
+  "item",
+  "column_break_stock",
+  "warehouse",
+  "stock_reservation_entry"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Fuente",
+   "options": "SHOPPER_PURCHASE\nRECEPTION_DIRECT\nSTOCK_REALLOCATION\nMIGRATION",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Estado",
+   "options": "COMMITTED\nRECEIVED\nREJECTED\nCANCELLED\nRESOLVED_TO_STOCK",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Cantidad",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Unidades de esta fuente ya escaneadas en Chile.",
+   "fieldname": "received_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Recibido",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Unidades que dejaron de comprometer la demanda (devueltas a stock o liberadas).",
+   "fieldname": "released_qty",
+   "fieldtype": "Float",
+   "label": "Liberado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Fecha",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Usuario",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Creado desde los campos únicos de compra anteriores a la Spec 020 (MIGRATED_FROM_LEGACY).",
+   "fieldname": "migrated_from_legacy",
+   "fieldtype": "Check",
+   "label": "Migrado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Id de solicitud",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Motivo / nota",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.source_type==='SHOPPER_PURCHASE'",
+   "fieldname": "section_purchase",
+   "fieldtype": "Section Break",
+   "label": "Compra Shopper"
+  },
+  {
+   "fieldname": "shopper_user",
+   "fieldtype": "Link",
+   "label": "Shopper",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchased_on",
+   "fieldtype": "Datetime",
+   "label": "Comprado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier de compra",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_supplier_name",
+   "fieldtype": "Data",
+   "label": "Lugar propuesto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_barcode",
+   "fieldtype": "Data",
+   "label": "Barcode comprado",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "default": "USD",
+   "fieldname": "purchase_currency",
+   "fieldtype": "Link",
+   "label": "Moneda de compra",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_price",
+   "fieldtype": "Float",
+   "label": "Precio unitario de compra",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_purchase",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchase_product_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto del producto",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_label_image",
+   "fieldtype": "Attach Image",
+   "label": "Foto de etiqueta",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.barcode_exception_status",
+   "fieldname": "section_barcode",
+   "fieldtype": "Section Break",
+   "label": "Excepción de barcode"
+  },
+  {
+   "fieldname": "barcode_exception_status",
+   "fieldtype": "Select",
+   "label": "Estado barcode",
+   "options": "\nNOT_APPLICABLE\nMATCH\nPENDING_APPROVAL\nAPPROVED\nREJECTED",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_barcode",
+   "fieldtype": "Small Text",
+   "label": "Barcode esperado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_barcode",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "barcode_resolved_on",
+   "fieldtype": "Datetime",
+   "label": "Resuelto el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "barcode_resolved_by",
+   "fieldtype": "Link",
+   "label": "Resuelto por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "barcode_resolution_comment",
+   "fieldtype": "Small Text",
+   "label": "Comentario de resolución",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.reception_unit || doc.stock_reservation_entry",
+   "fieldname": "section_stock",
+   "fieldtype": "Section Break",
+   "label": "Recepción / stock"
+  },
+  {
+   "fieldname": "reception_unit",
+   "fieldtype": "Link",
+   "label": "Recepción Unidad",
+   "options": "Recepcion Unidad",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_stock",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Bodega",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_reservation_entry",
+   "fieldtype": "Link",
+   "label": "Reserva",
+   "options": "Stock Reservation Entry",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-07 11:00:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo Supply Event",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

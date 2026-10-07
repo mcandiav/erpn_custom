@@ -2,13 +2,14 @@
 
 Buying and satisfying the demand are separate decisions: the Shopper always completes the
 purchase; the seller responsible for the Sales Order approves or rejects the equivalence.
+Spec 020: the exception belongs to one purchase event, not to the whole Encargo.
 """
 
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from erpn_custom.encargo import inventory
+from erpn_custom.encargo import demand, inventory
 
 NOT_APPLICABLE = "NOT_APPLICABLE"
 MATCH = "MATCH"
@@ -27,67 +28,29 @@ TODO_REJECTED = "[Compra rechazada]"
 VIEWS = {"pending": PENDING_APPROVAL, "rejected": REJECTED}
 SELLER, OWNER, ESCALATED = "sales_person", "owner", "system_manager"
 
-LOCK_FIELDS = [
+LOCK_FIELDS = ["name", "status", "source_type", "sales_order", "expected_item"]
+ENCARGO_LIST_FIELDS = ["name", "status", "sales_order", "customer", "description", "expected_item", "requested_qty"]
+EVENT_LIST_FIELDS = [
 	"name",
+	"parent",
+	"qty",
 	"status",
-	"source_type",
-	"sales_order",
-	"expected_item",
-	"purchase_status",
 	"purchase_barcode",
-	"barcode_exception_status",
 	"expected_barcode",
-	"shopper_user",
-	"purchased_on",
 	"purchase_price",
 	"purchase_currency",
-	"purchase_supplier",
-	"proposed_supplier_name",
-	"purchase_product_image",
-	"purchase_label_image",
-	"barcode_resolved_on",
-	"barcode_resolved_by",
-	"barcode_resolution_comment",
-]
-LIST_FIELDS = [
-	"name",
-	"sales_order",
-	"customer",
-	"description",
-	"expected_item",
-	"expected_barcode",
-	"purchase_barcode",
-	"purchase_price",
-	"purchase_currency",
-	"purchase_supplier",
+	"supplier",
 	"proposed_supplier_name",
 	"purchase_product_image",
 	"purchase_label_image",
 	"purchased_on",
 	"shopper_user",
-	"requested_qty",
 	"barcode_exception_status",
 	"barcode_resolved_on",
 	"barcode_resolved_by",
 	"barcode_resolution_comment",
 ]
-# The cleared purchase goes to the attempts history first (Spec 017 §8.4 B).
-CLEARED_PURCHASE = {
-	"purchase_status": "PENDING",
-	"shopper_user": None,
-	"purchased_on": None,
-	"purchase_barcode": None,
-	"purchase_price": 0,
-	"purchase_supplier": None,
-	"proposed_supplier_name": None,
-	"purchase_product_image": None,
-	"purchase_label_image": None,
-	"barcode_exception_status": "",
-	"expected_barcode": None,
-	"barcode_resolved_on": None,
-	"barcode_resolved_by": None,
-	"barcode_resolution_comment": None,
-}
+SEARCH_FIELDS = ("name", "sales_order", "customer", "expected_item", "purchase_barcode", "description")
 
 
 def purchase_outcome(source_type, expected_item, barcode_items, expected_has_barcodes):
@@ -127,7 +90,24 @@ def resolution_mode(user, roles, responsible_users):
 
 def comment_required(action, mode):
 	"""Spec 017 §16: optional only for a normal approval."""
-	return action in ("reject", "new_purchase") or mode == "override"
+	return action == "reject" or mode == "override"
+
+
+def pick_pending_event(events, supply_event=None):
+	"""The purchase event to resolve: the one named, else the only one pending (Spec 020 §13)."""
+	pending = [
+		e
+		for e in events
+		if e.get("barcode_exception_status") == PENDING_APPROVAL and e.get("status") in demand.ACTIVE
+	]
+	if supply_event:
+		return next((e for e in pending if e.get("name") == supply_event), None)
+	return pending[0] if len(pending) == 1 else None
+
+
+def matches_search(row, text):
+	text = (text or "").strip().lower()
+	return not text or any(text in str(row.get(field) or "").lower() for field in SEARCH_FIELDS)
 
 
 def clean_comment(value):
@@ -245,26 +225,27 @@ def _audit(encargo, text):
 	).insert(ignore_permissions=True)
 
 
-def open_exception(encargo):
-	"""PENDING_APPROVAL plus the ToDo of the responsible seller; idempotent."""
-	row = frappe.db.get_value(
-		"Encargo", encargo, ["sales_order", "expected_item", "purchase_barcode", "expected_barcode"], as_dict=True
+def open_exception(encargo, supply_event):
+	"""PENDING_APPROVAL on the purchase event plus the ToDo of the responsible seller; idempotent."""
+	row = frappe.db.get_value("Encargo", encargo, ["sales_order", "expected_item"], as_dict=True)
+	event = frappe.db.get_value(
+		demand.EVENT, supply_event, ["purchase_barcode", "expected_barcode"], as_dict=True
 	)
 	values = {"barcode_exception_status": PENDING_APPROVAL}
-	if not row.expected_barcode:
+	if not event.expected_barcode:
 		values["expected_barcode"] = expected_barcode_text(row.expected_item) or None
-	frappe.db.set_value("Encargo", encargo, values, update_modified=True)
+	frappe.db.set_value(demand.EVENT, supply_event, values, update_modified=False)
 	_tier, users = responsible_for_order(row.sales_order)
 	_open_todos(
 		encargo,
 		TODO_EXCEPTION,
 		users,
-		_("aprobar o rechazar el código {0} comprado para el Item {1}.").format(row.purchase_barcode, row.expected_item),
+		_("aprobar o rechazar el código {0} comprado para el Item {1}.").format(event.purchase_barcode, row.expected_item),
 	)
 
 
-def on_purchase(encargo, barcode):
-	"""Runs in the confirm_purchase transaction; returns the barcode_exception_status written."""
+def on_purchase(encargo, supply_event, barcode):
+	"""Runs in the confirm_purchase transaction; returns the barcode_exception_status of the event."""
 	row = frappe.db.get_value("Encargo", encargo, ["source_type", "expected_item"], as_dict=True)
 	if not row or row.source_type != "KNOWN_ITEM" or not row.expected_item:
 		return ""
@@ -276,13 +257,13 @@ def on_purchase(encargo, barcode):
 		inventory.add_barcode(row.expected_item, barcode)
 		expected = barcode
 	frappe.db.set_value(
-		"Encargo",
-		encargo,
+		demand.EVENT,
+		supply_event,
 		{"barcode_exception_status": status, "expected_barcode": expected or None},
 		update_modified=False,
 	)
 	if status == PENDING_APPROVAL:
-		open_exception(encargo)
+		open_exception(encargo, supply_event)
 	return status
 
 
@@ -291,20 +272,16 @@ def _require_view():
 		frappe.throw(_("No autorizado"), frappe.PermissionError)
 
 
-def _lock(encargo):
-	return frappe.db.get_value("Encargo", encargo, LOCK_FIELDS, as_dict=True, for_update=True)
-
-
-def _require_state(row, status):
-	if (
-		not row
-		or row.status != "Open"
-		or row.purchase_status != "PURCHASED"
-		or row.barcode_exception_status != status
-	):
-		if status == PENDING_APPROVAL:
-			frappe.throw(_("El Encargo no tiene una excepción de barcode pendiente."))
-		frappe.throw(_("El Encargo no tiene una compra rechazada esperando decisión."))
+def _lock_pending(encargo, supply_event):
+	"""(Encargo, event, all events) under lock; the event must still wait for a decision."""
+	row = frappe.db.get_value("Encargo", encargo, LOCK_FIELDS, as_dict=True, for_update=True)
+	if not row or row.status != "Open":
+		frappe.throw(_("El Encargo no tiene una excepción de barcode pendiente."))
+	events = demand.locked_events(encargo)
+	event = pick_pending_event(events, supply_event)
+	if not event:
+		frappe.throw(_("El Encargo no tiene una excepción de barcode pendiente."))
+	return row, event, events
 
 
 def _authorize(row, action, comment):
@@ -321,20 +298,19 @@ def _authorize(row, action, comment):
 	return mode, comment
 
 
-def _resolve(row, status, comment, mode):
+def _resolve(row, event, status, comment, mode):
 	user = frappe.session.user
-	frappe.db.set_value(
-		"Encargo",
-		row.name,
-		{
-			"barcode_exception_status": status,
-			"barcode_resolved_on": now_datetime(),
-			"barcode_resolved_by": user,
-			"barcode_resolution_comment": comment or None,
-		},
-		update_modified=True,
-	)
-	text = _("Excepción barcode {0}: {1} por {2}.").format(row.purchase_barcode, status, user)
+	values = {
+		"barcode_exception_status": status,
+		"barcode_resolved_on": now_datetime(),
+		"barcode_resolved_by": user,
+		"barcode_resolution_comment": comment or None,
+	}
+	if status == REJECTED:
+		# The purchase stays in the history but stops consuming demand (Spec 020 §13).
+		values["status"] = demand.REJECTED
+	frappe.db.set_value(demand.EVENT, event.name, values, update_modified=False)
+	text = _("Excepción barcode {0} ({1} u.): {2} por {3}.").format(event.purchase_barcode, event.qty, status, user)
 	if mode == "override":
 		text += " " + _("Override System Manager.")
 	if comment:
@@ -342,127 +318,105 @@ def _resolve(row, status, comment, mode):
 	_audit(row.name, text)
 
 
+def _close_if_none_pending(encargo, events, resolved):
+	if not any(e.name != resolved and e.get("barcode_exception_status") == PENDING_APPROVAL for e in events):
+		close_todos(encargo, TODO_EXCEPTION)
+
+
 @frappe.whitelist(methods=["POST"])
-def approve(encargo, comment=None):
-	"""The code becomes the expected Item's; units waiting in reception continue (Spec 017 §8.2)."""
+def approve(encargo, comment=None, supply_event=None):
+	"""The code becomes the expected Item's; units of that purchase waiting in reception continue."""
 	from erpn_custom.encargo import reception
 
 	_require_view()
-	row = _lock(encargo)
-	_require_state(row, PENDING_APPROVAL)
+	row, event, events = _lock_pending(encargo, supply_event)
 	mode, comment = _authorize(row, "approve", comment)
-	owners = inventory.items_for_barcode(row.purchase_barcode)
+	owners = inventory.items_for_barcode(event.purchase_barcode)
 	conflict = approval_conflict(row.expected_item, owners)
 	if conflict:
 		frappe.throw(
 			_(
 				"El código {0} pertenece al Item {1}. Rechaza la equivalencia o pide a System Manager corregir el maestro de Item."
-			).format(row.purchase_barcode, conflict)
+			).format(event.purchase_barcode, conflict)
 		)
 	if not owners:
-		inventory.add_barcode(row.expected_item, row.purchase_barcode)
-	_resolve(row, APPROVED, comment, mode)
-	close_todos(encargo, TODO_EXCEPTION)
-	units = reception.resume_after_barcode_decision(encargo, approved=True)
-	return {"encargo": encargo, "barcode_exception_status": APPROVED, "units": units}
+		inventory.add_barcode(row.expected_item, event.purchase_barcode)
+	_resolve(row, event, APPROVED, comment, mode)
+	_close_if_none_pending(encargo, events, event.name)
+	units = reception.resume_after_barcode_decision(encargo, True, event.name)
+	return {"encargo": encargo, "supply_event": event.name, "barcode_exception_status": APPROVED, "units": units}
 
 
 @frappe.whitelist(methods=["POST"])
-def reject(encargo, comment=None):
-	"""The purchase stays PURCHASED and stops satisfying the demand; the seller decides next (§8.4)."""
+def reject(encargo, comment=None, supply_event=None):
+	"""The purchase is kept but frees its quota: the demand goes back to the Shopper queue."""
 	from erpn_custom.encargo import reception
 
 	_require_view()
-	row = _lock(encargo)
-	_require_state(row, PENDING_APPROVAL)
+	row, event, events = _lock_pending(encargo, supply_event)
 	mode, comment = _authorize(row, "reject", comment)
-	_resolve(row, REJECTED, comment, mode)
-	close_todos(encargo, TODO_EXCEPTION)
+	_resolve(row, event, REJECTED, comment, mode)
+	_close_if_none_pending(encargo, events, event.name)
+	units = reception.resume_after_barcode_decision(encargo, False, event.name)
+	totals = demand.reconcile_encargo_supply(encargo)
 	_tier, users = responsible_for_order(row.sales_order)
 	_open_todos(
 		encargo,
 		TODO_REJECTED,
 		users,
-		_("anular o modificar la OV {0}, o solicitar nueva compra.").format(row.sales_order),
+		_("la compra rechazada volvió {0} u. a la cola Shopper; anula o modifica la OV {1} si el cliente ya no la quiere.").format(
+			event.qty, row.sales_order
+		),
 	)
-	units = reception.resume_after_barcode_decision(encargo, approved=False)
-	return {"encargo": encargo, "barcode_exception_status": REJECTED, "units": units}
-
-
-def _archive_rejected_purchase(row, comment):
-	frappe.get_doc(
-		{
-			"doctype": "Encargo Purchase Attempt",
-			"name": frappe.generate_hash(length=10),
-			"parent": row.name,
-			"parenttype": "Encargo",
-			"parentfield": "purchase_attempts",
-			"idx": frappe.db.count("Encargo Purchase Attempt", {"parent": row.name}) + 1,
-			"result": "BARCODE_REJECTED",
-			"attempted_on": row.purchased_on,
-			"shopper_user": row.shopper_user,
-			"supplier": row.purchase_supplier,
-			"proposed_supplier_name": row.proposed_supplier_name,
-			"notes": comment,
-			"purchase_barcode": row.purchase_barcode,
-			"expected_barcode": row.expected_barcode,
-			"purchase_price": row.purchase_price,
-			"purchase_currency": row.purchase_currency,
-			"purchase_product_image": row.purchase_product_image,
-			"purchase_label_image": row.purchase_label_image,
-			"resolved_on": row.barcode_resolved_on,
-			"resolved_by": row.barcode_resolved_by,
-			"resolution_comment": row.barcode_resolution_comment,
-		}
-	).db_insert()
-
-
-@frappe.whitelist(methods=["POST"])
-def request_new_purchase(encargo, comment=None):
-	"""Rejected purchase -> immutable history; the Encargo returns to the Shopper queue (§8.4 B)."""
-	_require_view()
-	row = _lock(encargo)
-	_require_state(row, REJECTED)
-	mode, comment = _authorize(row, "new_purchase", comment)
-	_archive_rejected_purchase(row, comment)
-	frappe.db.set_value("Encargo", encargo, CLEARED_PURCHASE, update_modified=True)
-	close_todos(encargo, TODO_REJECTED)
-	text = _("Solicitud de nueva compra por {0}.").format(frappe.session.user)
-	if mode == "override":
-		text += " " + _("Override System Manager.")
-	_audit(encargo, f"{text} {comment}")
-	return {"encargo": encargo, "purchase_status": "PENDING"}
+	return {
+		"encargo": encargo,
+		"supply_event": event.name,
+		"barcode_exception_status": REJECTED,
+		"pending_supply_qty": totals.pending_supply_qty if totals else None,
+		"units": units,
+	}
 
 
 @frappe.whitelist()
 def list_exceptions(view="pending", search=None, limit=200):
-	"""Excepciones barcode: Encargos, because the exception exists from the purchase (Spec 017 §12.3)."""
+	"""Excepciones barcode: one row per purchase event (Spec 017 §12.3, Spec 020 §13)."""
 	_require_view()
 	if view not in VIEWS:
 		frappe.throw(_("Vista desconocida."))
-	text = (search or "").strip()
-	or_filters = None
-	if text:
-		like = f"%{text}%"
-		or_filters = {
-			"name": ("like", like),
-			"sales_order": ("like", like),
-			"customer": ("like", like),
-			"expected_item": ("like", like),
-			"purchase_barcode": ("like", like),
-			"description": ("like", like),
-		}
-	rows = frappe.get_all(
-		"Encargo",
-		filters={"barcode_exception_status": VIEWS[view], "status": "Open"},
-		or_filters=or_filters,
-		fields=LIST_FIELDS,
+	limit = min(int(limit or 200), 500)
+	events = frappe.get_all(
+		demand.EVENT,
+		filters={"parenttype": "Encargo", "barcode_exception_status": VIEWS[view]},
+		fields=EVENT_LIST_FIELDS,
 		order_by="purchased_on asc",
-		limit_page_length=min(int(limit or 200), 500),
+		limit_page_length=2000,
 	)
+	encargos = {}
+	if events:
+		for enc in frappe.get_all(
+			"Encargo",
+			filters={"name": ("in", list({e.parent for e in events})), "status": "Open"},
+			fields=ENCARGO_LIST_FIELDS,
+		):
+			encargos[enc.name] = enc
 	user, roles = frappe.session.user, frappe.get_roles()
 	by_order = {}
-	for row in rows:
+	rows = []
+	for event in events:
+		enc = encargos.get(event.parent)
+		if not enc:
+			continue
+		row = frappe._dict(
+			{
+				**enc,
+				**{k: v for k, v in event.items() if k not in ("name", "parent", "status")},
+				"supply_event": event.name,
+				"supply_status": event.status,
+				"purchase_supplier": event.supplier,
+			}
+		)
+		if not matches_search(row, search):
+			continue
 		if row.sales_order not in by_order:
 			by_order[row.sales_order] = responsible_for_order(row.sales_order)
 		tier, users = by_order[row.sales_order]
@@ -471,7 +425,7 @@ def list_exceptions(view="pending", search=None, limit=200):
 			{
 				"responsible": users,
 				"escalated": tier == ESCALATED,
-				"can_resolve": bool(mode),
+				"can_resolve": bool(mode) and view == "pending",
 				"override": mode == "override",
 				"label": status_label(row.barcode_exception_status),
 				"expected_item_name": frappe.get_cached_value("Item", row.expected_item, "item_name")
@@ -482,4 +436,9 @@ def list_exceptions(view="pending", search=None, limit=200):
 				else None,
 			}
 		)
+		rows.append(row)
+		if len(rows) >= limit:
+			break
 	return {"rows": rows}
+
+

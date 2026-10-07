@@ -4,7 +4,7 @@ Estado: DEFINITIVA PARA IMPLEMENTACION
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
 Proyecto: ERPNext Custom / FRAgallardo
-Dependencias: Specs 013, 014, 015, 018
+Dependencias: Specs 013, 014, 015, 018, 020
 
 ## 0. Alcance (corrección 2026-10-06, Miguel)
 
@@ -46,10 +46,11 @@ La materialización ocurre exclusivamente durante la recepción física en Chile
 
 1. FRAreceptor escanea una unidad;
 2. Spec 018 identifica o crea el Item real;
-3. la unidad ingresa a inventario;
-4. el sistema determina que está comprometida con un Encargo;
-5. se muestra el warning de separación física;
-6. se ejecuta la materialización progresiva en la OV.
+3. Spec 020 determina/reconcilia que esa unidad satisface demanda residual del Encargo, exista o no compra Shopper previa;
+4. la unidad ingresa a inventario;
+5. el sistema confirma que está comprometida con un Encargo;
+6. se muestra el warning de separación física;
+7. se ejecuta la materialización progresiva en la OV.
 
 NO materializar:
 

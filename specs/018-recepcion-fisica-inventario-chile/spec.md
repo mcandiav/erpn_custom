@@ -1,7 +1,7 @@
 # Spec 018 - Recepción física e inventario Chile
 
 Estado: DEFINITIVA PARA IMPLEMENTACION
-Prioridad: IMPLEMENTAR ANTES DE SPEC 017
+Prioridad: BASE DE RECEPCION; alineada por Spec 020 para demanda multifuente
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
 Proyecto: ERPNext Custom / FRAgallardo
@@ -23,9 +23,14 @@ El usuario `FRAreceptor` escanea y nada más. No clasifica, no elige cliente, no
 
 ## 2. Dependencia real
 
-Esta Spec puede implementarse sobre los Encargos actuales de Spec 013/015.
+Esta Spec define la recepción física. La asignación de una unidad a demanda abierta debe seguir el modelo de **Spec 020**.
 
-No depende de que Spec 017 esté completa salvo para el caso de barcode mismatch de `KNOWN_ITEM`. Mientras la 017 no esté desplegada, los casos normales actuales deben poder recepcionarse.
+Regla corregida:
+
+- un Encargo compatible puede recibir una unidad aunque no exista compra Shopper previa;
+- `purchase_status = PURCHASED` NO es requisito para que recepción detecte y aparte una unidad contra demanda;
+- Spec 017 interviene solo cuando existe una excepción barcode que requiera decisión comercial;
+- Spec 019 materializa la línea únicamente para `UNKNOWN_ITEM`.
 
 ## 3. Fuera de alcance
 
@@ -60,23 +65,21 @@ Eliminar la regla anterior “barcode ya recibido = duplicado”.
 
 Un Encargo puede tener `requested_qty > 1`.
 
-Agregar/usar contadores explícitos:
+Esta Spec conserva `received_qty` como verdad física de recepción, pero la necesidad residual de abastecimiento se calcula según Spec 020.
 
-- `requested_qty`;
-- `received_qty`;
-- `pending_receive_qty = requested_qty - received_qty`.
+Contadores relevantes:
 
-Cada escaneo asignado al Encargo incrementa `received_qty` en 1.
+- `requested_qty`: demanda original;
+- `sourced_qty`: definido por Spec 020;
+- `pending_supply_qty`: definido por Spec 020;
+- `received_qty`: unidades físicamente recibidas y vinculadas a esa demanda;
+- `pending_receive_qty`: cantidad abastecida que aún espera recepción, cuando corresponda.
 
-El Encargo NO queda completamente recibido con el primer escaneo salvo que `requested_qty = 1`.
+Cada escaneo asignado al Encargo incrementa la recepción física una sola vez y genera/reconcilia el Supply Event correspondiente.
 
-Solo cuando:
+La recepción completa no debe inferirse únicamente de `received_qty >= requested_qty` si parte de la demanda fue resuelta por stock u otra fuente; debe reconciliarse con Spec 020.
 
-`received_qty >= requested_qty`
-
-se debe marcar su recepción como completa.
-
-La asignación entre Encargos compatibles usa FIFO: Encargo pendiente más antiguo primero.
+La asignación entre Encargos compatibles usa FIFO: demanda compatible más antigua primero.
 
 ## 6. Creación automática de Item para UNKNOWN_ITEM
 
@@ -168,6 +171,29 @@ Si una unidad quedó previamente en `PENDING_BARCODE_APPROVAL`:
 
 - aprobar la excepción debe reintentar automáticamente esa misma `Recepción Unidad`, sin nuevo escaneo;
 - rechazar debe reanudarla automáticamente por la ruta de stock normal/clasificación, sin esperar otra decisión comercial para reconocer la existencia física.
+
+### 7.1 Asignación a demanda abierta sin compra previa
+
+Para `KNOWN_ITEM`, una unidad físicamente escaneada debe buscar demanda compatible aunque el Encargo todavía no tenga compra Shopper.
+
+Criterios mínimos:
+
+- Encargo `Open`;
+- Item esperado compatible con el Item/barcode escaneado;
+- necesidad residual/cobertura pendiente según Spec 020;
+- sin excepción comercial que prohíba esa asignación.
+
+No filtrar candidatos exclusivamente por `purchase_status = PURCHASED`.
+
+Si existe demanda compatible:
+
+1. vincular `Recepcion Unidad` al Encargo;
+2. destino `Recepcion Encargos - FRAG` cuando corresponda;
+3. mostrar `APARTAR - ENC-2026-XXXXX`;
+4. crear/reconciliar el Supply Event `RECEPTION_DIRECT`;
+5. actualizar demanda residual, reservas y resumen de la OV mediante Spec 020.
+
+Solo si no existe demanda compatible la unidad puede seguir como `STOCK NORMAL`.
 
 ## 8. Bodegas
 

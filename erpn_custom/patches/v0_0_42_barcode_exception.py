@@ -1,8 +1,6 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from erpn_custom.encargo import barcode_exception
-
 
 def execute():
 	ensure_sales_order_fields()
@@ -30,9 +28,10 @@ def ensure_sales_order_fields():
 
 
 def map_waiting_units():
-	"""Spec 017 §10: units waiting in PENDING_BARCODE_APPROVAL become an Encargo exception with its ToDo.
+	"""Spec 017 §10: units waiting in PENDING_BARCODE_APPROVAL become an Encargo exception.
 
 	Historical purchases stay empty; UNKNOWN_ITEM has no expected Item to approve against.
+	Spec 020: the exception and its ToDo now live on the purchase event (v0_0_43_supply_events).
 	"""
 	encargos = frappe.db.sql_list(
 		"""select distinct e.name from `tabRecepcion Unidad` u
@@ -42,4 +41,4 @@ def map_waiting_units():
 			and ifnull(e.barcode_exception_status, '') in ('', 'NOT_APPLICABLE', 'PENDING_APPROVAL')"""
 	)
 	for encargo in encargos:
-		barcode_exception.open_exception(encargo)
+		frappe.db.set_value("Encargo", encargo, "barcode_exception_status", "PENDING_APPROVAL", update_modified=False)

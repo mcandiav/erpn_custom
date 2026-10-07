@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, get_url, now_datetime
 
-from erpn_custom.encargo import barcode_exception
+from erpn_custom.encargo import barcode_exception, demand, inventory
 
 SHOPPER_ROLE = "ShopperFRA"
 ALLOWED_ROLES = (SHOPPER_ROLE, "System Manager")
@@ -35,6 +35,8 @@ LIST_FIELDS = [
 	"size",
 	"color",
 	"requested_qty",
+	"sourced_qty",
+	"pending_supply_qty",
 	"reference_url",
 	"notes",
 	"reference_image",
@@ -51,21 +53,27 @@ ATTRIBUTE_LABELS = (
 	("custom_tono", "Tono"),
 	("custom_contenido", "Contenido"),
 )
-PURCHASE_FIELDS = LIST_FIELDS + [
+EVENT_FIELDS = [
+	"name",
+	"parent",
+	"qty",
+	"status",
 	"purchased_on",
 	"purchase_price",
+	"purchase_currency",
 	"purchase_barcode",
-	"purchase_supplier",
+	"supplier",
 	"proposed_supplier_name",
 	"purchase_product_image",
 	"purchase_label_image",
+	"barcode_exception_status",
 ]
 IMAGE_FIELDS = {
 	"reference": "reference_image",
 	"product": "purchase_product_image",
 	"label": "purchase_label_image",
 }
-LOCK_FIELDS = ["name", "status", "purchase_status", "shopper_user", "purchase_barcode", "requested_qty", "not_found_count"]
+LOCK_FIELDS = ["name", "status", "requested_qty", "pending_supply_qty", "not_found_count"]
 URL_SCHEME = re.compile(r"^https?://", re.I)
 BARE_DOMAIN = re.compile(r"^[^\s/]+\.[a-z]{2,}(/\S*)?$", re.I)
 IMAGE_DATA_URL = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.S)
@@ -128,33 +136,49 @@ def period_start(period, now):
 	return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def can_view_image(row, user, kind):
-	"""Pending Encargos expose only the reference; a purchase exposes everything to its own shopper."""
+def can_view_image(row, user, kind, event=None):
+	"""Open demand exposes only the reference; a purchase exposes its evidence to its own shopper."""
 	if not row or kind not in IMAGE_FIELDS:
 		return False
-	if row.get("purchase_status") == "PURCHASED":
-		return row.get("shopper_user") == user
-	return kind == "reference" and row.get("status") == "Open" and row.get("purchase_status") == "PENDING"
+	if event is not None:
+		return event.get("shopper_user") == user
+	if kind != "reference":
+		return False
+	return row.get("status") == "Open" and flt(row.get("pending_supply_qty")) > 0
 
 
-def purchase_decision(row, user, barcode):
-	"""'confirm' for a pending Encargo, 'already_done' for a retry of the same purchase."""
+def clean_qty(value):
+	"""Whole units only: one physical unit is one quantity of demand (Spec 020 §7)."""
+	qty = flt(value)
+	if qty <= 0 or qty != int(qty):
+		frappe.throw(_("Indica cuántas unidades compraste (número entero mayor que 0)."))
+	return int(qty)
+
+
+def purchase_decision(row, events, user, request_id, qty, pending_supply):
+	"""('confirm', None) for a new purchase, ('already_done', event) for a retry of the same request."""
 	if not row or row.get("status") != "Open":
 		frappe.throw(_("Este Encargo ya no está disponible para compra."))
-	if row.get("purchase_status") == "PURCHASED":
-		if row.get("shopper_user") == user and row.get("purchase_barcode") == barcode:
-			return "already_done"
-		frappe.throw(_("Este Encargo ya fue comprado por otro shopper."))
-	if row.get("purchase_status") != "PENDING":
-		frappe.throw(_("Este Encargo ya no está disponible para compra."))
-	return "confirm"
-
-
-def require_full_qty(requested_qty, confirm_full_qty):
-	if flt(requested_qty) > 1 and not cint(confirm_full_qty):
+	if request_id:
+		previous = next((e for e in events if e.get("request_id") == request_id), None)
+		if previous:
+			if previous.get("shopper_user") != user:
+				frappe.throw(_("Este Encargo ya no está disponible para compra."))
+			return "already_done", previous
+	pending_supply = flt(pending_supply)
+	if pending_supply <= 0:
+		frappe.throw(_("Este Encargo ya fue abastecido completo por otra compra o recepción."))
+	if qty > pending_supply:
 		frappe.throw(
-			_("Este Encargo pide {0} unidades: confirma que compraste todas.").format(f"{flt(requested_qty):g}")
+			_("Solo quedan {0} unidades por comprar en este Encargo.").format(f"{pending_supply:g}"),
+			title=_("Cantidad mayor a la pendiente"),
 		)
+	return "confirm", None
+
+
+def clean_request_id(value):
+	value = (value or "").strip()
+	return value[:64] if re.match(r"^[A-Za-z0-9-]{8,64}$", value) else None
 
 
 def resolve_place(supplier, proposed_supplier_name):
@@ -179,11 +203,12 @@ def _lock_pending(encargo):
 	return row
 
 
-def _image_url(encargo, file_url, kind="reference"):
+def _image_url(encargo, file_url, kind="reference", supply_event=None):
 	if not file_url:
 		return None
 	if file_url.startswith("/private/"):
-		return f"/api/method/erpn_custom.encargo.shopper.reference_image?encargo={encargo}&kind={kind}"
+		url = f"/api/method/erpn_custom.encargo.shopper.reference_image?encargo={encargo}&kind={kind}"
+		return f"{url}&supply_event={supply_event}" if supply_event else url
 	return file_url
 
 
@@ -210,6 +235,8 @@ def _card(row, own_host=None):
 		"variant": _variant(row),
 		"model": row.model,
 		"requested_qty": flt(row.requested_qty),
+		"sourced_qty": flt(row.sourced_qty),
+		"pending_supply_qty": flt(row.pending_supply_qty),
 		"notes": row.notes,
 		"image": _image_url(row.name, row.reference_image),
 		"not_found_count": cint(row.not_found_count),
@@ -239,9 +266,9 @@ def list_pending(supplier=None):
 	_require_shopper()
 	rows = frappe.get_all(
 		"Encargo",
-		filters={"status": "Open", "purchase_status": "PENDING"},
+		filters={"status": "Open", "pending_supply_qty": (">", 0)},
 		fields=LIST_FIELDS,
-		order_by="creation asc",
+		order_by="creation asc, name asc",
 	)
 	if supplier and supplier != ALL_PLACES:
 		brands = set(
@@ -256,16 +283,22 @@ def list_pending(supplier=None):
 	return [_card(row, own_host) for row in rows]
 
 
-def _purchase_card(row, place_labels, own_host):
+def _purchase_card(row, event, place_labels, own_host):
 	card = _card(row, own_host)
 	card.update(
 		{
-			"purchased_on": row.purchased_on,
-			"purchase_price": flt(row.purchase_price, 2),
-			"purchase_barcode": row.purchase_barcode,
-			"place": place_labels.get(row.purchase_supplier) or row.purchase_supplier or row.proposed_supplier_name,
-			"product_image": _image_url(row.name, row.purchase_product_image, "product"),
-			"label_image": _image_url(row.name, row.purchase_label_image, "label"),
+			"supply_event": event.name,
+			"image": _image_url(row.name, row.reference_image, "reference", event.name),
+			"purchase_qty": flt(event.qty),
+			"purchase_status": event.status,
+			"barcode_exception_status": event.barcode_exception_status,
+			"purchased_on": event.purchased_on,
+			"purchase_price": flt(event.purchase_price, 2),
+			"purchase_total": flt(flt(event.purchase_price) * flt(event.qty), 2),
+			"purchase_barcode": event.purchase_barcode,
+			"place": place_labels.get(event.supplier) or event.supplier or event.proposed_supplier_name,
+			"product_image": _image_url(row.name, event.purchase_product_image, "product", event.name),
+			"label_image": _image_url(row.name, event.purchase_label_image, "label", event.name),
 		}
 	)
 	return card
@@ -273,36 +306,55 @@ def _purchase_card(row, place_labels, own_host):
 
 @frappe.whitelist()
 def list_purchased(period="today"):
-	"""Only the purchases of the logged-in shopper; same hidden fields as the pending list."""
+	"""Only the purchase events of the logged-in shopper; same hidden fields as the pending list."""
 	_require_shopper()
-	filters = {"purchase_status": "PURCHASED", "shopper_user": frappe.session.user}
+	filters = {"parenttype": "Encargo", "source_type": demand.SHOPPER, "shopper_user": frappe.session.user}
 	start = period_start(period, now_datetime())
 	if start:
 		filters["purchased_on"] = (">=", start)
-	rows = frappe.get_all("Encargo", filters=filters, fields=PURCHASE_FIELDS, order_by="purchased_on desc")
-	suppliers = list({row.purchase_supplier for row in rows if row.purchase_supplier})
+	events = frappe.get_all(demand.EVENT, filters=filters, fields=EVENT_FIELDS, order_by="purchased_on desc")
+	encargos = (
+		{row.name: row for row in frappe.get_all("Encargo", filters={"name": ("in", list({e.parent for e in events}))}, fields=LIST_FIELDS)}
+		if events
+		else {}
+	)
+	suppliers = list({event.supplier for event in events if event.supplier})
 	place_labels = (
 		dict(frappe.get_all("Supplier", filters={"name": ("in", suppliers)}, fields=["name", "supplier_name"], as_list=True))
 		if suppliers
 		else {}
 	)
 	own_host = _own_host()
+	rows = [
+		_purchase_card(encargos[event.parent], event, place_labels, own_host)
+		for event in events
+		if event.parent in encargos
+	]
 	return {
-		"rows": [_purchase_card(row, place_labels, own_host) for row in rows],
+		"rows": rows,
 		"count": len(rows),
-		"total": flt(sum(flt(row.purchase_price) for row in rows), 2),
+		"total": flt(sum(row["purchase_total"] for row in rows), 2),
 	}
 
 
 @frappe.whitelist()
-def reference_image(encargo, kind="reference"):
+def reference_image(encargo, kind="reference", supply_event=None):
 	_require_shopper()
-	row = frappe.db.get_value(
-		"Encargo", encargo, ["status", "purchase_status", "shopper_user", *IMAGE_FIELDS.values()], as_dict=True
-	)
-	if not can_view_image(row, frappe.session.user, kind) or not row.get(IMAGE_FIELDS[kind]):
+	row = frappe.db.get_value("Encargo", encargo, ["status", "pending_supply_qty", "reference_image"], as_dict=True)
+	event = None
+	if supply_event:
+		event = frappe.db.get_value(
+			demand.EVENT,
+			{"name": supply_event, "parent": encargo, "parenttype": "Encargo"},
+			["shopper_user", "purchase_product_image", "purchase_label_image"],
+			as_dict=True,
+		)
+		if not event:
+			raise frappe.DoesNotExistError
+	source = event if kind != "reference" and event else row
+	if not can_view_image(row, frappe.session.user, kind, event) or not (source or {}).get(IMAGE_FIELDS[kind]):
 		raise frappe.DoesNotExistError
-	file_name = frappe.db.get_value("File", {"file_url": row.get(IMAGE_FIELDS[kind])}, "name")
+	file_name = frappe.db.get_value("File", {"file_url": source.get(IMAGE_FIELDS[kind])}, "name")
 	if not file_name:
 		raise frappe.DoesNotExistError
 	file_doc = frappe.get_doc("File", file_name)
@@ -349,12 +401,15 @@ def confirm_purchase(
 	label_image=None,
 	supplier=None,
 	proposed_supplier_name=None,
-	confirm_full_qty=0,
+	qty=1,
+	request_id=None,
 ):
-	"""Evidence + PURCHASED in one request transaction; any error leaves the Encargo pending."""
+	"""One purchase event per confirmation (Spec 020 §7); the rest of the demand stays visible."""
 	_require_shopper()
 	user = frappe.session.user
 	barcode = (barcode or "").strip()[:140]
+	qty = clean_qty(qty)
+	request_id = clean_request_id(request_id)
 	product = decode_image(product_image)
 	label = decode_image(label_image)
 	missing = missing_evidence(barcode, product, label, price)
@@ -362,37 +417,48 @@ def confirm_purchase(
 		frappe.throw(_("Falta: {0}.").format(", ".join(missing)), title=_("Compra incompleta"))
 	place_supplier, place_proposed = resolve_place(supplier, proposed_supplier_name)
 
-	row = _lock_pending(encargo)
-	if purchase_decision(row, user, barcode) == "already_done":
-		status = frappe.db.get_value("Encargo", encargo, "barcode_exception_status")
-		return purchase_result(encargo, status)
-	require_full_qty(row.requested_qty, confirm_full_qty)
-
-	frappe.db.set_value(
-		"Encargo",
-		encargo,
-		{
-			"purchase_status": "PURCHASED",
-			"shopper_user": user,
-			"purchased_on": now_datetime(),
-			"purchase_barcode": barcode,
-			"purchase_price": flt(price, 2),
-			"purchase_supplier": place_supplier,
-			"proposed_supplier_name": place_proposed,
-			"purchase_product_image": _save_evidence(encargo, "purchase_product_image", *product),
-			"purchase_label_image": _save_evidence(encargo, "purchase_label_image", *label),
-		},
-		update_modified=True,
+	# Two shoppers buying the last units of the same Encargo serialize on this lock.
+	row = demand.lock_encargo(encargo, ["name", "status", "requested_qty"])
+	events = demand.locked_events(encargo) if row else []
+	totals = demand.summarize(row.requested_qty, events, demand.locked_units(encargo)) if row else None
+	decision, previous = purchase_decision(
+		row, events, user, request_id, qty, totals.pending_supply_qty if totals else 0
 	)
-	return purchase_result(encargo, barcode_exception.on_purchase(encargo, barcode))
+	if decision == "already_done":
+		return purchase_result(
+			encargo, previous.barcode_exception_status, previous.name, totals.pending_supply_qty
+		)
+
+	event = demand.add_event(
+		encargo,
+		demand.SHOPPER,
+		demand.COMMITTED,
+		qty,
+		user,
+		request_id=request_id,
+		shopper_user=user,
+		purchased_on=now_datetime(),
+		supplier=place_supplier,
+		proposed_supplier_name=place_proposed,
+		purchase_barcode=barcode,
+		purchase_price=flt(price, 2),
+		purchase_currency=inventory.PURCHASE_CURRENCY,
+		purchase_product_image=_save_evidence(encargo, "purchase_product_image", *product),
+		purchase_label_image=_save_evidence(encargo, "purchase_label_image", *label),
+	)
+	status = barcode_exception.on_purchase(encargo, event, barcode)
+	totals = demand.reconcile_encargo_supply(encargo)
+	return purchase_result(encargo, status, event, totals.pending_supply_qty)
 
 
-def purchase_result(encargo, barcode_status):
+def purchase_result(encargo, barcode_status, supply_event=None, pending_supply_qty=0):
 	"""Only the barcode outcome reaches the shopper; who resolves it stays hidden (Spec 017 §11)."""
 	pending = barcode_status == barcode_exception.PENDING_APPROVAL
 	return {
 		"encargo": encargo,
+		"supply_event": supply_event,
 		"purchase_status": "PURCHASED",
+		"pending_supply_qty": flt(pending_supply_qty),
 		"pending_approval": int(pending),
 		"message": _(barcode_exception.SHOPPER_MESSAGE) if pending else None,
 	}
@@ -404,7 +470,7 @@ def mark_not_found(encargo, supplier=None, proposed_supplier_name=None, notes=No
 	_require_shopper()
 	place_supplier, place_proposed = resolve_place(supplier, proposed_supplier_name)
 	row = _lock_pending(encargo)
-	if row.status != "Open" or row.purchase_status != "PENDING":
+	if row.status != "Open" or flt(row.pending_supply_qty) <= 0:
 		frappe.throw(_("Este Encargo ya no está disponible para compra."))
 
 	count = cint(row.not_found_count) + 1

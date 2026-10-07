@@ -3,7 +3,7 @@ from frappe.model.document import Document
 
 from erpn_custom.catalog.item import apply_classification
 from erpn_custom.encargo.brand_supplier import optional_supplier_for_brand, require_brand
-from erpn_custom.encargo.inventory import pending_receive_qty
+from erpn_custom.encargo.demand import current_totals
 from erpn_custom.encargo.known_item import known_item_values, legacy_size_color
 from erpn_custom.encargo.sales_order_line import sync_sales_order_line
 
@@ -12,7 +12,11 @@ class Encargo(Document):
 	def validate(self):
 		if self.requested_qty is not None and self.requested_qty <= 0:
 			frappe.throw(frappe._("Requested Qty must be greater than 0"))
-		self.pending_receive_qty = pending_receive_qty(self.requested_qty, self.received_qty)
+		totals = current_totals(self)
+		self.sourced_qty = totals.sourced_qty
+		self.pending_supply_qty = totals.pending_supply_qty
+		self.covered_qty = totals.covered_qty
+		self.pending_receive_qty = totals.pending_receive_qty
 		if self.source_type == "KNOWN_ITEM" and not self.expected_item:
 			frappe.throw(frappe._("Expected Item is required for known-item Encargo"))
 		if self.source_type == "UNKNOWN_ITEM" and self.expected_item:

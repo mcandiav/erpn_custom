@@ -36,19 +36,22 @@ SELLER = "vendedor@fra.cl"
 
 
 def pending_row(**extra):
-	row = D(
-		name="ENC-1",
-		status="Open",
-		source_type="KNOWN_ITEM",
-		sales_order="SO-1",
-		expected_item="ITEM-A",
-		purchase_status="PURCHASED",
+	row = D(name="ENC-1", status="Open", source_type="KNOWN_ITEM", sales_order="SO-1", expected_item="ITEM-A")
+	row.update(extra)
+	return row
+
+
+def pending_event(**extra):
+	event = D(
+		name="EV-1",
+		qty=2,
+		status="COMMITTED",
 		purchase_barcode="999",
 		barcode_exception_status=be.PENDING_APPROVAL,
 		expected_barcode="111",
 	)
-	row.update(extra)
-	return row
+	event.update(extra)
+	return event
 
 
 class BarcodeCase(unittest.TestCase):
@@ -69,13 +72,16 @@ class BarcodeCase(unittest.TestCase):
 			(be.inventory, "items_for_barcode", MagicMock(return_value=[])),
 			(be.inventory, "add_barcode", MagicMock()),
 			(reception, "resume_after_barcode_decision", MagicMock(return_value=[])),
+			(be.demand, "locked_events", MagicMock(return_value=[])),
+			(be.demand, "reconcile_encargo_supply", MagicMock(return_value=D(pending_supply_qty=2))),
 		):
 			patcher = patch.object(target, name, value)
 			patcher.start()
 			self.addCleanup(patcher.stop)
 
-	def lock(self, row):
+	def lock(self, row, *events):
 		self.frappe.db.get_value.return_value = row
+		be.demand.locked_events.return_value = list(events) if events else [pending_event()]
 
 
 class TestPureRules(unittest.TestCase):
@@ -114,7 +120,24 @@ class TestPureRules(unittest.TestCase):
 		self.assertFalse(be.comment_required("approve", "responsible"))
 		self.assertTrue(be.comment_required("approve", "override"))
 		self.assertTrue(be.comment_required("reject", "responsible"))
-		self.assertTrue(be.comment_required("new_purchase", "responsible"))
+
+	def test_pick_pending_event(self):
+		first = pending_event(name="EV-1")
+		second = pending_event(name="EV-2")
+		done = pending_event(name="EV-3", barcode_exception_status=be.APPROVED)
+		rejected = pending_event(name="EV-4", status="REJECTED")
+		self.assertIs(be.pick_pending_event([first, done]), first)
+		self.assertIsNone(be.pick_pending_event([first, second]))
+		self.assertIs(be.pick_pending_event([first, second], "EV-2"), second)
+		self.assertIsNone(be.pick_pending_event([done, rejected]))
+		self.assertIsNone(be.pick_pending_event([first], "EV-3"))
+
+	def test_matches_search(self):
+		row = D(name="ENC-1", sales_order="OV-2026-00328", purchase_barcode="191267529486")
+		self.assertTrue(be.matches_search(row, ""))
+		self.assertTrue(be.matches_search(row, "00328"))
+		self.assertTrue(be.matches_search(row, "5294"))
+		self.assertFalse(be.matches_search(row, "otro"))
 
 	@patch.object(be, "_", lambda msg: msg)
 	def test_rejected_label(self):
@@ -128,7 +151,17 @@ class TestApprove(BarcodeCase):
 		self.assertEqual(result["barcode_exception_status"], be.APPROVED)
 		be.inventory.add_barcode.assert_called_once_with("ITEM-A", "999")
 		be.close_todos.assert_called_once_with("ENC-1", be.TODO_EXCEPTION)
-		reception.resume_after_barcode_decision.assert_called_once_with("ENC-1", approved=True)
+		reception.resume_after_barcode_decision.assert_called_once_with("ENC-1", True, "EV-1")
+		self.assertEqual(self.frappe.db.set_value.call_args[0][:2], (be.demand.EVENT, "EV-1"))
+
+	def test_only_the_named_purchase_is_resolved(self):
+		self.lock(pending_row(), pending_event(name="EV-1"), pending_event(name="EV-2", purchase_barcode="888"))
+		with self.assertRaises(_Throw):
+			be.approve("ENC-1")
+		result = be.approve("ENC-1", supply_event="EV-2")
+		self.assertEqual(result["supply_event"], "EV-2")
+		be.inventory.add_barcode.assert_called_once_with("ITEM-A", "888")
+		be.close_todos.assert_not_called()
 
 	def test_code_of_other_item_blocks_approval(self):
 		self.lock(pending_row())
@@ -158,7 +191,7 @@ class TestApprove(BarcodeCase):
 		be.approve("ENC-1", comment="vendedor de vacaciones")
 
 	def test_not_pending_is_refused(self):
-		self.lock(pending_row(barcode_exception_status=be.MATCH))
+		self.lock(pending_row(), pending_event(barcode_exception_status=be.MATCH))
 		with self.assertRaises(_Throw):
 			be.approve("ENC-1")
 
@@ -169,40 +202,18 @@ class TestReject(BarcodeCase):
 		with self.assertRaises(_Throw):
 			be.reject("ENC-1")
 
-	def test_reject_keeps_purchase_and_notifies_seller(self):
+	def test_reject_frees_the_quota_and_notifies_seller(self):
 		self.lock(pending_row())
 		result = be.reject("ENC-1", comment="no es el modelo")
 		self.assertEqual(result["barcode_exception_status"], be.REJECTED)
-		values = self.frappe.db.set_value.call_args[0][2]
+		self.assertEqual(result["pending_supply_qty"], 2)
+		doctype, name, values = self.frappe.db.set_value.call_args[0][:3]
+		self.assertEqual((doctype, name), (be.demand.EVENT, "EV-1"))
 		self.assertEqual(values["barcode_exception_status"], be.REJECTED)
-		self.assertNotIn("purchase_status", values)
+		self.assertEqual(values["status"], be.demand.REJECTED)
 		self.assertEqual(be._open_todos.call_args[0][1], be.TODO_REJECTED)
-		reception.resume_after_barcode_decision.assert_called_once_with("ENC-1", approved=False)
-
-
-class TestNewPurchase(BarcodeCase):
-	def test_archives_and_returns_to_pending(self):
-		self.lock(pending_row(barcode_exception_status=be.REJECTED))
-		attempt = MagicMock()
-		self.frappe.get_doc.return_value = attempt
-		self.frappe.db.count.return_value = 0
-		result = be.request_new_purchase("ENC-1", comment="comprar el correcto")
-		self.assertEqual(result["purchase_status"], "PENDING")
-		attempt.db_insert.assert_called_once()
-		archived = self.frappe.get_doc.call_args[0][0]
-		self.assertEqual(archived["result"], "BARCODE_REJECTED")
-		self.assertEqual(archived["purchase_barcode"], "999")
-		self.frappe.db.set_value.assert_called_with("Encargo", "ENC-1", be.CLEARED_PURCHASE, update_modified=True)
-
-	def test_requires_comment(self):
-		self.lock(pending_row(barcode_exception_status=be.REJECTED))
-		with self.assertRaises(_Throw):
-			be.request_new_purchase("ENC-1")
-
-	def test_only_from_rejected(self):
-		self.lock(pending_row())
-		with self.assertRaises(_Throw):
-			be.request_new_purchase("ENC-1", comment="x")
+		reception.resume_after_barcode_decision.assert_called_once_with("ENC-1", False, "EV-1")
+		be.demand.reconcile_encargo_supply.assert_called_once_with("ENC-1")
 
 
 class TestRejectedUnit(unittest.TestCase):

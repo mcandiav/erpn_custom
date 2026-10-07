@@ -1,6 +1,10 @@
 # Plan — Spec 017 Excepciones de abastecimiento y trazabilidad desde OV
 
-Fuente: `spec.md` de esta carpeta. Programador: implementación por etapas con OK de Miguel.
+Estado: PAUSADA por Spec 020 desde 2026-10-07.
+
+Fuente: `spec.md` de esta carpeta. Programador: no continuar E5/E6 hasta implementar y revalidar `020-abastecimiento-multifuente-demanda-residual`.
+
+Spec 020 reemplaza cualquier supuesto de compra monolítica, `purchase_status` como fuente de verdad de demanda y recepción exclusiva de Encargos PURCHASED.
 
 ## Decisiones de Miguel (hilo de programación)
 

@@ -296,9 +296,7 @@ class ReceptionStation {
 				<div class="rc-card-title">${rc_escape(row.name)} · ${rc_escape(row.customer)}</div>
 				<div>${rc_escape(row.brand)} ${rc_escape(row.description)}</div>
 				<div class="small">${__("Recibidas {0} de {1}", [rc_escape(row.received_qty || 0), rc_escape(row.requested_qty || 0)])}</div>
-				<div class="text-muted small">${__("Comprado")} ${rc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rc_escape(
-					row.purchase_supplier || row.proposed_supplier_name
-				)}</div>
+				<div class="text-muted small">${__("Compradas por llegar: {0}", [rc_escape(row.pending_receive_qty || 0)])}</div>
 			</div>
 		`;
 	}

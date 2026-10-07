@@ -51,3 +51,4 @@ erpn_custom.patches.v0_0_39_receptor_without_doctype_perms
 erpn_custom.patches.v0_0_40_reception_inventory
 erpn_custom.patches.v0_0_41_encargo_materialization
 erpn_custom.patches.v0_0_42_barcode_exception
+erpn_custom.patches.v0_0_43_supply_events

@@ -1,26 +1,21 @@
 // Spec 017: commercial decision on a purchased barcode that differs from the expected Item.
+// Spec 020: the decision applies to one purchase event of the Encargo.
 // Shared by the Encargo form and the Recepción Comercial page.
-window.erpn_barcode_decision = function (action, encargo, override, done) {
+window.erpn_barcode_decision = function (action, encargo, override, done, supply_event) {
 	const config = {
 		approve: {
 			method: "approve",
 			title: __("Aprobar código para {0}", [encargo]),
 			label: __("Aprobar"),
-			note: __("El código quedará asociado al Item esperado y las unidades recibidas continuarán su flujo."),
+			note: __("El código quedará asociado al Item esperado y las unidades de esta compra continuarán su flujo."),
 		},
 		reject: {
 			method: "reject",
 			title: __("Rechazar compra de {0}", [encargo]),
 			label: __("Rechazar"),
 			note: __(
-				"La compra queda registrada pero no satisface la OV. El vendedor decide: anular/modificar la OV o solicitar nueva compra."
+				"La compra queda en el historial pero deja de abastecer la OV: su cantidad vuelve a la cola del Shopper. Las unidades ya recibidas pasan a stock normal."
 			),
-		},
-		new_purchase: {
-			method: "request_new_purchase",
-			title: __("Solicitar nueva compra para {0}", [encargo]),
-			label: __("Solicitar nueva compra"),
-			note: __("La compra rechazada pasa al historial y el Encargo vuelve a la cola del Shopper."),
 		},
 	}[action];
 	if (!config) {
@@ -39,7 +34,7 @@ window.erpn_barcode_decision = function (action, encargo, override, done) {
 			frappe.call({
 				method: "erpn_custom.encargo.barcode_exception." + config.method,
 				type: "POST",
-				args: { encargo, comment: values.comment || null },
+				args: { encargo, comment: values.comment || null, supply_event: supply_event || null },
 				freeze: true,
 				callback: () => {
 					frappe.show_alert({ message: __("Decisión registrada"), indicator: "green" });

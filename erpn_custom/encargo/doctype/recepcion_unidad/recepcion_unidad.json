@@ -21,6 +21,7 @@
   "sales_order_item",
   "customer",
   "rejected_encargo",
+  "supply_event",
   "column_break_demand",
   "item",
   "item_name",
@@ -167,6 +168,14 @@
    "label": "Encargo rechazado",
    "options": "Encargo",
    "read_only": 1
+  },
+  {
+   "description": "Abastecimiento del Encargo que esta unidad satisface (Spec 020).",
+   "fieldname": "supply_event",
+   "fieldtype": "Data",
+   "label": "Abastecimiento",
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "column_break_demand",
@@ -372,7 +381,7 @@
  "in_create": 1,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-07 00:30:00",
+ "modified": "2026-10-07 11:00:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Recepcion Unidad",

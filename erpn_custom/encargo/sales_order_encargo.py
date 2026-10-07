@@ -3,7 +3,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from erpn_custom.chile.sales_order_credit import applied_to_order
-from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception
+from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception, demand
 from erpn_custom.encargo.known_item import known_item_values
 from erpn_custom.encargo.stock_split import allocate_available_across_rows, available_to_sell
 
@@ -191,6 +191,7 @@ def _sync_known_encargo(name, doc, item, encargo_qty, sales_person, origin=None)
 		values["brand"] = origin["brand"]
 		values["supplier"] = origin.get("supplier")
 	frappe.db.set_value("Encargo", name, values, update_modified=False)
+	demand.reconcile_encargo_supply(name)
 
 
 def _draft_encargos_by_presence(doc):
@@ -231,6 +232,7 @@ def activate_draft_encargos(doc):
 			{"status": "Open", "purchase_status": "PENDING"},
 			update_modified=True,
 		)
+		demand.reconcile_encargo_supply(name)
 
 
 def reserve_committed_stock(doc):

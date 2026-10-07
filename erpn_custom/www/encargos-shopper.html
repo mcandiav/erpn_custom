@@ -146,7 +146,8 @@
 					<div class="shp-meta">${esc(row.brand || "")}${row.item_group ? " · " + esc(row.item_group) : ""}</div>
 					${row.variant ? `<div class="shp-meta">${esc(row.variant)}</div>` : ""}
 					<div class="shp-meta">Lugar: ${esc(row.place || "")}</div>
-					<div class="shp-meta">Precio: <strong>${esc(money(row.purchase_price))}</strong> · ${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+					<div class="shp-meta">Precio unitario: <strong>${esc(money(row.purchase_price))}</strong> · ${esc(row.purchase_qty)} ${row.purchase_qty === 1 ? "unidad" : "unidades"} · Total ${esc(money(row.purchase_total))}</div>
+					${row.purchase_status === "REJECTED" ? `<div class="shp-warn">Compra rechazada por comercial</div>` : ""}
 					<div class="shp-meta">Barcode: ${esc(row.purchase_barcode || "")}</div>
 					${referenceHtml(row)}
 					<div class="shp-code">${esc(row.name)}</div>
@@ -377,6 +378,19 @@
 		return row.reference_text ? `<div class="shp-meta">Referencia: ${esc(row.reference_text)}</div>` : "";
 	}
 
+	// Spec 020: the shopper buys the residual demand, not the original quantity.
+	function qtyHtml(row) {
+		const pending = row.pending_supply_qty;
+		const units = (n) => `${esc(n)} ${n === 1 ? "unidad" : "unidades"}`;
+		const sourced = row.sourced_qty > 0 ? `<div class="shp-meta">Solicitado ${esc(row.requested_qty)} · ya abastecido ${esc(row.sourced_qty)}</div>` : "";
+		return `<div class="shp-qty">Por comprar: ${units(pending)}</div>${sourced}`;
+	}
+
+	function requestId() {
+		if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+		return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+	}
+
 	function card(row) {
 		const img = row.image
 			? `<img src="${esc(row.image)}" data-zoom loading="lazy" alt="">`
@@ -395,7 +409,7 @@
 					${row.suggested_supplier ? `<div class="shp-meta">Sugerido: ${esc(row.suggested_supplier)}</div>` : ""}
 					${row.notes ? `<div class="shp-meta">${esc(row.notes)}</div>` : ""}
 					${referenceHtml(row)}
-					<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+					${qtyHtml(row)}
 					${review}
 					<div class="shp-code">${esc(row.name)}</div>
 				</div>
@@ -561,18 +575,24 @@
 
 	function openPurchase(row) {
 		const fixedPlace = purchasePlace();
-		const cap = { barcode: "", product: null, label: null, price: "", place: fixedPlace, fullQty: row.requested_qty <= 1 };
+		const maxQty = row.pending_supply_qty;
+		const cap = { barcode: "", product: null, label: null, price: "", place: fixedPlace, qty: maxQty <= 1 ? 1 : "", requestId: requestId() };
 		const steps = ["barcode", "product", "label", "price"];
 		let step = 0;
 		const panel = openPanel(`
 			<div class="shp-bar"><strong>${esc(row.description)}</strong><button data-close>Cerrar</button></div>
 			<div class="shp-meta">${esc(row.brand || "")} ${row.variant ? "· " + esc(row.variant) : ""}</div>
-			<div class="shp-qty">${esc(row.requested_qty)} ${row.requested_qty === 1 ? "unidad" : "unidades"}</div>
+			${qtyHtml(row)}
 			<div id="cap-body"></div>
 			<div id="cap-final" style="display:none">
 				<div class="shp-step">Lugar de compra</div>
 				${fixedPlace ? `<div class="shp-place">${esc(placeLabel(fixedPlace))}</div>` : placeFields("cap", false)}
-				${row.requested_qty > 1 ? `<label class="shp-check"><input type="checkbox" id="cap-full"> Compré las ${esc(row.requested_qty)} unidades</label>` : ""}
+				${
+					maxQty > 1
+						? `<div class="shp-step">¿Cuántas unidades compraste? (máximo ${esc(maxQty)})</div>
+							<input id="cap-qty" type="number" inputmode="numeric" step="1" min="1" max="${esc(maxQty)}" placeholder="Unidades compradas">`
+						: ""
+				}
 			</div>
 			<div class="shp-nav">
 				<button id="cap-back">Atrás</button>
@@ -588,11 +608,15 @@
 				refresh();
 			});
 		}
-		const full = panel.querySelector("#cap-full");
-		if (full) full.addEventListener("change", () => {
-			cap.fullQty = full.checked;
+		const qtyInput = panel.querySelector("#cap-qty");
+		if (qtyInput) qtyInput.addEventListener("input", () => {
+			cap.qty = qtyInput.value;
 			refresh();
 		});
+		const qtyOk = () => {
+			const n = Number(cap.qty);
+			return Number.isInteger(n) && n >= 1 && n <= maxQty;
+		};
 
 		const done = {
 			barcode: () => cap.barcode.trim().length > 0,
@@ -600,7 +624,7 @@
 			label: () => !!cap.label,
 			price: () => parseFloat(cap.price) > 0,
 		};
-		const complete = () => steps.every((s) => done[s]()) && !!cap.place && cap.fullQty;
+		const complete = () => steps.every((s) => done[s]()) && !!cap.place && qtyOk();
 
 		function refresh() {
 			const last = step === steps.length - 1;
@@ -649,7 +673,7 @@
 			} else {
 				body.innerHTML = `
 					<div class="shp-step">4/4 Precio</div>
-					<input id="cap-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio pagado" value="${esc(cap.price)}">`;
+					<input id="cap-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio pagado por unidad" value="${esc(cap.price)}">`;
 				const input = body.querySelector("#cap-price");
 				input.addEventListener("input", () => {
 					cap.price = input.value;
@@ -684,17 +708,24 @@
 						label_image: cap.label,
 						supplier: cap.place.supplier || null,
 						proposed_supplier_name: cap.place.proposed || null,
-						confirm_full_qty: cap.fullQty ? 1 : 0,
+						qty: Number(cap.qty),
+						request_id: cap.requestId,
 					},
 					true
 				);
 				closePanel(panel);
-				state.rows = state.rows.filter((r) => r.name !== row.name);
+				const left = result ? result.pending_supply_qty : 0;
+				if (left > 0) {
+					row.pending_supply_qty = left;
+					row.sourced_qty = row.requested_qty - left;
+				} else {
+					state.rows = state.rows.filter((r) => r.name !== row.name);
+				}
 				renderList();
 				if (result && result.message) {
 					alert(result.message);
 				} else {
-					toast(`${row.name} comprado`);
+					toast(left > 0 ? `${row.name}: faltan ${left}` : `${row.name} comprado`);
 				}
 			} catch (e) {
 				toast(e.message);

@@ -1,12 +1,15 @@
-"""Spec 017 §12: supply status per Sales Order line and the Shopper confirmation before submit."""
+"""Spec 017 §12: supply status per Sales Order line and the Shopper confirmation before submit.
+
+Spec 020: the figures come from demand.summarize (supply events + reception units).
+"""
 
 import frappe
 from frappe import _
 from frappe.utils import flt
 
-from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception
+from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception, demand
 
-COVERED = "Cubierto por stock"
+COVERED = "Cubierto"
 PENDING = "Demanda pendiente"
 PURCHASED = "Comprado"
 EXCEPTION = "Excepción barcode"
@@ -14,48 +17,52 @@ REJECTED = barcode_exception.REJECTED_LABEL
 RECEPTION = "Recepción pendiente"
 RECEIVED = "Recibido / apartado"
 CANCELLED = "Cancelado"
-PRE_018_RECEIVED = ("RECEIVED", "RESOLVED_TO_ENC", "RESOLVED_TO_STOCK")
-WAITING_UNIT_STATUSES = (
-	"PENDING_CLASSIFICATION",
-	"PENDING_BARCODE_APPROVAL",
-	"PENDING_COST",
-	"PENDING_CONFIGURATION",
-)
 ENCARGO_FIELDS = [
 	"name",
 	"status",
+	"source_type",
 	"sales_order_item",
 	"requested_qty",
-	"received_qty",
-	"purchase_status",
-	"reception_status",
-	"barcode_exception_status",
 	"materialized_qty",
 ]
 
 
-def encargo_buckets(enc, waiting_units=0):
-	"""[(label, qty)] of one Encargo still on its ENCARGO-PENDIENTE line.
+def fit(buckets, qty):
+	"""Keeps the order and never exceeds qty; empty buckets are dropped."""
+	result, left = [], flt(qty)
+	for label, value in buckets:
+		value = min(max(flt(value), 0), left)
+		if value > 0:
+			result.append((label, value))
+			left -= value
+	return result
 
-	Materialized units already moved to their own line (Spec 019), so they are left out here.
+
+def encargo_buckets(enc, totals):
+	"""[(label, qty)] of one Encargo still on its order line.
+
+	Known Items: received units and assigned stock are reserved on the line itself -> covered.
+	Unknown Items: materialized units already moved to their own line (Spec 019) and are left out.
 	"""
 	materialized = flt(enc.get("materialized_qty"))
 	qty = max(flt(enc.get("requested_qty")) - materialized, 0)
 	if enc.get("status") == "Cancelled":
 		return [(CANCELLED, qty)]
-	if enc.get("purchase_status") != "PURCHASED":
-		return [(PENDING, qty)]
-	exception = enc.get("barcode_exception_status")
-	if exception == barcode_exception.PENDING_APPROVAL:
-		return [(EXCEPTION, qty)]
-	if exception == barcode_exception.REJECTED:
-		return [(REJECTED, qty)]
-	received = flt(enc.get("received_qty"))
-	if not received and enc.get("reception_status") in PRE_018_RECEIVED:
-		received = qty + materialized
-	received = min(max(received - materialized, 0), qty)
-	waiting = min(flt(waiting_units), qty - received)
-	return [(RECEIVED, received), (RECEPTION, waiting), (PURCHASED, qty - received - waiting)]
+	arrived = totals.received_qty + totals.legacy_qty
+	if enc.get("source_type") == "KNOWN_ITEM":
+		ready = (COVERED, arrived + totals.stock_qty)
+	else:
+		ready = (RECEIVED, max(arrived - materialized, 0))
+	return fit(
+		[
+			ready,
+			(RECEPTION, totals.waiting_qty),
+			(PURCHASED, totals.pending_receive_qty - totals.exception_qty),
+			(EXCEPTION, totals.exception_qty),
+			(PENDING, totals.pending_supply_qty),
+		],
+		qty,
+	)
 
 
 def line_buckets(line_qty, encargo_bucket_lists, order_cancelled=False):
@@ -68,11 +75,31 @@ def line_buckets(line_qty, encargo_bucket_lists, order_cancelled=False):
 		for label, qty in buckets:
 			if label != CANCELLED and qty > 0:
 				merged[label] = merged.get(label, 0) + qty
-	covered = max(line_qty - sum(merged.values()), 0)
+	# What no Encargo explains is stock committed when the order was submitted.
+	covered = max(line_qty - sum(q for label, q in merged.items() if label != COVERED), 0)
 	order = [COVERED, PENDING, PURCHASED, EXCEPTION, REJECTED, RECEPTION, RECEIVED]
 	result = [(COVERED, covered)] if covered > 0 else []
 	result += [(label, merged[label]) for label in order[1:] if label in merged]
 	return result
+
+
+def encargo_totals(encargos):
+	"""{encargo: demand.summarize(...)} with two queries for the whole order."""
+	names = [e.name for e in encargos]
+	events, units = {}, {}
+	if names:
+		for row in frappe.get_all(
+			demand.EVENT,
+			filters={"parenttype": "Encargo", "parent": ("in", names)},
+			fields=["parent", *demand.EVENT_FIELDS],
+			order_by="idx asc",
+		):
+			events.setdefault(row.parent, []).append(row)
+		for row in frappe.get_all(demand.UNIT, filters={"encargo": ("in", names)}, fields=["encargo", *demand.UNIT_FIELDS]):
+			units.setdefault(row.encargo, []).append(row)
+	return {
+		e.name: demand.summarize(e.requested_qty, events.get(e.name, []), units.get(e.name, [])) for e in encargos
+	}
 
 
 def summary(buckets):
@@ -92,19 +119,12 @@ def order_supply(sales_order):
 	lines_by_name = {item.name: item for item in doc.items}
 	lines_by_encargo = {item.custom_encargo: item.name for item in doc.items if item.get("custom_encargo")}
 	encargos = frappe.get_all("Encargo", filters={"sales_order": doc.name}, fields=ENCARGO_FIELDS)
-	waiting = {}
-	if encargos:
-		for row in frappe.get_all(
-			"Recepcion Unidad",
-			filters={"encargo": ("in", [e.name for e in encargos]), "status": ("in", WAITING_UNIT_STATUSES)},
-			fields=["encargo"],
-		):
-			waiting[row.encargo] = waiting.get(row.encargo, 0) + 1
+	totals = encargo_totals(encargos)
 	per_line = {}
 	for enc in encargos:
 		line = _line_of(enc, lines_by_name, lines_by_encargo)
 		if line:
-			per_line.setdefault(line, []).append(encargo_buckets(enc, waiting.get(enc.name, 0)))
+			per_line.setdefault(line, []).append(encargo_buckets(enc, totals[enc.name]))
 	for item in doc.items:
 		if item.get("custom_encargo_origin") and not item.get("custom_encargo"):
 			# Materialized line: its unit was received and assigned to this order.

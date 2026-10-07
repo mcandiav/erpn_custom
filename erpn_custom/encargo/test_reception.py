@@ -139,7 +139,7 @@ class TestRules(ReceptionCase):
 			("APARTAR - ENC-2026-00401 - PENDIENTE DE VINCULAR A OV", "warning"),
 		)
 		for status in ("PENDING", "MATERIALIZED", None):
-			self.assertEqual(reception.screen("POSTED", "ENCARGO", True, status, "ENC-1"), ("APARTAR", "encargo"))
+			self.assertEqual(reception.screen("POSTED", "ENCARGO", True, status, "ENC-1"), ("APARTAR - ENC-1", "encargo"))
 
 	def test_link_queue_holds_only_retryable_set_aside_units(self):
 		view = reception.COMMERCIAL_VIEWS["vincular"]
@@ -154,34 +154,63 @@ class TestRules(ReceptionCase):
 		known = D(purchase_barcode="otro", source_type="KNOWN_ITEM", expected_item="ITEM-1")
 		self.assertTrue(reception.encargo_matches(known, QR, ["ITEM-1"]))
 		self.assertFalse(reception.encargo_matches(known, QR, ["ITEM-2"]))
-		self.assertTrue(reception.encargo_matches(D(purchase_barcode=QR), QR, []))
+		self.assertTrue(reception.encargo_matches(D(source_type="UNKNOWN_ITEM"), QR, [], {QR}))
+		self.assertFalse(reception.encargo_matches(D(source_type="UNKNOWN_ITEM"), QR, [], {QR.lower()}))
 
-	def test_oldest_purchase_first(self):
+	def test_oldest_demand_first(self):
 		rows = [
-			D(name="ENC-3", purchased_on=datetime(2026, 10, 3)),
-			D(name="ENC-1", purchased_on=datetime(2026, 9, 1)),
-			D(name="ENC-2", purchased_on=datetime(2026, 10, 2)),
+			D(name="ENC-3", creation=datetime(2026, 10, 3)),
+			D(name="ENC-1", creation=datetime(2026, 9, 1)),
+			D(name="ENC-0", creation=datetime(2026, 10, 3)),
 		]
-		self.assertEqual([r.name for r in reception.oldest_first(rows)], ["ENC-1", "ENC-2", "ENC-3"])
+		self.assertEqual([r.name for r in reception.oldest_first(rows)], ["ENC-1", "ENC-0", "ENC-3"])
 
-	def test_receivable_and_capacity(self):
-		self.assertTrue(reception.is_receivable(purchased()))
-		for values in ({"purchase_status": "PENDING"}, {"status": "Cancelled"}, {"reception_status": "RECEIVED"}):
-			self.assertFalse(reception.is_receivable(purchased(**values)))
+	def test_receivable_without_purchase(self):
+		for values in ({}, {"purchase_status": "PENDING"}, {"reception_status": "RECEIVED"}):
+			self.assertTrue(reception.is_receivable(purchased(**values)))
+		self.assertFalse(reception.is_receivable(purchased(status="Cancelled")))
+		self.assertFalse(reception.is_receivable(None))
 		self.assertTrue(reception.has_capacity(purchased(requested_qty=3), 2))
 		self.assertFalse(reception.has_capacity(purchased(requested_qty=3), 3))
 
-	def test_received_values_count_units(self):
-		first = reception.received_values(purchased(requested_qty=2), NOW, "r1")
-		self.assertEqual((first["received_qty"], first["pending_receive_qty"], first["reception_status"]), (1, 1, "PENDING"))
-		last = reception.received_values(purchased(requested_qty=2, received_qty=1), NOW, "r1")
-		self.assertEqual((last["received_qty"], last["pending_receive_qty"], last["reception_status"]), (2, 0, "RECEIVED"))
 
-	def test_released_values(self):
-		values = reception.released_values(purchased(requested_qty=2, received_qty=2), "c1")
-		self.assertEqual(values["received_qty"], 1)
-		self.assertEqual(values["pending_receive_qty"], 1)
-		self.assertEqual(values["reception_status"], "RESOLVED_TO_STOCK")
+def shopper_event(name="EV-1", barcode=QR, qty=1, **values):
+	return D(name=name, idx=1, source_type="SHOPPER_PURCHASE", status="COMMITTED", qty=qty, released_qty=0,
+		purchase_barcode=barcode, **values)
+
+
+class TestPickSource(ReceptionCase):
+	def setUp(self):
+		super().setUp()
+		patcher = patch.object(reception.demand, "flt", lambda v, *a, **k: float(v or 0))
+		patcher.start()
+		self.addCleanup(patcher.stop)
+
+	def test_purchase_of_the_exact_code_first(self):
+		row = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
+		event = shopper_event()
+		self.assertEqual(reception.pick_source(row, [event], {}, 0, QR, ["ITEM-1"]), ("event", event))
+
+	def test_arrived_purchase_is_not_picked_again(self):
+		row = purchased(requested_qty=2)
+		self.assertEqual(reception.pick_source(row, [shopper_event()], {"EV-1": 1}, 1, QR, []), (None, None))
+
+	def test_known_item_without_purchase_is_direct_reception(self):
+		row = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1", requested_qty=5)
+		self.assertEqual(reception.pick_source(row, [], {}, 5, "191267529486", ["ITEM-1"]), ("direct", None))
+		self.assertEqual(reception.pick_source(row, [], {}, 0, "191267529486", ["ITEM-1"]), (None, None))
+		self.assertEqual(reception.pick_source(row, [], {}, 5, "191267529486", ["ITEM-2"]), (None, None))
+
+	def test_other_barcode_of_the_same_item_uses_the_purchase(self):
+		row = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
+		event = shopper_event(barcode="OTRO")
+		self.assertEqual(reception.pick_source(row, [event], {}, 0, QR, ["ITEM-1"], {"EV-1"}), ("event", event))
+		waiting = shopper_event(barcode="OTRO", barcode_exception_status="PENDING_APPROVAL")
+		self.assertEqual(reception.pick_source(row, [waiting], {}, 0, QR, ["ITEM-1"], {"EV-1"}), (None, None))
+
+	def test_unknown_item_needs_its_purchase(self):
+		row = purchased()
+		self.assertEqual(reception.pick_source(row, [], {}, 1, QR, ["ITEM-1"]), (None, None))
 
 	def test_return_decision(self):
 		self.assertEqual(reception.return_decision(D(status="POSTED", destination="ENCARGO")), "return")
@@ -232,8 +261,8 @@ class TestAdvance(ReceptionCase):
 		self.assertEqual(u.warehouse, inventory.ENCARGO_WAREHOUSE)
 		self.assertEqual(u.incoming_rate, 80 * 950.0)
 		self.assertEqual(u.stock_entry, "MAT-STE-1")
-		values = self.db.set_value.call_args.args[2]
-		self.assertEqual((values["received_qty"], values["reception_status"]), (1, "RECEIVED"))
+		# Encargo quantities are recomputed by demand.reconcile_encargo_supply after the unit is saved.
+		self.db.set_value.assert_not_called()
 		self.inv["reserve_unit"].assert_not_called()
 		reception._log.assert_called_once_with(self.enc.name, "RECEIVED", "r1@fragallardo.com", scanned_code=QR)
 
@@ -268,10 +297,31 @@ class TestAdvance(ReceptionCase):
 
 	def test_known_item_with_other_barcode_needs_commercial(self):
 		self.enc = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
-		u = self.encargo_unit()
-		reception._advance(u, ["ITEM-9"])
+		u = unit()
+		reception._link_encargo(u, self.enc, event=shopper_event(purchase_price=80))
+		self.db.get_value.return_value = None
+		with patch.object(reception.barcode_exception, "open_exception") as open_exception:
+			reception._advance(u, ["ITEM-9"])
 		self.assertEqual(u.status, reception.PENDING_BARCODE_APPROVAL)
+		open_exception.assert_called_once_with(self.enc.name, "EV-1")
 		self.inv["make_receipt"].assert_not_called()
+
+	def test_mismatch_without_purchase_needs_classification(self):
+		self.enc = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
+		u = self.encargo_unit()
+		with patch.object(reception.barcode_exception, "open_exception") as open_exception:
+			reception._advance(u, ["ITEM-9"])
+		self.assertEqual(u.status, reception.PENDING_CLASSIFICATION)
+		open_exception.assert_not_called()
+
+	def test_unit_takes_the_cost_of_its_purchase_event(self):
+		u = unit()
+		reception._link_encargo(u, self.enc, event=shopper_event(purchase_price=55, purchase_currency="EUR"))
+		self.assertEqual((u.supply_event, u.purchase_price, u.purchase_currency), ("EV-1", 55.0, "EUR"))
+		direct = unit()
+		reception._link_encargo(direct, purchased(purchase_price=0))
+		self.assertIsNone(direct.supply_event)
+		self.assertEqual(direct.purchase_price, 0.0)
 
 	def test_missing_account_is_pending_configuration(self):
 		with patch.object(inventory, "clearing_account", lambda: None):
@@ -335,21 +385,33 @@ class TestEndpoints(ReceptionCase):
 
 	def test_return_moves_unit_and_releases_encargo(self):
 		self.frappe.get_roles = lambda: ["ComercialFRA"]
-		self.db.get_value = MagicMock(return_value=D(name="RCU-1", status="POSTED", destination="ENCARGO"))
+
+		def get_value(doctype, name, field=None, *a, **k):
+			if field == "encargo":
+				return "ENC-1"
+			if field == "released_qty":
+				return 0
+			return D(name="RCU-1", status="POSTED", destination="ENCARGO")
+
+		self.db.get_value = get_value
 		doc = unit(name="RCU-1", status="POSTED", destination="ENCARGO", encargo="ENC-1", item="ITEM-1",
-			warehouse=inventory.ENCARGO_WAREHOUSE, stock_reservation_entry="SRE-1")
+			warehouse=inventory.ENCARGO_WAREHOUSE, stock_reservation_entry="SRE-1", supply_event="EV-1")
 		doc.save = MagicMock()
 		self.frappe.get_doc = lambda *a: doc
 		with patch.object(inventory, "cancel_reservation") as cancel, patch.object(
 			inventory, "make_transfer", return_value="MAT-STE-2"
 		) as transfer, patch.object(inventory, "reception_company", lambda: "Fragallardo"), patch.object(
-			reception, "_lock", lambda name: purchased("ENC-1", requested_qty=1, received_qty=1)
-		), patch.object(reception, "_log") as log, patch.object(reception, "unit_result", lambda name: name):
+			reception.demand, "lock_encargo"
+		) as lock, patch.object(reception.demand, "reconcile_encargo_supply") as reconcile, patch.object(
+			reception, "_log"
+		) as log, patch.object(reception, "unit_result", lambda name: name):
 			reception.return_unit("RCU-1", " Color distinto ")
+		lock.assert_called_once_with("ENC-1", ["name"])
 		cancel.assert_called_once_with("SRE-1")
 		self.assertEqual(transfer.call_args.args[2:4], (inventory.ENCARGO_WAREHOUSE, inventory.STOCK_WAREHOUSE))
 		self.assertEqual((doc.status, doc.warehouse, doc.return_reason), ("RETURNED_TO_STOCK", inventory.STOCK_WAREHOUSE, "Color distinto"))
-		self.assertEqual(self.db.set_value.call_args.args[2]["received_qty"], 0)
+		self.db.set_value.assert_called_once_with(reception.demand.EVENT, "EV-1", "released_qty", 1.0, update_modified=False)
+		reconcile.assert_called_once_with("ENC-1")
 		log.assert_called_once()
 
 	def test_retry_link_runs_the_same_service(self):

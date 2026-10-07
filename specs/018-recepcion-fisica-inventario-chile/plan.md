@@ -2,8 +2,8 @@
 
 Estado: APROBADO PARA PROGRAMACION
 Fecha: 2026-10-06
-Dependencia: Spec 013/015 vigentes
-Orden: implementar antes de Spec 017
+Dependencia: Specs 013/015 vigentes; alineación obligatoria con Spec 020
+Orden actual: la base 018 está implementada, pero la selección de demanda debe corregirse por Spec 020 antes de continuar 017
 
 ## Etapa 1 - Modelo y configuración
 
@@ -27,7 +27,7 @@ Implementar servicio transaccional `receive_scan(code, scan_event_id)`.
 Orden de resolución:
 
 1. idempotencia por scan_event_id;
-2. buscar Encargo comprado compatible con recepción pendiente usando FIFO;
+2. buscar demanda/Encargo compatible usando FIFO según Spec 020, exista o no compra Shopper previa;
 3. resolver Item;
 4. crear Item automático para UNKNOWN_ITEM cuando existan datos suficientes;
 5. dejar PENDING_CLASSIFICATION cuando falten datos o barcode desconocido sin Encargo;

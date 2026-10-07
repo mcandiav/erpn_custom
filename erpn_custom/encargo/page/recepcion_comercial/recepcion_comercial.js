@@ -2,7 +2,7 @@ const RCC_METHOD = "erpn_custom.encargo.reception.";
 const RCC_BARCODE_METHOD = "erpn_custom.encargo.barcode_exception.";
 const RCC_BARCODE_VIEWS = [
 	{ view: "pending", label: __("Pendiente aprobación") },
-	{ view: "rejected", label: __("Rechazada - decide el vendedor") },
+	{ view: "rejected", label: __("Rechazadas (historial)") },
 ];
 const RCC_VIEWS = [
 	{ view: "apartados", label: __("Apartados") },
@@ -82,7 +82,12 @@ class CommercialReception {
 		this.$list.on("click", "[data-action]", (e) => {
 			const $btn = $(e.currentTarget);
 			if ($btn.attr("data-encargo")) {
-				this.barcode_act($btn.attr("data-action"), $btn.attr("data-encargo"), $btn.attr("data-override") === "1");
+				this.barcode_act(
+					$btn.attr("data-action"),
+					$btn.attr("data-encargo"),
+					$btn.attr("data-override") === "1",
+					$btn.attr("data-event")
+				);
 			} else {
 				this.act($btn.attr("data-action"), $btn.attr("data-unit"));
 			}
@@ -169,14 +174,12 @@ class CommercialReception {
 			? `${__("Sin vendedor resoluble - escalado a System Manager")}: ${rcc_escape((row.responsible || []).join(", "))}`
 			: `${__("Responsable")}: ${rcc_escape((row.responsible || []).join(", "))}`;
 		const btn = (action, label, style) =>
-			`<button class="btn btn-xs ${style}" data-action="${action}" data-encargo="${rcc_escape(row.name)}" data-override="${
-				row.override ? 1 : 0
-			}">${rcc_escape(label)}</button>`;
+			`<button class="btn btn-xs ${style}" data-action="${action}" data-encargo="${rcc_escape(row.name)}" data-event="${rcc_escape(
+				row.supply_event
+			)}" data-override="${row.override ? 1 : 0}">${rcc_escape(label)}</button>`;
 		let actions = "";
 		if (row.can_resolve && this.barcode_view === "pending") {
 			actions = btn("approve", __("Aprobar"), "btn-primary") + btn("reject", __("Rechazar"), "btn-danger");
-		} else if (row.can_resolve) {
-			actions = btn("new_purchase", __("Solicitar nueva compra"), "btn-primary");
 		}
 		return `
 			<div class="rcc-card">
@@ -191,7 +194,10 @@ class CommercialReception {
 				<div class="small">${__("Código esperado")}: <span class="rcc-code">${rcc_escape(
 					row.expected_barcode || __("sin código")
 				)}</span></div>
-				<div class="small">${__("Código comprado")}: <span class="rcc-code">${rcc_escape(row.purchase_barcode)}</span></div>
+				<div class="small">${__("Código comprado")}: <span class="rcc-code">${rcc_escape(row.purchase_barcode)}</span> · ${__(
+					"{0} u. de {1}",
+					[rcc_escape(row.qty), rcc_escape(row.requested_qty)]
+				)}</div>
 				<div class="small text-muted">${__("Compra")}: ${rcc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rcc_escape(
 					row.shopper_user
 				)} · ${rcc_escape(row.purchase_supplier || row.proposed_supplier_name)}</div>
@@ -217,8 +223,8 @@ class CommercialReception {
 		`;
 	}
 
-	barcode_act(action, encargo, override) {
-		erpn_barcode_decision(action, encargo, override, () => this.load());
+	barcode_act(action, encargo, override, supply_event) {
+		erpn_barcode_decision(action, encargo, override, () => this.load(), supply_event);
 	}
 
 	card(row) {

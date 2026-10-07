@@ -23,7 +23,8 @@ Fecha: 2026-10-06
 
 - [x] Implementar receive_scan(code, scan_event_id).
 - [x] Implementar idempotencia transaccional.
-- [x] Resolver FIFO de Encargos comprados con recepción pendiente.
+- [x] Resolver FIFO de Encargos comprados con recepción pendiente (implementación legacy 16.0.98/99).
+- [ ] CORRECCIÓN SPEC 020: ampliar FIFO a demanda compatible aunque `purchase_status != PURCHASED`; vincular, mostrar APARTAR y reconciliar cantidad residual.
 - [x] Implementar contador unitario received_qty.
 - [x] Implementar creación automática de UNKNOWN_ITEM.
 - [x] Implementar regla de item_code limpio <= 40.

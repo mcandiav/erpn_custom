@@ -1,6 +1,6 @@
 # Tasks — Spec 017
 
-Estado: EN CURSO (E1–E4 entregadas en 16.0.102, en piloto).
+Estado: PAUSADA (E1–E4 entregadas en 16.0.102). No ejecutar E5/E6 hasta completar Spec 020 y revalidar estas tareas contra el modelo multifuente.
 
 ## E1–E4 (16.0.102)
 

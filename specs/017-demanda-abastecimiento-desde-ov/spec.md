@@ -4,7 +4,7 @@ Estado: DEFINITIVA PARA IMPLEMENTACION
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
 Proyecto: ERPNext Custom / FRAgallardo
-Orden: implementar después de Specs 018 y 019
+Orden: implementar después de Specs 018, 019 y 020. La Spec 020 es prerequisito para toda lógica cuantitativa/multi-Shopper.
 
 ## 1. Tesis
 
@@ -31,7 +31,7 @@ La Spec 017 completa únicamente:
 - Materialización de `ENCARGO-PENDIENTE` en Item real: corresponde a Spec 019.
 - Costos, landed cost, courier, aduana o contabilidad.
 
-## 3. Modelo vigente que se conserva
+## 3. Modelo vigente y dependencia de Spec 020
 
 El DocType `Encargo` continúa siendo la cola de demanda.
 
@@ -39,14 +39,15 @@ Se mantienen:
 
 - `source_type = KNOWN_ITEM | UNKNOWN_ITEM`;
 - `status = Draft | Open | Cancelled`;
-- `purchase_status = PENDING | PURCHASED`;
+- `purchase_status` solo como compatibilidad/histórico de compra;
 - `reception_status`;
 - relación con Sales Order y línea origen;
-- `custom_stock_committed_qty`;
-- `custom_encargo_qty`;
 - historial de `No encontrado`;
-- evidencias de compra;
 - bloqueo de cancelación cuando existe compra.
+
+La definición cuantitativa de demanda residual, compras parciales, múltiples Shoppers y fuentes alternativas pertenece a **Spec 020**.
+
+Esta Spec 017 NO debe volver a definir `fulfilled_qty` ni usar un único `purchase_status` como fuente de verdad. Consume los valores y eventos definidos por Spec 020 (`requested_qty`, `sourced_qty`, `pending_supply_qty`, recepción/cobertura y Supply Events).
 
 No crear `demand_type`.
 
@@ -54,7 +55,9 @@ No crear `demand_type`.
 
 No se implementará `TAKEN`.
 
-El bloqueo entre Shoppers ocurre al confirmar la compra. No se agregan reservas temporales, expiraciones ni liberaciones por abandono de tarjeta.
+La compra parcial multi-Shopper, la concurrencia y la reducción 4->3->2->1->0 se rigen por Spec 020.
+
+Spec 017 solo agrega las reglas de excepción barcode y resolución comercial sobre cada evento de compra correspondiente.
 
 ## 5. No encontrado
 
@@ -259,6 +262,10 @@ Al desplegar:
 
 ## 11. UI - Shopper
 
+La cola, compra parcial y múltiples Shoppers se implementan según Spec 020.
+
+Spec 017 agrega únicamente la experiencia de excepción barcode sobre el evento de compra afectado.
+
 El Shopper NO ve:
 
 - Cliente;
@@ -266,9 +273,11 @@ El Shopper NO ve:
 - precio de venta;
 - vendedor.
 
-Cuando confirme una compra con barcode distinto, mostrar:
+Cuando una compra parcial tenga barcode distinto, mostrar:
 
 `Compra registrada. El código difiere del esperado y quedó pendiente de aprobación comercial.`
+
+La excepción de una unidad no debe ocultar ni bloquear las demás unidades residuales que otro Shopper todavía pueda abastecer, salvo que exista una regla comercial explícita de bloqueo.
 
 No revelar información comercial adicional.
 

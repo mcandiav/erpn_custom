@@ -60,30 +60,44 @@ class TestShopperRules(unittest.TestCase):
 		self.assertIsNone(shopper.decode_image(None))
 
 	def test_pending_is_confirmed(self):
-		row = {"status": "Open", "purchase_status": "PENDING"}
-		self.assertEqual(shopper.purchase_decision(row, "s1@x.cl", "123"), "confirm")
+		row = {"status": "Open"}
+		self.assertEqual(shopper.purchase_decision(row, [], "s1@x.cl", "REQ-00001", 2, 5), ("confirm", None))
+
+	def test_partial_purchases_until_demand_is_sourced(self):
+		row = {"status": "Open"}
+		earlier = [{"request_id": "REQ-00001", "shopper_user": "s1@x.cl", "qty": 2}]
+		self.assertEqual(shopper.purchase_decision(row, earlier, "s2@x.cl", "REQ-00002", 3, 3), ("confirm", None))
+		with self.assertRaises(_Throw):
+			shopper.purchase_decision(row, earlier, "s2@x.cl", "REQ-00002", 4, 3)
+		with self.assertRaises(_Throw):
+			shopper.purchase_decision(row, earlier, "s2@x.cl", "REQ-00003", 1, 0)
 
 	def test_retry_of_same_purchase_is_idempotent(self):
-		row = {"status": "Open", "purchase_status": "PURCHASED", "shopper_user": "s1@x.cl", "purchase_barcode": "123"}
-		self.assertEqual(shopper.purchase_decision(row, "s1@x.cl", "123"), "already_done")
+		row = {"status": "Open"}
+		previous = {"request_id": "REQ-00001", "shopper_user": "s1@x.cl"}
+		self.assertEqual(
+			shopper.purchase_decision(row, [previous], "s1@x.cl", "REQ-00001", 1, 0), ("already_done", previous)
+		)
 
-	def test_second_shopper_cannot_overwrite(self):
-		row = {"status": "Open", "purchase_status": "PURCHASED", "shopper_user": "s1@x.cl", "purchase_barcode": "123"}
+	def test_other_shopper_cannot_reuse_request(self):
+		row = {"status": "Open"}
+		previous = {"request_id": "REQ-00001", "shopper_user": "s1@x.cl"}
 		with self.assertRaises(_Throw):
-			shopper.purchase_decision(row, "s2@x.cl", "123")
-		with self.assertRaises(_Throw):
-			shopper.purchase_decision(row, "s1@x.cl", "999")
+			shopper.purchase_decision(row, [previous], "s2@x.cl", "REQ-00001", 1, 4)
 
 	def test_cancelled_or_draft_not_purchasable(self):
 		for status in ("Draft", "Cancelled", "Closed"):
 			with self.assertRaises(_Throw):
-				shopper.purchase_decision({"status": status, "purchase_status": "PENDING"}, "s1@x.cl", "1")
+				shopper.purchase_decision({"status": status}, [], "s1@x.cl", None, 1, 1)
 
-	def test_full_qty_confirmation(self):
-		shopper.require_full_qty(1, 0)
-		shopper.require_full_qty(2, 1)
-		with self.assertRaises(_Throw):
-			shopper.require_full_qty(2, 0)
+	def test_clean_qty_and_request_id(self):
+		self.assertEqual(shopper.clean_qty("3"), 3)
+		for bad in (0, -1, 1.5, None):
+			with self.assertRaises(_Throw):
+				shopper.clean_qty(bad)
+		self.assertEqual(shopper.clean_request_id(" 1f2e3d4c-aaaa "), "1f2e3d4c-aaaa")
+		self.assertIsNone(shopper.clean_request_id("x"))
+		self.assertIsNone(shopper.clean_request_id("drop table;--"))
 
 	def test_review_from_third_not_found(self):
 		self.assertFalse(shopper.needs_review(2))
@@ -139,7 +153,7 @@ class TestShopperRules(unittest.TestCase):
 	def test_list_fields_exclude_commercial_data(self):
 		for field in ("customer", "sale_rate", "sales_order", "sales_person", "sales_order_item"):
 			self.assertNotIn(field, shopper.LIST_FIELDS)
-			self.assertNotIn(field, shopper.PURCHASE_FIELDS)
+			self.assertNotIn(field, shopper.EVENT_FIELDS)
 
 	def test_reference_link_keeps_store_links(self):
 		host = "derp.at-once.cl"
@@ -166,16 +180,18 @@ class TestShopperRules(unittest.TestCase):
 		self.assertEqual(shopper.period_start("otro", now), datetime(2026, 9, 28))
 
 	def test_images_of_a_purchase_only_for_its_shopper(self):
-		bought = {"status": "Open", "purchase_status": "PURCHASED", "shopper_user": "a@x.cl"}
+		row = {"status": "Open", "pending_supply_qty": 0}
+		event = {"shopper_user": "a@x.cl"}
 		for kind in ("reference", "product", "label"):
-			self.assertTrue(shopper.can_view_image(bought, "a@x.cl", kind))
-			self.assertFalse(shopper.can_view_image(bought, "b@x.cl", kind))
-		self.assertFalse(shopper.can_view_image(bought, "a@x.cl", "customer"))
+			self.assertTrue(shopper.can_view_image(row, "a@x.cl", kind, event))
+			self.assertFalse(shopper.can_view_image(row, "b@x.cl", kind, event))
+		self.assertFalse(shopper.can_view_image(row, "a@x.cl", "customer", event))
 
 	def test_pending_encargo_exposes_only_reference(self):
-		pending = {"status": "Open", "purchase_status": "PENDING", "shopper_user": None}
+		pending = {"status": "Open", "pending_supply_qty": 2}
 		self.assertTrue(shopper.can_view_image(pending, "a@x.cl", "reference"))
 		self.assertFalse(shopper.can_view_image(pending, "a@x.cl", "product"))
+		self.assertFalse(shopper.can_view_image({**pending, "pending_supply_qty": 0}, "a@x.cl", "reference"))
 		self.assertFalse(shopper.can_view_image({**pending, "status": "Cancelled"}, "a@x.cl", "reference"))
 		self.assertFalse(shopper.can_view_image(None, "a@x.cl", "reference"))
 

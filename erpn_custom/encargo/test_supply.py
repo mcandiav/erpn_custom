@@ -11,6 +11,7 @@ _frappe.utils.cint = lambda v: int(v or 0)
 sys.modules.setdefault("frappe", _frappe)
 sys.modules.setdefault("frappe.utils", _frappe.utils)
 
+from erpn_custom.encargo import demand  # noqa: E402
 from erpn_custom.encargo import sales_order_encargo as soe  # noqa: E402
 from erpn_custom.encargo import supply  # noqa: E402
 
@@ -28,15 +29,29 @@ class D(dict):
 
 
 def enc(**values):
-	base = {"status": "Open", "requested_qty": 1, "purchase_status": "PENDING"}
+	base = {"status": "Open", "requested_qty": 1, "source_type": "KNOWN_ITEM"}
 	base.update(values)
 	return D(base)
+
+
+def event(name, source=demand.SHOPPER, qty=1, status=demand.COMMITTED, **values):
+	return D(name=name, source_type=source, qty=qty, status=status, released_qty=0, **values)
+
+
+def unit(event_name, status="POSTED", destination="ENCARGO"):
+	return D(name=f"U-{event_name}-{status}", supply_event=event_name, status=status, destination=destination)
+
+
+def buckets(row, events=(), units=()):
+	return supply.encargo_buckets(row, demand.summarize(row.requested_qty, list(events), list(units)))
 
 
 class SupplyCase(unittest.TestCase):
 	def setUp(self):
 		for target, name, value in (
 			(supply, "flt", lambda v, *a, **k: float(v or 0)),
+			(demand, "flt", lambda v, *a, **k: float(v or 0)),
+			(demand.frappe, "_dict", D),
 			(soe, "flt", lambda v, *a, **k: float(v or 0)),
 			(soe, "_", lambda msg: msg),
 			(soe.frappe, "throw", _throw),
@@ -48,31 +63,46 @@ class SupplyCase(unittest.TestCase):
 
 class TestEncargoBuckets(SupplyCase):
 	def test_pending_purchase(self):
-		self.assertEqual(supply.encargo_buckets(enc(requested_qty=2)), [(supply.PENDING, 2)])
+		self.assertEqual(buckets(enc(requested_qty=2)), [(supply.PENDING, 2)])
 
 	def test_barcode_exception_and_rejection(self):
-		pending = enc(purchase_status="PURCHASED", barcode_exception_status="PENDING_APPROVAL")
-		rejected = enc(purchase_status="PURCHASED", barcode_exception_status="REJECTED")
-		self.assertEqual(supply.encargo_buckets(pending), [(supply.EXCEPTION, 1)])
-		self.assertEqual(supply.encargo_buckets(rejected), [(supply.REJECTED, 1)])
-		self.assertEqual(supply.REJECTED, "Compra rechazada - decide el vendedor")
+		pending = [event("E1", barcode_exception_status="PENDING_APPROVAL")]
+		rejected = [event("E1", status=demand.REJECTED, barcode_exception_status="REJECTED")]
+		self.assertEqual(buckets(enc(), pending), [(supply.EXCEPTION, 1)])
+		self.assertEqual(buckets(enc(), rejected), [(supply.PENDING, 1)])
 
-	def test_purchase_splits_received_reception_transit(self):
-		row = enc(requested_qty=4, purchase_status="PURCHASED", received_qty=1, barcode_exception_status="APPROVED")
+	def test_purchase_splits_covered_reception_transit(self):
+		row = enc(requested_qty=4)
+		units = [unit("E1"), unit("E1", status="RECEIVED")]
 		self.assertEqual(
-			supply.encargo_buckets(row, waiting_units=1),
-			[(supply.RECEIVED, 1), (supply.RECEPTION, 1), (supply.PURCHASED, 2)],
+			buckets(row, [event("E1", qty=4)], units),
+			[(supply.COVERED, 1), (supply.RECEPTION, 1), (supply.PURCHASED, 2)],
+		)
+
+	def test_ov_328_direct_reception_and_stock_cover_the_line(self):
+		row = enc(requested_qty=5)
+		events = [event("D1", demand.DIRECT, qty=4, status=demand.RECEIVED), event("S1", demand.STOCK, status=demand.RECEIVED)]
+		units = [unit("D1") for _ in range(4)]
+		self.assertEqual(buckets(row, events, units), [(supply.COVERED, 5)])
+
+	def test_partial_purchases_leave_residual_demand(self):
+		row = enc(requested_qty=5)
+		self.assertEqual(
+			buckets(row, [event("E1", qty=2), event("E2", qty=1)]),
+			[(supply.PURCHASED, 3), (supply.PENDING, 2)],
 		)
 
 	def test_materialized_units_leave_the_pending_line(self):
-		row = enc(requested_qty=3, materialized_qty=1, purchase_status="PURCHASED", received_qty=2)
-		self.assertEqual(supply.encargo_buckets(row), [(supply.RECEIVED, 1), (supply.RECEPTION, 0), (supply.PURCHASED, 1)])
-		done = enc(requested_qty=1, materialized_qty=1, purchase_status="PURCHASED", received_qty=1)
-		self.assertEqual(sum(q for _l, q in supply.encargo_buckets(done)), 0)
+		row = enc(requested_qty=3, materialized_qty=1, source_type="UNKNOWN_ITEM")
+		units = [unit("E1"), unit("E1")]
+		self.assertEqual(buckets(row, [event("E1", qty=3)], units), [(supply.RECEIVED, 1), (supply.PURCHASED, 1)])
+		done = enc(requested_qty=1, materialized_qty=1, source_type="UNKNOWN_ITEM")
+		self.assertEqual(sum(q for _l, q in buckets(done, [event("E1")], [unit("E1")])), 0)
 
-	def test_pre_018_reception_counts_as_received(self):
-		row = enc(requested_qty=2, purchase_status="PURCHASED", reception_status="RESOLVED_TO_ENC")
-		self.assertEqual(supply.encargo_buckets(row)[0], (supply.RECEIVED, 2))
+	def test_pre_018_reception_counts_as_covered(self):
+		row = enc(requested_qty=2)
+		self.assertEqual(buckets(row, [event("M1", demand.MIGRATION, qty=2, status=demand.RECEIVED)]), [(supply.COVERED, 2)])
+		self.assertEqual(supply.COVERED, "Cubierto")
 
 
 class TestLineBuckets(SupplyCase):
