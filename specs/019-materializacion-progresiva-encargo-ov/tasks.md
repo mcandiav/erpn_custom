@@ -1,6 +1,6 @@
 # Tasks - Spec 019 Materialización progresiva de Encargo en OV
 
-Estado: IMPLEMENTADA 16.0.100 - PENDIENTE PILOTO
+Estado: CERRADA 2026-10-06 (16.0.100 + bodega por defecto `Matriz - FRAG`; piloto OK)
 Fecha: 2026-10-06
 Alcance: solo líneas ENCARGO-PENDIENTE (Encargo UNKNOWN_ITEM). KNOWN_ITEM fuera de alcance.
 
@@ -47,13 +47,19 @@ Alcance: solo líneas ENCARGO-PENDIENTE (Encargo UNKNOWN_ITEM). KNOWN_ITEM fuera
 
 ## Entrega y reversión
 - [x] Impedir ENCARGO-PENDIENTE en Delivery Note.
-- [ ] Confirmar Delivery Note estándar con Item real (piloto).
+- [x] Confirmar Delivery Note estándar con Item real (piloto: `NE-2026-00003`).
 - [x] Restaurar pendiente cuando una unidad materializada se devuelve a stock.
-- [ ] Confirmar flujo estándar de devolución/liberación (piloto).
+- [ ] Confirmar flujo estándar de devolución/liberación en el sitio (cubierto por pruebas unitarias; sin caso real en el piloto).
 
 ## Pruebas
 - [x] Pruebas unitarias de Spec §21 (`test_materialization.py`, `test_reception.py`).
-- [ ] Ejecutar piloto ENC-2026-00401 / OV-2026-00326.
-- [ ] Confirmar Item real en OV.
-- [ ] Confirmar reserva/apartado.
-- [ ] Confirmar Delivery Note.
+- [x] Ejecutar piloto ENC-2026-00401 / OV-2026-00326 (`RCU-2026-00001`).
+- [x] Confirmar Item real en OV (`FRA-00001` x1 a $9.990, `ENCARGO-PENDIENTE` eliminada).
+- [x] Confirmar reserva/apartado (`MAT-SRE-2026-00015`, 1 u en `Recepcion Encargos - FRAG`).
+- [x] Confirmar Delivery Note (`NE-2026-00003`) y envío courier (`SHIPMENT-00010`, Chilexpress, guía 712678899391).
+
+## Requisito de configuración descubierto en el piloto
+- Configuración de existencias > Almacén predeterminado = `Matriz - FRAG`. Sin él, ERPNext no crea filas nuevas en una OV validada para Items sin bodega por defecto (los creados en la recepción).
+
+## Pendiente para demostración
+- `RCU-2026-00002` (`ENC-2026-00001` / `SAL-ORD-2026-00016`) queda en "Pendientes de vincular a OV" a propósito.
