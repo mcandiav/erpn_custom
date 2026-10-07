@@ -20,6 +20,7 @@
   "sales_order",
   "sales_order_item",
   "customer",
+  "rejected_encargo",
   "column_break_demand",
   "item",
   "item_name",
@@ -157,6 +158,14 @@
    "fieldtype": "Link",
    "label": "Cliente",
    "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "description": "Encargo cuya compra fue rechazada por excepción de barcode (Spec 017): la unidad ya no le pertenece.",
+   "fieldname": "rejected_encargo",
+   "fieldtype": "Link",
+   "label": "Encargo rechazado",
+   "options": "Encargo",
    "read_only": 1
   },
   {
@@ -363,7 +372,7 @@
  "in_create": 1,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-06 21:00:00",
+ "modified": "2026-10-07 00:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Recepcion Unidad",

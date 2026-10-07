@@ -1,4 +1,9 @@
 const RCC_METHOD = "erpn_custom.encargo.reception.";
+const RCC_BARCODE_METHOD = "erpn_custom.encargo.barcode_exception.";
+const RCC_BARCODE_VIEWS = [
+	{ view: "pending", label: __("Pendiente aprobación") },
+	{ view: "rejected", label: __("Rechazada - decide el vendedor") },
+];
 const RCC_VIEWS = [
 	{ view: "apartados", label: __("Apartados") },
 	{ view: "clasificacion", label: __("Pendientes de clasificación") },
@@ -28,6 +33,7 @@ class CommercialReception {
 	constructor(page) {
 		this.page = page;
 		this.view = "apartados";
+		this.barcode_view = "pending";
 		this.rows = [];
 		this.page.main.html(`
 			<style>
@@ -41,11 +47,19 @@ class CommercialReception {
 				.rcc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 				.rcc-message { margin-top: 4px; color: #a94442; font-weight: 600; }
 				.rcc-code { font-family: monospace; word-break: break-all; }
+				.rcc-subtabs { display: none; gap: 8px; margin-bottom: 8px; }
+				.rcc-evidence { display: flex; gap: 8px; margin-top: 6px; }
+				.rcc-evidence img { max-height: 120px; border-radius: 6px; border: 1px solid var(--border-color); }
 			</style>
 			<div class="rcc-wrap">
 				<div class="rcc-tabs">
 					${RCC_VIEWS.map(
 						(v) => `<button class="btn btn-default btn-sm" data-view="${v.view}">${rcc_escape(v.label)}</button>`
+					).join("")}
+				</div>
+				<div class="rcc-subtabs">
+					${RCC_BARCODE_VIEWS.map(
+						(v) => `<button class="btn btn-default btn-xs" data-barcode-view="${v.view}">${rcc_escape(v.label)}</button>`
 					).join("")}
 				</div>
 				<div class="rcc-banner-box"></div>
@@ -60,10 +74,18 @@ class CommercialReception {
 			this.view = $(e.currentTarget).data("view");
 			this.load();
 		});
+		this.page.main.find(".rcc-subtabs button").on("click", (e) => {
+			this.barcode_view = $(e.currentTarget).data("barcode-view");
+			this.load();
+		});
 		this.$search.on("input", frappe.utils.debounce(() => this.load(), 300));
 		this.$list.on("click", "[data-action]", (e) => {
 			const $btn = $(e.currentTarget);
-			this.act($btn.attr("data-action"), $btn.attr("data-unit"));
+			if ($btn.attr("data-encargo")) {
+				this.barcode_act($btn.attr("data-action"), $btn.attr("data-encargo"), $btn.attr("data-override") === "1");
+			} else {
+				this.act($btn.attr("data-action"), $btn.attr("data-unit"));
+			}
 		});
 		this.page.set_secondary_action(__("Actualizar"), () => this.load());
 	}
@@ -82,6 +104,16 @@ class CommercialReception {
 			$(el).toggleClass("btn-primary", $(el).data("view") === this.view);
 			$(el).toggleClass("btn-default", $(el).data("view") !== this.view);
 		});
+		const $subtabs = this.page.main.find(".rcc-subtabs");
+		$subtabs.css("display", this.view === "barcode" ? "flex" : "none");
+		$subtabs.find("button").each((_, el) => {
+			$(el).toggleClass("btn-primary", $(el).data("barcode-view") === this.barcode_view);
+			$(el).toggleClass("btn-default", $(el).data("barcode-view") !== this.barcode_view);
+		});
+		if (this.view === "barcode") {
+			this.load_exceptions();
+			return;
+		}
 		frappe.call({
 			method: RCC_METHOD + "list_units",
 			args: { view: this.view, search: this.$search.val() },
@@ -100,16 +132,86 @@ class CommercialReception {
 		});
 	}
 
+	load_exceptions() {
+		this.$banner.html("");
+		frappe.call({
+			method: RCC_BARCODE_METHOD + "list_exceptions",
+			args: { view: this.barcode_view, search: this.$search.val() },
+			callback: (r) => {
+				this.rows = (r.message || {}).rows || [];
+				this.render();
+			},
+		});
+	}
+
 	render() {
 		if (!this.rows.length) {
-			const empty =
-				this.view === "barcode"
-					? __("Sin excepciones. La aprobación de códigos se habilita con la Spec 017.")
-					: __("Sin registros");
+			const empty = this.view === "barcode" ? __("Sin excepciones") : __("Sin registros");
 			this.$list.html(`<div class="text-muted" style="padding: 12px 0;">${rcc_escape(empty)}</div>`);
 			return;
 		}
-		this.$list.html(this.rows.map((row) => this.card(row)).join(""));
+		const card = this.view === "barcode" ? (row) => this.exception_card(row) : (row) => this.card(row);
+		this.$list.html(this.rows.map(card).join(""));
+	}
+
+	exception_card(row) {
+		const link = (doctype, name) =>
+			name ? `<a href="/app/${frappe.router.slug(doctype)}/${encodeURIComponent(name)}">${rcc_escape(name)}</a>` : "";
+		const image = (url) => (url ? `<a href="${rcc_escape(url)}" target="_blank"><img src="${rcc_escape(url)}"></a>` : "");
+		const responsible = row.escalated
+			? `${__("Sin vendedor resoluble - escalado a System Manager")}: ${rcc_escape((row.responsible || []).join(", "))}`
+			: `${__("Responsable")}: ${rcc_escape((row.responsible || []).join(", "))}`;
+		const btn = (action, label, style) =>
+			`<button class="btn btn-xs ${style}" data-action="${action}" data-encargo="${rcc_escape(row.name)}" data-override="${
+				row.override ? 1 : 0
+			}">${rcc_escape(label)}</button>`;
+		let actions = "";
+		if (row.can_resolve && this.barcode_view === "pending") {
+			actions = btn("approve", __("Aprobar"), "btn-primary") + btn("reject", __("Rechazar"), "btn-danger");
+		} else if (row.can_resolve) {
+			actions = btn("new_purchase", __("Solicitar nueva compra"), "btn-primary");
+		}
+		return `
+			<div class="rcc-card">
+				<div class="rcc-card-head">
+					<div class="rcc-card-title">${link("Encargo", row.name)} · ${rcc_escape(row.customer)} · ${link(
+						"Sales Order",
+						row.sales_order
+					)}</div>
+					<div class="text-muted small">${rcc_escape(row.label)}</div>
+				</div>
+				<div>${__("Item esperado")}: ${link("Item", row.expected_item)} ${rcc_escape(row.expected_item_name)}</div>
+				<div class="small">${__("Código esperado")}: <span class="rcc-code">${rcc_escape(
+					row.expected_barcode || __("sin código")
+				)}</span></div>
+				<div class="small">${__("Código comprado")}: <span class="rcc-code">${rcc_escape(row.purchase_barcode)}</span></div>
+				<div class="small text-muted">${__("Compra")}: ${rcc_escape(frappe.datetime.str_to_user(row.purchased_on))} · ${rcc_escape(
+					row.shopper_user
+				)} · ${rcc_escape(row.purchase_supplier || row.proposed_supplier_name)}</div>
+				<div class="small">${responsible}</div>
+				${
+					row.conflict_item
+						? `<div class="rcc-message small">${__(
+								"El código pertenece al Item {0}: la aprobación queda bloqueada hasta que System Manager corrija el maestro.",
+								[rcc_escape(row.conflict_item)]
+						  )}</div>`
+						: ""
+				}
+				${
+					row.barcode_resolution_comment
+						? `<div class="text-muted small">${rcc_escape(row.barcode_resolved_by)}: ${rcc_escape(
+								row.barcode_resolution_comment
+						  )}</div>`
+						: ""
+				}
+				<div class="rcc-evidence">${image(row.purchase_product_image)}${image(row.purchase_label_image)}</div>
+				<div class="rcc-actions">${actions}</div>
+			</div>
+		`;
+	}
+
+	barcode_act(action, encargo, override) {
+		erpn_barcode_decision(action, encargo, override, () => this.load());
 	}
 
 	card(row) {

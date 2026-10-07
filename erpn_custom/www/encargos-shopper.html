@@ -674,7 +674,7 @@
 			next.disabled = true;
 			next.textContent = "Guardando…";
 			try {
-				await api(
+				const result = await api(
 					"erpn_custom.encargo.shopper.confirm_purchase",
 					{
 						encargo: row.name,
@@ -691,7 +691,11 @@
 				closePanel(panel);
 				state.rows = state.rows.filter((r) => r.name !== row.name);
 				renderList();
-				toast(`${row.name} comprado`);
+				if (result && result.message) {
+					alert(result.message);
+				} else {
+					toast(`${row.name} comprado`);
+				}
 			} catch (e) {
 				toast(e.message);
 				refresh();

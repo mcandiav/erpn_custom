@@ -158,9 +158,16 @@ Orden de resolución:
 
 1. si barcode existe en `Item Barcode`, usar ese Item;
 2. si Encargo `KNOWN_ITEM` define Item esperado y el barcode coincide, usar ese Item;
-3. si el Item esperado aún no tiene barcode, adoptar el primer barcode único según Spec 017;
-4. si hay mismatch pendiente de aprobación, NO ingresar ni asignar automáticamente;
-5. si mismatch está aprobado, usar el Item aprobado.
+3. para compras nuevas posteriores a Spec 017, la adopción del primer barcode ocurre al comprar;
+4. para compras históricas anteriores a Spec 017, si el Item esperado aún no tiene barcode y no existe excepción pendiente, recepción puede adoptar el primer barcode único como fallback de compatibilidad;
+5. si hay mismatch pendiente de aprobación, NO ingresar ni asignar automáticamente;
+6. si mismatch está aprobado, usar el Item aprobado;
+7. si mismatch está rechazado, la unidad deja de satisfacer el Encargo y se procesa como stock normal: Item identificable -> `Matriz - FRAG`; Item no identificable -> `PENDING_CLASSIFICATION` sin Encargo.
+
+Si una unidad quedó previamente en `PENDING_BARCODE_APPROVAL`:
+
+- aprobar la excepción debe reintentar automáticamente esa misma `Recepción Unidad`, sin nuevo escaneo;
+- rechazar debe reanudarla automáticamente por la ruta de stock normal/clasificación, sin esperar otra decisión comercial para reconocer la existencia física.
 
 ## 8. Bodegas
 
@@ -313,7 +320,9 @@ Pantalla:
 
 `APARTAR - REQUIERE COMERCIAL`
 
-No Stock Entry.
+No Stock Entry mientras siga `PENDING_APPROVAL`.
+
+Cuando ComercialFRA aprueba, el backend reintenta la misma recepción automáticamente. Cuando rechaza, la unidad se desvincula de esa demanda y continúa por stock normal o clasificación.
 
 ### Caso D - datos insuficientes para UNKNOWN_ITEM
 
@@ -528,9 +537,12 @@ No crear `Recepcion Stock - FRAG` ni cuarentena en esta fase.
 Orden aprobado por Arquitectura:
 
 1. Spec 018 primero: cerrar el vacío actual entre recepción física e inventario.
-2. Spec 017 después: completar excepción de barcode, aprobación comercial, estado por línea OV y advertencia previa.
+2. Spec 019 después: materializar progresivamente ENCARGO-PENDIENTE en Item real dentro de la OV.
+3. Spec 017 después: completar excepción de barcode, aprobación comercial, estado por línea OV y advertencia previa.
 
 La 018 debe apoyarse en el modelo real ya existente de 013/015, no esperar una reimplementación de demanda.
+
+La transformación de la Orden de Venta NO pertenece a esta Spec. Si una unidad recibida está comprometida con Encargo, la 018 deja inventario, trazabilidad y apartado físico; la Spec 019 realiza el split progresivo de la línea comercial.
 
 ## 22. Criterio de cierre
 

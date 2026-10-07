@@ -44,14 +44,18 @@ add_to_apps_screen = [
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"recepcion-comercial": "public/js/barcode_exception.js"}
 
 # include js in doctype views
 doctype_js = {
 	"Bank Statement Import": "public/js/bank_statement_import.js",
 	"Customer": "public/js/customer.js",
 	"Item": ["public/js/classification.js", "public/js/item.js"],
-	"Encargo": ["public/js/classification.js", "public/js/encargo_classification.js"],
+	"Encargo": [
+		"public/js/classification.js",
+		"public/js/encargo_classification.js",
+		"public/js/barcode_exception.js",
+	],
 	"Sales Order": ["public/js/classification.js", "public/js/sales_order.js"],
 	"Bank Transaction": "public/js/bank_transaction.js",
 	"Courier Configuration": "public/js/courier_configuration.js",

@@ -254,6 +254,8 @@ Después de la materialización:
 - la salida de inventario debe descontar el Item real;
 - la trazabilidad a ENC se conserva desde la línea real.
 
+La Spec 017 agrega además la regla de elegibilidad por excepción de barcode: cantidades `PENDING_APPROVAL` o `REJECTED` no son entregables. Para líneas KNOWN_ITEM mixtas puede entregarse únicamente la porción elegible; esta validación pertenece a Spec 017.
+
 Para el caso de Kevin, no se debe realizar entrega desde ERPNext hasta que la cantidad correspondiente haya sido materializada en la OV.
 
 ## 14. Producto recibido que finalmente no satisface al cliente

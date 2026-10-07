@@ -14,6 +14,77 @@ frappe.ui.form.on("Sales Order", {
 		frm.trigger("setup_encargo_ui");
 		frm.trigger("setup_item_search");
 		frm.trigger("show_encargo_materialization");
+		frm.trigger("show_line_supply");
+	},
+
+	// Spec 017 §12.2: Continuar confirms the figure; the server rechecks it before reserving.
+	before_submit(frm) {
+		frm.doc.custom_shopper_qty_confirmed = "";
+		return new Promise((resolve) => {
+			frappe.call({
+				method: "erpn_custom.encargo.supply.shopper_preview",
+				type: "POST",
+				args: {
+					items: (frm.doc.items || []).map((row) => ({
+						name: row.name,
+						idx: row.idx,
+						item_code: row.item_code,
+						warehouse: row.warehouse,
+						qty: row.qty,
+					})),
+					set_warehouse: frm.doc.set_warehouse || null,
+				},
+				callback(r) {
+					const data = r.message || { total: 0, lines: [] };
+					if (!data.total) {
+						frm.doc.custom_shopper_qty_confirmed = "0";
+						resolve();
+						return;
+					}
+					confirm_shopper_dialog(frm, data, resolve);
+				},
+				error() {
+					frappe.validated = false;
+					resolve();
+				},
+			});
+		});
+	},
+
+	show_line_supply(frm) {
+		const wrapper = frm.fields_dict.items?.$wrapper;
+		if (!wrapper) {
+			return;
+		}
+		wrapper.find(".erpn-line-supply").remove();
+		if (frm.doc.docstatus === 0) {
+			return;
+		}
+		frappe.call({
+			method: "erpn_custom.encargo.supply.order_supply",
+			args: { sales_order: frm.doc.name },
+			callback(r) {
+				const lines = (r.message || {}).lines || [];
+				if (!lines.length) {
+					return;
+				}
+				const box = $('<div class="erpn-line-supply small" style="margin-top: 8px;"></div>');
+				box.append($("<div class='text-muted'>").text(__("Abastecimiento por línea")));
+				lines.forEach((line) => {
+					box.append(
+						$("<div>").text(
+							__("fila {0}: {1} x{2} · {3}", [
+								line.idx,
+								line.item_code,
+								format_number(line.qty, null, 0),
+								line.summary,
+							])
+						)
+					);
+				});
+				wrapper.append(box);
+			},
+		});
 	},
 
 	show_encargo_materialization(frm) {
@@ -151,6 +222,55 @@ function show_view_encargo_button(frm, cdn) {
 			// The heading click would collapse the row.
 			return false;
 		});
+}
+
+function confirm_shopper_dialog(frm, data, resolve) {
+	let decided = false;
+	const finish = (proceed) => {
+		if (decided) {
+			return;
+		}
+		decided = true;
+		if (proceed) {
+			frm.doc.custom_shopper_qty_confirmed = String(data.total);
+		} else {
+			frappe.validated = false;
+		}
+		dialog.hide();
+		resolve();
+	};
+	const rows = data.lines
+		.map(
+			(line) =>
+				`<li>${frappe.utils.escape_html(
+					__("fila {0}: {1} · {2} de {3} al Shopper", [
+						line.idx,
+						line.item_code,
+						format_number(line.shopper_qty, null, 0),
+						format_number(line.qty, null, 0),
+					])
+				)}</li>`
+		)
+		.join("");
+	const dialog = new frappe.ui.Dialog({
+		title: __("Confirmar envío al Shopper"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				options: `<p><b>${frappe.utils.escape_html(
+					__("Esta Orden de Venta enviará {0} unidad(es) al Shopper por falta de stock.", [
+						format_number(data.total, null, 0),
+					])
+				)}</b></p><ul>${rows}</ul>`,
+			},
+		],
+		primary_action_label: __("Continuar"),
+		primary_action: () => finish(true),
+		secondary_action_label: __("Cancelar"),
+		secondary_action: () => finish(false),
+	});
+	dialog.onhide = () => finish(false);
+	dialog.show();
 }
 
 function format_money(value, currency) {

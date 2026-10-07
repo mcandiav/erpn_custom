@@ -57,6 +57,13 @@
   "purchase_product_image",
   "purchase_label_image",
   "purchase_images_preview",
+  "section_barcode_exception",
+  "barcode_exception_status",
+  "expected_barcode",
+  "column_break_barcode_exception",
+  "barcode_resolved_on",
+  "barcode_resolved_by",
+  "barcode_resolution_comment",
   "section_not_found",
   "not_found_count",
   "needs_commercial_review",
@@ -419,10 +426,55 @@
    "fieldtype": "HTML"
   },
   {
-   "depends_on": "eval:doc.not_found_count",
+   "depends_on": "eval:doc.barcode_exception_status",
+   "fieldname": "section_barcode_exception",
+   "fieldtype": "Section Break",
+   "label": "Excepción de barcode"
+  },
+  {
+   "description": "Comparación del barcode comprado con el Item esperado (Spec 017). Vacío: no aplica.",
+   "fieldname": "barcode_exception_status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Estado barcode",
+   "options": "\nNOT_APPLICABLE\nMATCH\nPENDING_APPROVAL\nAPPROVED\nREJECTED",
+   "read_only": 1
+  },
+  {
+   "description": "Barcodes del Item esperado al momento de la compra.",
+   "fieldname": "expected_barcode",
+   "fieldtype": "Small Text",
+   "label": "Barcode esperado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_barcode_exception",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "barcode_resolved_on",
+   "fieldtype": "Datetime",
+   "label": "Resuelto el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "barcode_resolved_by",
+   "fieldtype": "Link",
+   "label": "Resuelto por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "barcode_resolution_comment",
+   "fieldtype": "Small Text",
+   "label": "Comentario de resolución",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.not_found_count || (doc.purchase_attempts || []).length",
    "fieldname": "section_not_found",
    "fieldtype": "Section Break",
-   "label": "Compra Shopper · intentos «No encontrado»"
+   "label": "Compra Shopper · intentos anteriores"
   },
   {
    "default": "0",
@@ -523,7 +575,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-06 21:00:00",
+ "modified": "2026-10-07 00:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",

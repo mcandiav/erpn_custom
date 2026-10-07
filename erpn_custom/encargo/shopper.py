@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, get_url, now_datetime
 
+from erpn_custom.encargo import barcode_exception
+
 SHOPPER_ROLE = "ShopperFRA"
 ALLOWED_ROLES = (SHOPPER_ROLE, "System Manager")
 REVIEW_AFTER_NOT_FOUND = 3
@@ -362,7 +364,8 @@ def confirm_purchase(
 
 	row = _lock_pending(encargo)
 	if purchase_decision(row, user, barcode) == "already_done":
-		return {"encargo": encargo, "purchase_status": "PURCHASED"}
+		status = frappe.db.get_value("Encargo", encargo, "barcode_exception_status")
+		return purchase_result(encargo, status)
 	require_full_qty(row.requested_qty, confirm_full_qty)
 
 	frappe.db.set_value(
@@ -381,7 +384,18 @@ def confirm_purchase(
 		},
 		update_modified=True,
 	)
-	return {"encargo": encargo, "purchase_status": "PURCHASED"}
+	return purchase_result(encargo, barcode_exception.on_purchase(encargo, barcode))
+
+
+def purchase_result(encargo, barcode_status):
+	"""Only the barcode outcome reaches the shopper; who resolves it stays hidden (Spec 017 §11)."""
+	pending = barcode_status == barcode_exception.PENDING_APPROVAL
+	return {
+		"encargo": encargo,
+		"purchase_status": "PURCHASED",
+		"pending_approval": int(pending),
+		"message": _(barcode_exception.SHOPPER_MESSAGE) if pending else None,
+	}
 
 
 @frappe.whitelist(methods=["POST"])

@@ -6,6 +6,7 @@ frappe.ui.form.on("Encargo", {
 		render_purchase_images_preview(frm);
 		show_customer_contact_alert(frm);
 		add_reception_button(frm);
+		add_barcode_exception_actions(frm);
 		frm.set_query("supplier", () => ({
 			query: "erpn_custom.encargo.api.suppliers_for_brand_query",
 			filters: { brand: frm.doc.brand },
@@ -104,6 +105,43 @@ function add_reception_button(frm) {
 		frappe.route_options = { search: frm.doc.name };
 		frappe.set_route("recepcion-comercial");
 	});
+}
+
+// Spec 017 §12.3: the server checks who may resolve; the buttons only offer the next valid step.
+function add_barcode_exception_actions(frm) {
+	const status = frm.doc.barcode_exception_status;
+	if (frm.doc.status !== "Open" || frm.doc.purchase_status !== "PURCHASED") {
+		return;
+	}
+	if (status === "PENDING_APPROVAL") {
+		frm.dashboard.set_headline_alert(
+			__("Excepción barcode: se compró {0} y el Item {1} espera {2}. Aprobar o rechazar.", [
+				frm.doc.purchase_barcode,
+				frm.doc.expected_item,
+				frm.doc.expected_barcode || __("sin código"),
+			]),
+			"orange"
+		);
+	} else if (status === "REJECTED") {
+		frm.dashboard.set_headline_alert(
+			__("Compra rechazada - decide el vendedor: anular o modificar la OV, o solicitar nueva compra."),
+			"red"
+		);
+	} else {
+		return;
+	}
+	if (!frappe.user.has_role(["ComercialFRA", "System Manager"])) {
+		return;
+	}
+	const override = frappe.user.has_role("System Manager") && !frappe.user.has_role("ComercialFRA");
+	const decide = (action) => erpn_barcode_decision(action, frm.doc.name, override, () => frm.reload_doc());
+	const group = __("Excepción barcode");
+	if (status === "PENDING_APPROVAL") {
+		frm.add_custom_button(__("Aprobar"), () => decide("approve"), group);
+		frm.add_custom_button(__("Rechazar"), () => decide("reject"), group);
+	} else {
+		frm.add_custom_button(__("Solicitar nueva compra"), () => decide("new_purchase"), group);
+	}
 }
 
 function show_customer_contact_alert(frm) {

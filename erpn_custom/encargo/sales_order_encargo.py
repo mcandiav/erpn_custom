@@ -3,7 +3,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from erpn_custom.chile.sales_order_credit import applied_to_order
-from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM
+from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception
 from erpn_custom.encargo.known_item import known_item_values
 from erpn_custom.encargo.stock_split import allocate_available_across_rows, available_to_sell
 
@@ -15,6 +15,7 @@ def before_submit(doc, method=None):
 	require_order_lines(doc)
 	require_applied_payment(doc)
 	apply_stock_encargo_split(doc)
+	require_confirmed_shortfall(doc)
 	validate_unknown_item_rows(doc)
 	ensure_encargos_for_known_shortfalls(doc)
 	# Drive SRE from our hook; avoid native full-line auto-reserve.
@@ -49,19 +50,17 @@ def require_applied_payment(doc):
 		frappe.throw(_("La Orden de Venta requiere al menos un pago aplicado antes de validarse."))
 
 
-def apply_stock_encargo_split(doc):
-	"""Write custom_stock_committed_qty / custom_encargo_qty on each row."""
-	groups = {}
-	for item in doc.items:
+def stock_split(items, set_warehouse):
+	"""{row: (stock_committed, encargo_qty)} with today's stock; shared by submit and its preview."""
+	split, groups = {}, {}
+	for item in items:
 		if item.item_code == ENCARGO_PENDIENTE_ITEM:
-			item.custom_stock_committed_qty = 0
-			item.custom_encargo_qty = flt(item.qty)
+			split[id(item)] = (0, flt(item.qty))
 			continue
 		if not cint(item.get("is_stock_item") if item.get("is_stock_item") is not None else _is_stock_item(item.item_code)):
-			item.custom_stock_committed_qty = 0
-			item.custom_encargo_qty = 0
+			split[id(item)] = (0, 0)
 			continue
-		key = (item.item_code, item.warehouse or doc.set_warehouse)
+		key = (item.item_code, item.warehouse or set_warehouse)
 		groups.setdefault(key, []).append(item)
 
 	for (item_code, warehouse), rows in groups.items():
@@ -70,9 +69,32 @@ def apply_stock_encargo_split(doc):
 			[{"qty": row.qty} for row in rows],
 			avail,
 		)
-		for row, (stock_committed, encargo_qty) in zip(rows, allocations):
-			row.custom_stock_committed_qty = stock_committed
-			row.custom_encargo_qty = encargo_qty
+		for row, allocation in zip(rows, allocations):
+			split[id(row)] = tuple(allocation)
+	return split
+
+
+def apply_stock_encargo_split(doc):
+	"""Write custom_stock_committed_qty / custom_encargo_qty on each row."""
+	split = stock_split(doc.items, doc.set_warehouse)
+	for item in doc.items:
+		item.custom_stock_committed_qty, item.custom_encargo_qty = split[id(item)]
+
+
+def shopper_shortfall(items):
+	"""Units of known Items the order sends to the Shopper for lack of stock (Spec 017 §12.2)."""
+	return sum(
+		flt(item.get("custom_encargo_qty")) for item in items if item.item_code != ENCARGO_PENDIENTE_ITEM
+	)
+
+
+def require_confirmed_shortfall(doc):
+	"""The modal figure must still hold; an empty value is a submit without the modal (list/API)."""
+	confirmed = doc.get("custom_shopper_qty_confirmed")
+	if confirmed in (None, ""):
+		return
+	if abs(flt(confirmed) - shopper_shortfall(doc.items)) > 1e-6:
+		frappe.throw(_("El stock cambió. Revise nuevamente la cantidad que irá al Shopper."))
 
 
 def validate_unknown_item_rows(doc):
@@ -244,9 +266,9 @@ def cancel_or_block_encargos(doc):
 	rows = frappe.get_all(
 		"Encargo",
 		filters={"sales_order": doc.name, "status": ["!=", "Cancelled"]},
-		fields=["name", "purchase_status", "status"],
+		fields=["name", "purchase_status", "status", "barcode_exception_status"],
 	)
-	purchased = [r for r in rows if r.purchase_status == "PURCHASED"]
+	purchased = [r for r in rows if blocks_cancel(r)]
 	if purchased:
 		frappe.throw(
 			_(
@@ -255,6 +277,13 @@ def cancel_or_block_encargos(doc):
 		)
 	for row in rows:
 		frappe.db.set_value("Encargo", row.name, "status", "Cancelled", update_modified=True)
+		if row.barcode_exception_status == barcode_exception.REJECTED:
+			barcode_exception.close_todos(row.name, barcode_exception.TODO_REJECTED)
+
+
+def blocks_cancel(row):
+	"""A rejected purchase no longer serves the order: the seller may cancel it (Spec 017 §8.4 A)."""
+	return row.purchase_status == "PURCHASED" and row.get("barcode_exception_status") != barcode_exception.REJECTED
 
 
 def _bin_available(item_code, warehouse):

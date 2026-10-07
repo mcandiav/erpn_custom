@@ -6,7 +6,7 @@ from frappe.utils import cint, flt, getdate, now_datetime, strip_html
 
 from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 from erpn_custom.chile.elevation import administrator_context
-from erpn_custom.encargo import inventory, materialization
+from erpn_custom.encargo import barcode_exception, inventory, materialization
 
 RECEPTOR_ROLE = "FRAreceptor"
 ALLOWED_ROLES = (RECEPTOR_ROLE, "System Manager")
@@ -24,7 +24,7 @@ PENDING_BARCODE_APPROVAL = "PENDING_BARCODE_APPROVAL"
 PENDING_COST = "PENDING_COST"
 PENDING_CONFIGURATION = "PENDING_CONFIGURATION"
 RETURNED = "RETURNED_TO_STOCK"
-# Mismatches wait for the commercial approval of Spec 017.
+# Mismatches wait for the commercial approval of Spec 017 (barcode_exception.approve / reject).
 RESOLVABLE = (PENDING_CLASSIFICATION, PENDING_COST, PENDING_CONFIGURATION)
 ENCARGO = "ENCARGO"
 STOCK = "STOCK"
@@ -64,6 +64,7 @@ LOCK_FIELDS = [
 	"sales_order",
 	"sales_order_item",
 	"customer",
+	"barcode_exception_status",
 ]
 ITEM_SOURCE_FIELDS = ["description", "brand", "item_group", "custom_departamento", *ATTRIBUTE_FIELDS.values()]
 UNIT_FIELDS = [
@@ -93,7 +94,6 @@ UNIT_FIELDS = [
 COMMERCIAL_VIEWS = {
 	"apartados": {"status": POSTED, "destination": ENCARGO},
 	"clasificacion": {"status": PENDING_CLASSIFICATION},
-	"barcode": {"status": PENDING_BARCODE_APPROVAL},
 	"valorizacion": {"status": ("in", [PENDING_COST, PENDING_CONFIGURATION])},
 	"vincular": {
 		"status": POSTED,
@@ -276,7 +276,13 @@ def _card(encargo):
 
 
 def _candidates(code, barcode_items):
-	base = {"status": "Open", "purchase_status": "PURCHASED", "reception_status": "PENDING"}
+	# A rejected purchase no longer belongs to its Encargo (Spec 017 §8.6).
+	base = {
+		"status": "Open",
+		"purchase_status": "PURCHASED",
+		"reception_status": "PENDING",
+		"barcode_exception_status": ("!=", barcode_exception.REJECTED),
+	}
 	fields = ["name", "purchased_on", "purchase_barcode", "source_type", "expected_item"]
 	rows = frappe.get_all("Encargo", filters={**base, "purchase_barcode": code}, fields=fields)
 	if barcode_items:
@@ -337,10 +343,17 @@ def _resolve_item(unit, enc, barcode_items):
 			return None, barcode_item, None
 		return PENDING_CLASSIFICATION, None, _("El código no corresponde a ningún Item ni Encargo pendiente.")
 	if enc.source_type == "KNOWN_ITEM":
-		decision = inventory.known_item_decision(
-			enc.expected_item, barcode_item, inventory.item_has_barcodes(enc.expected_item)
-		)
+		if enc.barcode_exception_status == barcode_exception.PENDING_APPROVAL:
+			decision = "mismatch"
+		else:
+			# Purchases before Spec 017 still adopt the first code here (§9.2).
+			decision = inventory.known_item_decision(
+				enc.expected_item, barcode_item, inventory.item_has_barcodes(enc.expected_item)
+			)
 		if decision == "mismatch":
+			if enc.barcode_exception_status != barcode_exception.PENDING_APPROVAL:
+				barcode_exception.open_exception(enc.name)
+				enc.barcode_exception_status = barcode_exception.PENDING_APPROVAL
 			return (
 				PENDING_BARCODE_APPROVAL,
 				None,
@@ -374,7 +387,8 @@ def _resolve_item(unit, enc, barcode_items):
 
 def _incoming_rate(unit, company, warehouse):
 	"""(rate, problem). Shopper units: price x rate of the purchase date; others: known Item cost."""
-	if unit.encargo and flt(unit.purchase_price) > 0:
+	# A unit detached from a rejected Encargo keeps the price the shopper paid.
+	if flt(unit.purchase_price) > 0:
 		company_currency = frappe.get_cached_value("Company", company, "default_currency")
 		currency = unit.purchase_currency or inventory.PURCHASE_CURRENCY
 		rate, source = inventory.exchange_rate(currency, company_currency, unit.purchased_on or now_datetime())
@@ -655,6 +669,44 @@ def retry_materialization(unit):
 		materialization.materialize(doc, user)
 		doc.save(ignore_permissions=True)
 	return unit_result(doc.name)
+
+
+def detach_rejected(unit, user):
+	"""The unit stops belonging to the rejected Encargo; it enters as normal stock (Spec 017 §14.2)."""
+	encargo = unit.encargo
+	unit.update(
+		{
+			"rejected_encargo": encargo,
+			"encargo": None,
+			"sales_order": None,
+			"sales_order_item": None,
+			"customer": None,
+			"destination": STOCK,
+			"item": None,
+			"message": None,
+		}
+	)
+	_log(encargo, "BARCODE_REJECTED", user, scanned_code=unit.scanned_code, notes=unit.name)
+
+
+def resume_after_barcode_decision(encargo, approved):
+	"""Same Recepcion Unidad, no new scan: approval retries it, rejection sends it to stock."""
+	user = frappe.session.user
+	results = []
+	for name in frappe.get_all(
+		UNIT, filters={"encargo": encargo, "status": PENDING_BARCODE_APPROVAL}, pluck="name", order_by="received_on asc"
+	):
+		with administrator_context():
+			doc = frappe.get_doc(UNIT, name)
+			if not approved:
+				detach_rejected(doc, user)
+			_advance(doc)
+			doc.resolved_on = now_datetime()
+			doc.resolved_by = user
+			doc.save(ignore_permissions=True)
+		result = unit_result(doc.name)
+		results.append({"unit": doc.name, "screen": result["screen"], "message": result["message"]})
+	return results
 
 
 @frappe.whitelist(methods=["POST"])
