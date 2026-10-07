@@ -6,7 +6,7 @@ from frappe.utils import cint, flt, getdate, now_datetime, strip_html
 
 from erpn_custom.catalog.attributes import ATTRIBUTE_FIELDS
 from erpn_custom.chile.elevation import administrator_context
-from erpn_custom.encargo import inventory
+from erpn_custom.encargo import inventory, materialization
 
 RECEPTOR_ROLE = "FRAreceptor"
 ALLOWED_ROLES = (RECEPTOR_ROLE, "System Manager")
@@ -86,12 +86,20 @@ UNIT_FIELDS = [
 	"received_on",
 	"received_by",
 	"is_migration",
+	"materialization_status",
+	"materialized_row",
+	"materialization_message",
 ]
 COMMERCIAL_VIEWS = {
 	"apartados": {"status": POSTED, "destination": ENCARGO},
 	"clasificacion": {"status": PENDING_CLASSIFICATION},
 	"barcode": {"status": PENDING_BARCODE_APPROVAL},
 	"valorizacion": {"status": ("in", [PENDING_COST, PENDING_CONFIGURATION])},
+	"vincular": {
+		"status": POSTED,
+		"destination": ENCARGO,
+		"materialization_status": ("in", list(materialization.RETRYABLE)),
+	},
 }
 
 
@@ -137,8 +145,11 @@ def migration_destination(reception_status):
 	return STOCK if reception_status == "RESOLVED_TO_STOCK" else ENCARGO
 
 
-def screen(status, destination, has_encargo):
+def screen(status, destination, has_encargo, materialization_status=None, encargo=None):
 	"""(title, kind) shown to the receptor; kind picks the colour."""
+	if status == POSTED and destination == ENCARGO and materialization_status == materialization.ERROR:
+		# The unit is in inventory and still set aside; only the Sales Order link failed (Spec 019 §16).
+		return f"APARTAR - {encargo} - PENDIENTE DE VINCULAR A OV", "warning"
 	if status == POSTED:
 		return ("APARTAR", "encargo") if destination == ENCARGO else ("STOCK NORMAL", "stock")
 	if status == PENDING_CLASSIFICATION:
@@ -398,6 +409,9 @@ def _reserve(unit, enc):
 		unit.stock_reservation_entry, unit.reservation_note = inventory.reserve_unit(
 			unit.sales_order, unit.sales_order_item, unit.item, unit.warehouse
 		)
+	elif materialization.applies(enc):
+		unit.materialization_status = materialization.PENDING
+		materialization.materialize(unit)
 	else:
 		unit.reservation_note = _(
 			"Apartado por bodega y Encargo: la línea de la Orden de Venta aún no tiene el Item real."
@@ -446,7 +460,9 @@ def _advance(unit, barcode_items=None):
 
 def unit_result(name, duplicate=False):
 	unit = frappe.db.get_value(UNIT, name, UNIT_FIELDS, as_dict=True)
-	title, kind = screen(unit.status, unit.destination, bool(unit.encargo))
+	title, kind = screen(
+		unit.status, unit.destination, bool(unit.encargo), unit.materialization_status, unit.encargo
+	)
 	encargo = _card(unit.encargo) if unit.encargo else None
 	return {
 		"unit": unit.name,
@@ -461,7 +477,7 @@ def unit_result(name, duplicate=False):
 		else 0,
 		"item": unit.item,
 		"item_name": unit.item_name,
-		"message": unit.message,
+		"message": unit.message or unit.materialization_message,
 		"duplicate": int(bool(duplicate)),
 	}
 
@@ -515,12 +531,23 @@ def list_reception(view="pending", search=None, limit=100):
 			UNIT,
 			filters={"received_on": (">=", getdate()), "is_migration": 0},
 			or_filters=or_filters,
-			fields=["name", "status", "destination", "scanned_code", "encargo", "customer", "item_name", "received_on", "received_by"],
+			fields=[
+				"name",
+				"status",
+				"destination",
+				"scanned_code",
+				"encargo",
+				"customer",
+				"item_name",
+				"received_on",
+				"received_by",
+				"materialization_status",
+			],
 			order_by="received_on desc",
 			limit_page_length=limit,
 		)
 		for row in rows:
-			row.screen = screen(row.status, row.destination, bool(row.encargo))[0]
+			row.screen = screen(row.status, row.destination, bool(row.encargo), row.materialization_status, row.encargo)[0]
 		return rows
 	or_filters = None
 	if text:
@@ -609,6 +636,28 @@ def resolve_unit(unit, item=None):
 
 
 @frappe.whitelist(methods=["POST"])
+def retry_materialization(unit):
+	"""Pendientes de vincular a OV: the same deterministic service; ComercialFRA never edits quantities."""
+	_require(is_commercial)
+	user = frappe.session.user
+	row = frappe.db.get_value(
+		UNIT, unit, ["status", "destination", "materialization_status"], as_dict=True, for_update=True
+	)
+	if (
+		not row
+		or row.status != POSTED
+		or row.destination != ENCARGO
+		or row.materialization_status not in materialization.RETRYABLE
+	):
+		frappe.throw(_("La unidad {0} no está pendiente de vincular a la Orden de Venta.").format(unit))
+	with administrator_context():
+		doc = frappe.get_doc(UNIT, unit)
+		materialization.materialize(doc, user)
+		doc.save(ignore_permissions=True)
+	return unit_result(doc.name)
+
+
+@frappe.whitelist(methods=["POST"])
 def return_unit(unit, notes=None):
 	"""DEVOLVER A STOCK: releases the reservation and moves the unit to Matriz; sales handles the order line."""
 	_require(is_commercial)
@@ -622,6 +671,7 @@ def return_unit(unit, notes=None):
 	with administrator_context():
 		doc = frappe.get_doc(UNIT, unit)
 		inventory.cancel_reservation(doc.stock_reservation_entry)
+		materialization.reverse(doc, user, notes)
 		transfer = inventory.make_transfer(
 			inventory.reception_company(),
 			doc.item,

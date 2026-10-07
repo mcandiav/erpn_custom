@@ -25,7 +25,7 @@ def _throw(msg, *a, **k):
 sys.modules.setdefault("frappe", _frappe)
 sys.modules.setdefault("frappe.utils", _frappe.utils)
 
-from erpn_custom.encargo import inventory, reception  # noqa: E402
+from erpn_custom.encargo import inventory, materialization, reception  # noqa: E402
 
 NOW = datetime(2026, 10, 6, 10, 0)
 QR = "https://qrgo.page.link/JsDVr"
@@ -133,6 +133,19 @@ class TestRules(ReceptionCase):
 		for status in ("PENDING_COST", "PENDING_CONFIGURATION"):
 			self.assertEqual(reception.screen(status, "ENCARGO", True), ("RECIBIDO - PENDIENTE DE VALORIZACION", "warning"))
 
+	def test_screen_when_order_link_failed(self):
+		self.assertEqual(
+			reception.screen("POSTED", "ENCARGO", True, "ERROR", "ENC-2026-00401"),
+			("APARTAR - ENC-2026-00401 - PENDIENTE DE VINCULAR A OV", "warning"),
+		)
+		for status in ("PENDING", "MATERIALIZED", None):
+			self.assertEqual(reception.screen("POSTED", "ENCARGO", True, status, "ENC-1"), ("APARTAR", "encargo"))
+
+	def test_link_queue_holds_only_retryable_set_aside_units(self):
+		view = reception.COMMERCIAL_VIEWS["vincular"]
+		self.assertEqual((view["status"], view["destination"]), ("POSTED", "ENCARGO"))
+		self.assertEqual(view["materialization_status"], ("in", ["PENDING", "ERROR"]))
+
 	def test_exact_match_is_case_sensitive(self):
 		rows = [D(name="A", purchase_barcode=QR), D(name="B", purchase_barcode=QR.lower())]
 		self.assertEqual([r.name for r in reception.exact_matches(rows, QR)], ["A"])
@@ -201,6 +214,9 @@ class TestAdvance(ReceptionCase):
 			patcher = patch.object(reception, name, value)
 			patcher.start()
 			self.addCleanup(patcher.stop)
+		patcher = patch.object(materialization, "materialize")
+		self.materialize = patcher.start()
+		self.addCleanup(patcher.stop)
 		self.frappe.get_cached_value = lambda *a: "CLP"
 
 	def encargo_unit(self):
@@ -220,6 +236,19 @@ class TestAdvance(ReceptionCase):
 		self.assertEqual((values["received_qty"], values["reception_status"]), (1, "RECEIVED"))
 		self.inv["reserve_unit"].assert_not_called()
 		reception._log.assert_called_once_with(self.enc.name, "RECEIVED", "r1@fragallardo.com", scanned_code=QR)
+
+	def test_encargo_pendiente_unit_is_materialized_after_the_receipt(self):
+		u = self.encargo_unit()
+		reception._advance(u)
+		self.assertEqual((u.status, u.materialization_status), (reception.POSTED, materialization.PENDING))
+		self.materialize.assert_called_once_with(u)
+
+	def test_known_item_is_not_materialized(self):
+		self.enc = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
+		u = self.encargo_unit()
+		reception._advance(u, ["ITEM-1"])
+		self.materialize.assert_not_called()
+		self.assertIsNone(u.materialization_status)
 
 	def test_regularized_unit_logs_who_regularized(self):
 		u = self.encargo_unit()
@@ -323,6 +352,33 @@ class TestEndpoints(ReceptionCase):
 		self.assertEqual(self.db.set_value.call_args.args[2]["received_qty"], 0)
 		log.assert_called_once()
 
+	def test_retry_link_runs_the_same_service(self):
+		self.frappe.get_roles = lambda: ["ComercialFRA"]
+		self.frappe.session = D(user="c1@fragallardo.com")
+		self.db.get_value = MagicMock(return_value=D(status="POSTED", destination="ENCARGO", materialization_status="ERROR"))
+		doc = unit(name="RCU-1", status="POSTED", destination="ENCARGO", encargo="ENC-1")
+		doc.save = MagicMock()
+		self.frappe.get_doc = lambda *a: doc
+		with patch.object(materialization, "materialize") as materialize, patch.object(
+			reception, "unit_result", lambda name: name
+		):
+			self.assertEqual(reception.retry_materialization("RCU-1"), "RCU-1")
+		materialize.assert_called_once_with(doc, "c1@fragallardo.com")
+		doc.save.assert_called_once_with(ignore_permissions=True)
+
+	def test_retry_link_rejects_units_not_waiting(self):
+		self.frappe.get_roles = lambda: ["ComercialFRA"]
+		for row in (
+			None,
+			D(status="POSTED", destination="ENCARGO", materialization_status="MATERIALIZED"),
+			D(status="POSTED", destination="STOCK", materialization_status=None),
+			D(status="PENDING_COST", destination="ENCARGO", materialization_status="PENDING"),
+		):
+			self.db.get_value = MagicMock(return_value=row)
+			with self.subTest(row=row), self.assertRaises(_Throw):
+				reception.retry_materialization("RCU-1")
+		self.frappe.get_doc.assert_not_called()
+
 	def test_regularize_is_admin_only(self):
 		self.frappe.get_roles = lambda: ["ComercialFRA"]
 		with self.assertRaises(_Throw):
@@ -344,10 +400,11 @@ class TestPermissions(ReceptionCase):
 		"list_units": lambda: reception.list_units(),
 		"resolve_unit": lambda: reception.resolve_unit("RCU-1"),
 		"return_unit": lambda: reception.return_unit("RCU-1", "Motivo"),
+		"retry_materialization": lambda: reception.retry_materialization("RCU-1"),
 		"regularize": lambda: reception.regularize_previous_receptions(),
 	}
 	DENIED = {
-		"FRAreceptor": ("list_units", "resolve_unit", "return_unit", "regularize"),
+		"FRAreceptor": ("list_units", "resolve_unit", "return_unit", "retry_materialization", "regularize"),
 		"ComercialFRA": ("receive_scan", "list_reception", "regularize"),
 		"ShopperFRA": tuple(ENDPOINTS),
 	}

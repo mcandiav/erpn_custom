@@ -66,7 +66,12 @@
   "received_on",
   "received_by",
   "resolved_by",
-  "reception_events"
+  "reception_events",
+  "section_materialization",
+  "materialized_qty",
+  "column_break_materialization",
+  "pending_materialize_qty",
+  "materializations"
  ],
  "fields": [
   {
@@ -483,11 +488,42 @@
    "label": "Bit?cora de recepci?n",
    "options": "Encargo Reception Event",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.source_type==='UNKNOWN_ITEM'",
+   "fieldname": "section_materialization",
+   "fieldtype": "Section Break",
+   "label": "Materialización en OV"
+  },
+  {
+   "default": "0",
+   "fieldname": "materialized_qty",
+   "fieldtype": "Float",
+   "label": "Cantidad materializada",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_materialization",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "pending_materialize_qty",
+   "fieldtype": "Float",
+   "label": "Pendiente de materializar",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materializations",
+   "fieldtype": "Table",
+   "label": "Materializaciones (Item real, línea de OV, recepción)",
+   "options": "Encargo Materializacion",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-06 11:00:00",
+ "modified": "2026-10-06 21:00:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Encargo",

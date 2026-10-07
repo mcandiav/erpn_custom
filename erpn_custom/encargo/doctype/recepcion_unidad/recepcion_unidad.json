@@ -44,7 +44,14 @@
   "returned_on",
   "returned_by",
   "return_reason",
-  "return_transfer"
+  "return_transfer",
+  "section_materialization",
+  "materialization_status",
+  "materialized_row",
+  "materialization_message",
+  "column_break_materialization",
+  "materialized_on",
+  "materialized_by"
  ],
  "fields": [
   {
@@ -309,12 +316,54 @@
    "label": "Transferencia a Matriz",
    "options": "Stock Entry",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_materialization",
+   "fieldtype": "Section Break",
+   "label": "Materialización en OV"
+  },
+  {
+   "fieldname": "materialization_status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Estado de materialización",
+   "options": "\nPENDING\nMATERIALIZED\nREVERSED\nERROR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materialized_row",
+   "fieldtype": "Data",
+   "label": "Línea real de la OV",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materialization_message",
+   "fieldtype": "Small Text",
+   "label": "Motivo pendiente de vincular",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_materialization",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "materialized_on",
+   "fieldtype": "Datetime",
+   "label": "Materializado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materialized_by",
+   "fieldtype": "Link",
+   "label": "Materializado por",
+   "options": "User",
+   "read_only": 1
   }
  ],
  "in_create": 1,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-06 11:00:00",
+ "modified": "2026-10-06 21:00:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Recepcion Unidad",

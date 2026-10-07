@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "creation": "2026-10-06 21:00:00",
+ "description": "Bitácora de materialización de ENCARGO-PENDIENTE en la Orden de Venta (Spec 019). La escribe solo el servicio de recepción.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "result",
+  "event_on",
+  "user",
+  "recepcion_unidad",
+  "scan_event_id",
+  "item",
+  "qty",
+  "column_break_order",
+  "sales_order",
+  "source_row",
+  "sales_order_item",
+  "technical_qty_before",
+  "technical_qty_after",
+  "materialized_qty",
+  "message"
+ ],
+ "fields": [
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Resultado",
+   "options": "MATERIALIZED\nREVERSED\nERROR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Fecha",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "Usuario",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recepcion_unidad",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Recepción Unidad",
+   "options": "Recepcion Unidad",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scan_event_id",
+   "fieldtype": "Data",
+   "label": "Scan event id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item real",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "Cantidad",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_order",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Orden de Venta",
+   "options": "Sales Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_row",
+   "fieldtype": "Data",
+   "label": "Línea ENCARGO-PENDIENTE",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "label": "Línea real",
+   "read_only": 1
+  },
+  {
+   "fieldname": "technical_qty_before",
+   "fieldtype": "Float",
+   "label": "Pendiente antes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "technical_qty_after",
+   "fieldtype": "Float",
+   "label": "Pendiente después",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materialized_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Materializado acumulado",
+   "read_only": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Detalle",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-06 21:00:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Encargo Materializacion",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

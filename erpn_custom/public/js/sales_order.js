@@ -13,6 +13,54 @@ frappe.ui.form.on("Sales Order", {
 		frm.trigger("show_customer_credit");
 		frm.trigger("setup_encargo_ui");
 		frm.trigger("setup_item_search");
+		frm.trigger("show_encargo_materialization");
+	},
+
+	show_encargo_materialization(frm) {
+		const wrapper = frm.fields_dict.items?.$wrapper;
+		if (!wrapper) {
+			return;
+		}
+		wrapper.find(".erpn-encargo-materialization").remove();
+		if (frm.doc.docstatus !== 1) {
+			return;
+		}
+		frappe.call({
+			method: "erpn_custom.encargo.materialization.order_summary",
+			args: { sales_order: frm.doc.name },
+			callback(r) {
+				const rows = r.message || [];
+				if (!rows.length) {
+					return;
+				}
+				const box = $('<div class="erpn-encargo-materialization small" style="margin-top: 8px;"></div>');
+				box.append($("<div class='text-muted'>").text(__("Encargos por llegar (Spec 019)")));
+				rows.forEach((enc) => {
+					const lines = (enc.lines || [])
+						.map((l) => __("fila {0}: {1} x{2}", [l.idx, l.item_code, format_number(l.qty, null, 0)]))
+						.join(" · ");
+					const line = $("<div>")
+						.append(
+							$("<a>")
+								.attr("href", `/app/encargo/${encodeURIComponent(enc.name)}`)
+								.text(enc.name)
+						)
+						.append(
+							document.createTextNode(
+								" · " +
+									__("Pedido {0} · Materializado {1} · Pendiente {2}", [
+										format_number(enc.requested_qty, null, 0),
+										format_number(enc.materialized_qty, null, 0),
+										format_number(enc.pending_materialize_qty, null, 0),
+									]) +
+									(lines ? " · " + lines : "")
+							)
+						);
+					box.append(line);
+				});
+				wrapper.append(box);
+			},
+		});
 	},
 
 	setup_item_search(frm) {
@@ -91,7 +139,7 @@ function show_view_encargo_button(frm, cdn) {
 		return;
 	}
 	toolbar.find(".erpn-view-encargo").remove();
-	const encargo = grid_row.doc.custom_encargo;
+	const encargo = grid_row.doc.custom_encargo || grid_row.doc.custom_encargo_origin;
 	if (!encargo) {
 		return;
 	}

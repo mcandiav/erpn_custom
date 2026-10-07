@@ -4,6 +4,7 @@ const RCC_VIEWS = [
 	{ view: "clasificacion", label: __("Pendientes de clasificación") },
 	{ view: "barcode", label: __("Excepciones barcode") },
 	{ view: "valorizacion", label: __("Pendientes de valorización") },
+	{ view: "vincular", label: __("Pendientes de vincular a OV") },
 ];
 
 const rcc_escape = (value) => frappe.utils.escape_html(value == null ? "" : String(value));
@@ -138,6 +139,11 @@ class CommercialReception {
 				${extra ? `<div class="small">${extra}</div>` : ""}
 				${row.reservation_note ? `<div class="text-muted small">${rcc_escape(row.reservation_note)}</div>` : ""}
 				${row.message ? `<div class="rcc-message small">${rcc_escape(row.message)}</div>` : ""}
+				${
+					row.materialization_message
+						? `<div class="rcc-message small">${rcc_escape(row.materialization_message)}</div>`
+						: ""
+				}
 				<div class="rcc-actions">${this.actions(row)}</div>
 			</div>
 		`;
@@ -155,6 +161,9 @@ class CommercialReception {
 		if (this.view === "valorizacion") {
 			return btn("retry", __("Reintentar valorización"), "btn-primary");
 		}
+		if (this.view === "vincular") {
+			return btn("link", __("Reintentar vinculación"), "btn-primary");
+		}
 		return "";
 	}
 
@@ -165,6 +174,8 @@ class CommercialReception {
 			this.resolve(unit);
 		} else if (action === "retry") {
 			this.call("resolve_unit", { unit });
+		} else if (action === "link") {
+			this.call("retry_materialization", { unit });
 		}
 	}
 
