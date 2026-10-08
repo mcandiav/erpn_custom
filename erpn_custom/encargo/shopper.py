@@ -106,7 +106,10 @@ def currency_label(currency, symbol):
 	"""'USD$' / 'EUR€': a bare '$' is read as CLP in Chile."""
 	currency = currency or inventory.PURCHASE_CURRENCY
 	symbol = (symbol or "").strip()
-	return currency if not symbol or symbol == currency else f"{currency}{symbol}"
+	if not symbol:
+		return currency
+	# Some symbols already carry the code (ERPNext CLP is "CLP$").
+	return symbol if currency.upper() in symbol.upper() else f"{currency}{symbol}"
 
 
 def totals_by_currency(rows, labels):

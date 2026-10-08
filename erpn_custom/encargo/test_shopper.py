@@ -48,6 +48,7 @@ class TestShopperRules(unittest.TestCase):
 		self.assertEqual(shopper.currency_label("USD", "$"), "USD$")
 		self.assertEqual(shopper.currency_label("EUR", "€"), "EUR€")
 		self.assertEqual(shopper.currency_label("CHF", "CHF"), "CHF")
+		self.assertEqual(shopper.currency_label("CLP", "CLP$"), "CLP$")
 		self.assertEqual(shopper.currency_label(None, ""), "USD")
 
 	def test_shopper_currency_defaults_to_usd(self):
