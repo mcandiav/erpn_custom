@@ -44,6 +44,31 @@ class TestShopperRules(unittest.TestCase):
 			patcher.start()
 			self.addCleanup(patcher.stop)
 
+	def test_currency_label_never_bare_dollar(self):
+		self.assertEqual(shopper.currency_label("USD", "$"), "USD$")
+		self.assertEqual(shopper.currency_label("EUR", "€"), "EUR€")
+		self.assertEqual(shopper.currency_label("CHF", "CHF"), "CHF")
+		self.assertEqual(shopper.currency_label(None, ""), "USD")
+
+	def test_shopper_currency_defaults_to_usd(self):
+		with patch.object(shopper.frappe.db, "get_value", return_value=None):
+			self.assertEqual(shopper.shopper_currency("a@x.cl"), "USD")
+		with patch.object(shopper.frappe.db, "get_value", return_value="EUR"):
+			self.assertEqual(shopper.shopper_currency("b@x.cl"), "EUR")
+
+	def test_totals_split_by_currency(self):
+		rows = [
+			{"purchase_currency": "USD", "purchase_total": 10},
+			{"purchase_currency": "EUR", "purchase_total": 5.5},
+			{"purchase_currency": "USD", "purchase_total": 2.25},
+		]
+		totals = shopper.totals_by_currency(rows, {"USD": "USD$", "EUR": "EUR€"})
+		self.assertEqual(
+			totals,
+			[{"currency": "USD", "label": "USD$", "total": 12.25}, {"currency": "EUR", "label": "EUR€", "total": 5.5}],
+		)
+		self.assertEqual(shopper.totals_by_currency([], {}), [])
+
 	def test_role_gate(self):
 		self.assertTrue(shopper.is_shopper(["ShopperFRA", "Guest"]))
 		self.assertFalse(shopper.is_shopper(["ComercialFRA", "Sales User"]))

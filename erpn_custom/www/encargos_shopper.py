@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 
-from erpn_custom.encargo.shopper import is_shopper
+from erpn_custom.encargo.shopper import is_shopper, label_of, shopper_currency
 
 no_cache = 1
 
@@ -15,3 +15,4 @@ def get_context(context):
 	context.no_cache = 1
 	context.show_sidebar = False
 	context.title = _("Encargos por comprar")
+	context.currency_label = label_of(shopper_currency(frappe.session.user))

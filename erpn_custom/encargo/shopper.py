@@ -13,6 +13,7 @@ SHOPPER_ROLE = "ShopperFRA"
 ALLOWED_ROLES = (SHOPPER_ROLE, "System Manager")
 REVIEW_AFTER_NOT_FOUND = 3
 ALL_PLACES = "TODOS"
+SHOPPER_CURRENCY_FIELD = "custom_shopper_currency"
 
 # Never add customer, sales order, sale rate or seller: the shopper must not see them.
 # reference_url is only sent through reference_link(), which drops links into this ERP.
@@ -99,6 +100,33 @@ def missing_evidence(barcode, product_image, label_image, price):
 	if flt(price) <= 0:
 		missing.append(_("precio"))
 	return missing
+
+
+def currency_label(currency, symbol):
+	"""'USD$' / 'EUR€': a bare '$' is read as CLP in Chile."""
+	currency = currency or inventory.PURCHASE_CURRENCY
+	symbol = (symbol or "").strip()
+	return currency if not symbol or symbol == currency else f"{currency}{symbol}"
+
+
+def totals_by_currency(rows, labels):
+	"""Purchase totals per currency, never added across currencies."""
+	totals = {}
+	for row in rows:
+		totals[row["purchase_currency"]] = totals.get(row["purchase_currency"], 0) + flt(row["purchase_total"])
+	return [
+		{"currency": currency, "label": labels.get(currency, currency), "total": flt(total, 2)}
+		for currency, total in totals.items()
+	]
+
+
+def shopper_currency(user):
+	"""Currency set on the shopper's User (System Manager); USD when empty."""
+	return frappe.db.get_value("User", user, SHOPPER_CURRENCY_FIELD) or inventory.PURCHASE_CURRENCY
+
+
+def label_of(currency):
+	return currency_label(currency, frappe.get_cached_value("Currency", currency, "symbol"))
 
 
 def needs_review(not_found_count):
@@ -285,8 +313,11 @@ def list_pending(supplier=None):
 
 def _purchase_card(row, event, place_labels, own_host):
 	card = _card(row, own_host)
+	currency = event.purchase_currency or inventory.PURCHASE_CURRENCY
 	card.update(
 		{
+			"purchase_currency": currency,
+			"currency_label": label_of(currency),
 			"supply_event": event.name,
 			"image": _image_url(row.name, row.reference_image, "reference", event.name),
 			"purchase_qty": flt(event.qty),
@@ -330,10 +361,11 @@ def list_purchased(period="today"):
 		for event in events
 		if event.parent in encargos
 	]
+	labels = {row["purchase_currency"]: row["currency_label"] for row in rows}
 	return {
 		"rows": rows,
 		"count": len(rows),
-		"total": flt(sum(row["purchase_total"] for row in rows), 2),
+		"totals": totals_by_currency(rows, labels),
 	}
 
 
@@ -442,7 +474,7 @@ def confirm_purchase(
 		proposed_supplier_name=place_proposed,
 		purchase_barcode=barcode,
 		purchase_price=flt(price, 2),
-		purchase_currency=inventory.PURCHASE_CURRENCY,
+		purchase_currency=shopper_currency(user),
 		purchase_product_image=_save_evidence(encargo, "purchase_product_image", *product),
 		purchase_label_image=_save_evidence(encargo, "purchase_label_image", *label),
 	)

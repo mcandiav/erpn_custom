@@ -61,6 +61,7 @@
 <script>
 (function () {
 	const TODOS = "TODOS";
+	const CURRENCY_LABEL = {{ currency_label | tojson }};
 	const PLACE_KEY = "erpn_shopper_place";
 	const FILTERS_KEY = "erpn_shopper_filters";
 	const MODULE_KEY = "erpn_shopper_module";
@@ -119,8 +120,9 @@
 		loadList();
 	}
 
-	function money(value) {
-		return Number(value || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	function money(value, label) {
+		const amount = Number(value || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+		return `${label || CURRENCY_LABEL} ${amount}`;
 	}
 
 	function when(value) {
@@ -146,7 +148,7 @@
 					<div class="shp-meta">${esc(row.brand || "")}${row.item_group ? " · " + esc(row.item_group) : ""}</div>
 					${row.variant ? `<div class="shp-meta">${esc(row.variant)}</div>` : ""}
 					<div class="shp-meta">Lugar: ${esc(row.place || "")}</div>
-					<div class="shp-meta">Precio unitario: <strong>${esc(money(row.purchase_price))}</strong> · ${esc(row.purchase_qty)} ${row.purchase_qty === 1 ? "unidad" : "unidades"} · Total ${esc(money(row.purchase_total))}</div>
+					<div class="shp-meta">Precio unitario: <strong>${esc(money(row.purchase_price, row.currency_label))}</strong> · ${esc(row.purchase_qty)} ${row.purchase_qty === 1 ? "unidad" : "unidades"} · Total ${esc(money(row.purchase_total, row.currency_label))}</div>
 					${row.purchase_status === "REJECTED" ? `<div class="shp-warn">Compra rechazada por comercial</div>` : ""}
 					<div class="shp-meta">Barcode: ${esc(row.purchase_barcode || "")}</div>
 					${referenceHtml(row)}
@@ -178,7 +180,7 @@
 		}
 		if (state.module !== "mis") return;
 		body.innerHTML = `
-			<div class="shp-sum"><span>${data.count} ${data.count === 1 ? "compra" : "compras"}</span><span>Total ${esc(money(data.total))}</span></div>
+			<div class="shp-sum"><span>${data.count} ${data.count === 1 ? "compra" : "compras"}</span><span>Total ${esc((data.totals || []).map((t) => money(t.total, t.label)).join(" · ") || money(0))}</span></div>
 			${data.rows.length ? data.rows.map(mineCard).join("") : `<div class="shp-empty">Sin compras en este período.</div>`}`;
 	}
 
@@ -672,8 +674,8 @@
 				photoStep(3, "Foto de etiqueta / tag", "label");
 			} else {
 				body.innerHTML = `
-					<div class="shp-step">4/4 Precio</div>
-					<input id="cap-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio pagado por unidad" value="${esc(cap.price)}">`;
+					<div class="shp-step">4/4 Precio en ${esc(CURRENCY_LABEL)}</div>
+					<input id="cap-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio pagado por unidad en ${esc(CURRENCY_LABEL)}" value="${esc(cap.price)}">`;
 				const input = body.querySelector("#cap-price");
 				input.addEventListener("input", () => {
 					cap.price = input.value;
