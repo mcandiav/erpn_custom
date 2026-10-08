@@ -15,6 +15,14 @@ frappe.ui.form.on("Sales Order", {
 		frm.trigger("setup_item_search");
 		frm.trigger("show_encargo_materialization");
 		frm.trigger("show_line_supply");
+		frm.trigger("setup_reservation_review");
+	},
+
+	setup_reservation_review(frm) {
+		frm.remove_custom_button(__("Revisar reservas"));
+		if (frm.doc.docstatus === 1 && frappe.user.has_role("System Manager")) {
+			frm.add_custom_button(__("Revisar reservas"), () => review_reservations(frm));
+		}
 	},
 
 	// Spec 017 §12.2: Continuar confirms the figure; the server rechecks it before reserving.
@@ -202,6 +210,70 @@ frappe.ui.form.on("Sales Order Item", {
 		show_view_encargo_button(frm, cdn);
 	},
 });
+
+function review_reservations(frm) {
+	frappe.call({
+		method: "erpn_custom.encargo.reservations.review_reservations",
+		args: { sales_order: frm.doc.name },
+		freeze: true,
+		freeze_message: __("Revisando reservas"),
+		callback(r) {
+			show_reservation_report(frm, r.message || { lines: [], issues: 0 });
+		},
+	});
+}
+
+function reservation_report_html(lines) {
+	const rows = [];
+	lines.forEach((line) => {
+		line.issues.forEach((issue) => {
+			rows.push(
+				`<li>${frappe.utils.escape_html(
+					__("fila {0} ({1}): {2}", [line.idx, line.item_code, issue.message])
+				)}${issue.repairable ? "" : ` <span class="text-muted">${__("(revisar a mano)")}</span>`}</li>`
+			);
+		});
+	});
+	if (!rows.length) {
+		return `<p>${__("Sin diferencias: cada unidad cubierta tiene su reserva vigente en la bodega donde está.")}</p>`;
+	}
+	return `<ul>${rows.join("")}</ul>`;
+}
+
+function show_reservation_report(frm, data) {
+	const repairable = data.lines.some((line) => line.issues.some((issue) => issue.repairable));
+	const dialog = new frappe.ui.Dialog({
+		title: __("Reservas de {0}", [frm.doc.name]),
+		fields: [{ fieldtype: "HTML", options: reservation_report_html(data.lines) }],
+		primary_action_label: repairable ? __("Corregir reservas") : __("Cerrar"),
+		primary_action() {
+			dialog.hide();
+			if (!repairable) {
+				return;
+			}
+			frappe.call({
+				method: "erpn_custom.encargo.reservations.repair_reservations",
+				type: "POST",
+				args: { sales_order: frm.doc.name },
+				freeze: true,
+				freeze_message: __("Corrigiendo reservas"),
+				callback(r) {
+					const result = r.message || {};
+					const failed = (result.repaired || []).filter((row) => !row.ok);
+					if (failed.length) {
+						frappe.msgprint(
+							failed.map((row) => frappe.utils.escape_html(`${row.name}: ${row.problem}`)).join("<br>"),
+							__("Reservas no corregidas")
+						);
+					}
+					frm.reload_doc();
+					show_reservation_report(frm, result.after || { lines: [], issues: 0 });
+				},
+			});
+		},
+	});
+	dialog.show();
+}
 
 // ERPNext's dot only compares the line warehouse snapshot; units reserved through Encargos never count.
 function set_supply_indicator(frm, lines) {

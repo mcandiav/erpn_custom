@@ -54,10 +54,12 @@ EVENT_FIELDS = [
 	"reception_unit",
 	"request_id",
 ]
-UNIT_FIELDS = ["name", "status", "destination", "supply_event"]
+UNIT_FIELDS = ["name", "status", "destination", "supply_event", "warehouse", "stock_reservation_entry"]
 ENCARGO_FIELDS = [
 	"name",
 	"status",
+	"source_type",
+	"sales_order_item",
 	"requested_qty",
 	"received_qty",
 	"purchase_status",
@@ -95,8 +97,11 @@ def is_live_unit(unit):
 	return unit.get("status") != RETURNED and unit.get("destination") == ENCARGO_DESTINATION
 
 
-def summarize(requested, events, units):
-	"""All demand quantities from real data; repeated calls give the same result (Spec 020 §6, §10)."""
+def summarize(requested, events, units, invalid=0):
+	"""All demand quantities from real data; repeated calls give the same result (Spec 020 §6, §10).
+
+	invalid: covered units whose ERPNext reservation is gone or misplaced; still sourced, not covered.
+	"""
 	requested = flt(requested)
 	arrived = {}
 	posted = waiting = unlinked = 0
@@ -135,7 +140,8 @@ def summarize(requested, events, units):
 		waiting_qty=waiting,
 		stock_qty=stock,
 		legacy_qty=legacy,
-		covered_qty=min(posted + stock + legacy, requested),
+		covered_qty=max(min(posted + stock + legacy, requested) - flt(invalid), 0),
+		invalid_qty=flt(invalid),
 		pending_receive_qty=in_transit,
 		exception_qty=exception,
 		event_status=statuses,
@@ -243,9 +249,11 @@ def reconcile_encargo_supply(encargo):
 	enc = lock_encargo(encargo)
 	if not enc:
 		return None
+	from erpn_custom.encargo import reservations
+
 	events = locked_events(encargo)
 	units = locked_units(encargo)
-	totals = summarize(enc.requested_qty, events, units)
+	totals = summarize(enc.requested_qty, events, units, reservations.encargo_invalid_qty(enc, events, units))
 	for event in events:
 		values = {}
 		status = totals.event_status[event.name]

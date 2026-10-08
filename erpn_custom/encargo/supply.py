@@ -10,6 +10,7 @@ from frappe.utils import flt
 from erpn_custom.encargo import ENCARGO_PENDIENTE_ITEM, barcode_exception, demand
 
 COVERED = "Cubierto"
+INVALID = "Reserva inválida"
 PENDING = "Demanda pendiente"
 PURCHASED = "Comprado"
 EXCEPTION = "Excepción barcode"
@@ -49,13 +50,15 @@ def encargo_buckets(enc, totals):
 	if enc.get("status") == "Cancelled":
 		return [(CANCELLED, qty)]
 	arrived = totals.received_qty + totals.legacy_qty
+	invalid = flt(totals.get("invalid_qty"))
 	if enc.get("source_type") == "KNOWN_ITEM":
-		ready = (COVERED, arrived + totals.stock_qty)
+		ready = (COVERED, arrived + totals.stock_qty - invalid)
 	else:
 		ready = (RECEIVED, max(arrived - materialized, 0))
 	return fit(
 		[
 			ready,
+			(INVALID, invalid),
 			(RECEPTION, totals.waiting_qty),
 			(PURCHASED, totals.pending_receive_qty - totals.exception_qty),
 			(EXCEPTION, totals.exception_qty),
@@ -77,7 +80,7 @@ def line_buckets(line_qty, encargo_bucket_lists, order_cancelled=False):
 				merged[label] = merged.get(label, 0) + qty
 	# What no Encargo explains is stock committed when the order was submitted.
 	covered = max(line_qty - sum(q for label, q in merged.items() if label != COVERED), 0)
-	order = [COVERED, PENDING, PURCHASED, EXCEPTION, REJECTED, RECEPTION, RECEIVED]
+	order = [COVERED, INVALID, PENDING, PURCHASED, EXCEPTION, REJECTED, RECEPTION, RECEIVED]
 	result = [(COVERED, covered)] if covered > 0 else []
 	result += [(label, merged[label]) for label in order[1:] if label in merged]
 	return result
@@ -97,9 +100,14 @@ def encargo_totals(encargos):
 			events.setdefault(row.parent, []).append(row)
 		for row in frappe.get_all(demand.UNIT, filters={"encargo": ("in", names)}, fields=["encargo", *demand.UNIT_FIELDS]):
 			units.setdefault(row.encargo, []).append(row)
-	return {
-		e.name: demand.summarize(e.requested_qty, events.get(e.name, []), units.get(e.name, [])) for e in encargos
-	}
+	from erpn_custom.encargo import reservations
+
+	totals = {}
+	for e in encargos:
+		rows, live = events.get(e.name, []), units.get(e.name, [])
+		invalid = reservations.encargo_invalid_qty(e, rows, live) if e.get("status") != "Cancelled" else 0
+		totals[e.name] = demand.summarize(e.requested_qty, rows, live, invalid)
+	return totals
 
 
 def line_indicator(buckets):
