@@ -188,6 +188,7 @@ doc_events = {
 	"Delivery Note": {
 		"before_insert": "erpn_custom.naming.series.set_return_series",
 		"before_validate": "erpn_custom.encargo.materialization.block_pending_delivery",
+		"validate": "erpn_custom.encargo.delivery.validate_reserved_delivery",
 	},
 	"Purchase Invoice": {
 		"before_insert": "erpn_custom.naming.series.set_return_series",

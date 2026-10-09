@@ -1,6 +1,6 @@
 # Tasks — Spec 017
 
-Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102 (revalidadas por Spec 020), E5 en 16.0.110.
+Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102 (revalidadas por Spec 020), E5 en 16.0.110, E6 en 16.0.111.
 
 ## E1–E4 (16.0.102)
 
@@ -21,10 +21,10 @@ Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102
 - [x] T12 Bloquear Actualizar artículos en OV con Encargo (servidor + botón oculto)
 - [x] T13 Acción "Ajustar cantidad" (`encargo/quantity_adjust.py`): aumento con gate de pago, reserva del stock disponible y faltante al mismo Encargo; disminución sobre faltante y luego reserva de stock al validar; tests `test_quantity_adjust.py`
 
-## E6 — Entrega
+## E6 — Entrega (16.0.111)
 
-- [ ] T14 Nota de Entrega: solo cantidad reservada; unidades de compras PENDING_APPROVAL / REJECTED no entregables; ENCARGO-PENDIENTE sigue bloqueado
-- [ ] T15 Stock disponible no se entrega sin reservar antes con "Asignar stock a demanda" (decisión A de Miguel; reemplaza el "resuelto por stock" al validar la NE)
+- [x] T14 Nota de Entrega (`encargo/delivery.py`, hook `validate`): en OV con Encargos cada fila entrega como máximo lo reservado de su línea en esa bodega; unidades de compras PENDING_APPROVAL / REJECTED no tienen reserva de la línea, por lo tanto no son entregables; ENCARGO-PENDIENTE sigue bloqueado por Spec 019; devoluciones y OV sin Encargos siguen el estándar
+- [x] T15 Stock disponible no se entrega sin reservar antes con "Asignar stock a demanda" (decisión A de Miguel; reemplaza el "resuelto por stock" al validar la NE); tests `test_delivery.py`
 
 ## E7 — Cierre
 

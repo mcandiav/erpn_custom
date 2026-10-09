@@ -37,7 +37,7 @@ Spec 020 reemplaza cualquier supuesto de compra monolítica, `purchase_status` c
 | E3 | Recepción reacciona (aprobar reanuda la unidad, rechazar la deriva a stock/clasificación); vista Excepciones barcode; botones en Encargo; anular OV con compra rechazada | Hecho 16.0.102 |
 | E4 | Estado por línea (cantidades que reconcilian) y modal Validar con recálculo en servidor | Hecho 16.0.102 |
 | E5 | Bloqueo de "Actualizar artículos" con Encargo y acción "Ajustar cantidad" | Hecho 16.0.110 |
-| E6 | Entrega: solo lo reservado; unidades de compras en excepción no entregables | Pendiente |
+| E6 | Entrega: solo lo reservado; unidades de compras en excepción no entregables | Hecho 16.0.111 |
 | E7 | Cierre: piloto, README, tasks | Pendiente |
 
 ## Interpretaciones y límites conocidos
