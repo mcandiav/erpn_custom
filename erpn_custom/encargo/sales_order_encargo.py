@@ -133,28 +133,32 @@ def ensure_encargos_for_known_shortfalls(doc):
 			item.custom_encargo = by_row
 			_sync_known_encargo(by_row, doc, item, encargo_qty, sales_person, origin)
 			continue
-		enc = frappe.get_doc(
-			{
-				"doctype": "Encargo",
-				"naming_series": "ENC-.YYYY.-.#####",
-				"status": "Draft",
-				"source_type": "KNOWN_ITEM",
-				"sales_order": doc.name,
-				"sales_order_item": item.name,
-				"customer": doc.customer,
-				"sales_person": sales_person,
-				"description": item.description or item.item_name or item.item_code,
-				"expected_item": item.item_code,
-				"brand": origin["brand"],
-				"supplier": origin.get("supplier"),
-				"requested_qty": encargo_qty,
-				"sale_rate": item.rate,
-				"purchase_status": "PENDING",
-				"reception_status": "PENDING",
-			}
-		)
-		enc.insert(ignore_permissions=True)
-		item.custom_encargo = enc.name
+		item.custom_encargo = new_known_encargo(doc, item, encargo_qty, sales_person, origin)
+
+
+def new_known_encargo(doc, item, qty, sales_person, origin, status="Draft"):
+	enc = frappe.get_doc(
+		{
+			"doctype": "Encargo",
+			"naming_series": "ENC-.YYYY.-.#####",
+			"status": status,
+			"source_type": "KNOWN_ITEM",
+			"sales_order": doc.name,
+			"sales_order_item": item.name,
+			"customer": doc.customer,
+			"sales_person": sales_person,
+			"description": item.description or item.item_name or item.item_code,
+			"expected_item": item.item_code,
+			"brand": origin["brand"],
+			"supplier": origin.get("supplier"),
+			"requested_qty": qty,
+			"sale_rate": item.rate,
+			"purchase_status": "PENDING",
+			"reception_status": "PENDING",
+		}
+	)
+	enc.insert(ignore_permissions=True)
+	return enc.name
 
 
 def _item_brand_origin(item_code):

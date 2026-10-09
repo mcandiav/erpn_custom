@@ -16,6 +16,30 @@ frappe.ui.form.on("Sales Order", {
 		frm.trigger("show_encargo_materialization");
 		frm.trigger("show_line_supply");
 		frm.trigger("setup_reservation_review");
+		frm.trigger("setup_quantity_adjust");
+	},
+
+	// Spec 017 §13: Update Items would recreate every reservation; orders with Encargos use Ajustar cantidad.
+	setup_quantity_adjust(frm) {
+		frm.remove_custom_button(__("Ajustar cantidad"));
+		if (frm.doc.docstatus !== 1) {
+			return;
+		}
+		frappe.call({
+			method: "erpn_custom.encargo.quantity_adjust.order_adjust_info",
+			args: { sales_order: frm.doc.name },
+			callback(r) {
+				const info = r.message || {};
+				// Runs after ERPNext's own refresh, which adds Update Items.
+				if (info.blocked) {
+					frm.remove_custom_button(__("Update Items"));
+				}
+				frm.remove_custom_button(__("Ajustar cantidad"));
+				if (info.can_adjust && (info.lines || []).length) {
+					frm.add_custom_button(__("Ajustar cantidad"), () => adjust_quantity_dialog(frm, info.lines));
+				}
+			},
+		});
 	},
 
 	setup_reservation_review(frm) {
@@ -210,6 +234,73 @@ frappe.ui.form.on("Sales Order Item", {
 		show_view_encargo_button(frm, cdn);
 	},
 });
+
+function adjust_quantity_dialog(frm, lines) {
+	const label = (line) => __("fila {0}: {1} x{2}", [line.idx, line.item_code, format_number(line.qty, null, 0)]);
+	const by_label = {};
+	lines.forEach((line) => {
+		by_label[label(line)] = line;
+	});
+	const dialog = new frappe.ui.Dialog({
+		title: __("Ajustar cantidad en {0}", [frm.doc.name]),
+		fields: [
+			{
+				fieldname: "line",
+				label: __("Línea"),
+				fieldtype: "Select",
+				options: Object.keys(by_label),
+				reqd: 1,
+				onchange: () => preview(),
+			},
+			{ fieldname: "new_qty", label: __("Nueva cantidad"), fieldtype: "Int", reqd: 1, onchange: () => preview() },
+			{ fieldname: "plan", fieldtype: "HTML" },
+			{ fieldname: "reason", label: __("Motivo"), fieldtype: "Small Text", reqd: 1 },
+		],
+		primary_action_label: __("Ajustar"),
+		primary_action(values) {
+			const line = by_label[values.line];
+			frappe.call({
+				method: "erpn_custom.encargo.quantity_adjust.adjust_line_qty",
+				type: "POST",
+				args: {
+					sales_order: frm.doc.name,
+					sales_order_item: line.name,
+					new_qty: values.new_qty,
+					reason: values.reason,
+				},
+				freeze: true,
+				freeze_message: __("Ajustando cantidad"),
+				callback(r) {
+					dialog.hide();
+					frappe.show_alert({ message: (r.message || {}).message || __("Cantidad ajustada"), indicator: "green" });
+					frm.reload_doc();
+				},
+			});
+		},
+	});
+	const show = (text, ok) => {
+		dialog.fields_dict.plan.$wrapper.html(
+			text ? `<p class="${ok ? "text-muted" : "text-danger"}">${frappe.utils.escape_html(text)}</p>` : ""
+		);
+	};
+	function preview() {
+		const line = by_label[dialog.get_value("line")];
+		const qty = dialog.get_value("new_qty");
+		if (!line || !qty) {
+			show("");
+			return;
+		}
+		frappe.call({
+			method: "erpn_custom.encargo.quantity_adjust.preview_line_adjustment",
+			args: { sales_order: frm.doc.name, sales_order_item: line.name, new_qty: qty },
+			callback(r) {
+				const data = r.message || {};
+				show(data.message, data.ok);
+			},
+		});
+	}
+	dialog.show();
+}
 
 function review_reservations(frm) {
 	frappe.call({

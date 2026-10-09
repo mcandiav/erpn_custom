@@ -1,6 +1,6 @@
 # Tasks — Spec 017
 
-Estado: PAUSADA (E1–E4 entregadas en 16.0.102). No ejecutar E5/E6 hasta completar Spec 020 y revalidar estas tareas contra el modelo multifuente.
+Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102 (revalidadas por Spec 020), E5 en 16.0.110.
 
 ## E1–E4 (16.0.102)
 
@@ -13,19 +13,19 @@ Estado: PAUSADA (E1–E4 entregadas en 16.0.102). No ejecutar E5/E6 hasta comple
 - [x] T07 `encargo/supply.py`: estado por línea y vista previa al Shopper; `require_confirmed_shortfall` en `before_submit`; modal Continuar/Cancelar en `sales_order.js`
 - [x] T08 Patch `v0_0_42`: campo `custom_shopper_qty_confirmed`; unidades en PENDING_BARCODE_APPROVAL → Encargo PENDING_APPROVAL + ToDo
 - [x] T09 Tests: `test_barcode_exception.py`, `test_supply.py`
-- [ ] T10 Piloto 16.0.102: compra con barcode distinto, aprobar, rechazar, nueva compra, modal Validar (confirmar que Frappe 16 espera el `before_submit` del formulario), estado por línea
+- [x] T10 Piloto 16.0.102: reemplazado por pruebas automáticas (decisión de Miguel 2026-10-09); excepción por evento cubierta en `test_spec020_acceptance.py`
 
-## E5 — Cambios de cantidad
+## E5 — Cambios de cantidad (16.0.110)
 
-- [ ] T11 Revisión de solo lectura de `update_child_qty_rate` (ERPNext 16)
-- [ ] T12 Bloquear Actualizar artículos en OV con Encargo
-- [ ] T13 Acción "Ajustar cantidad de Encargo" (aumento con gate de pago y SRE del delta; disminución sobre pendiente y luego reserva)
+- [x] T11 Revisión de solo lectura de `update_child_qty_rate` (ERPNext 16): anula y recrea todas las reservas de la OV
+- [x] T12 Bloquear Actualizar artículos en OV con Encargo (servidor + botón oculto)
+- [x] T13 Acción "Ajustar cantidad" (`encargo/quantity_adjust.py`): aumento con gate de pago, reserva del stock disponible y faltante al mismo Encargo; disminución sobre faltante y luego reserva de stock al validar; tests `test_quantity_adjust.py`
 
 ## E6 — Entrega
 
-- [ ] T14 Cantidad entregable por línea; PENDING_APPROVAL / REJECTED no entregables
-- [ ] T15 Stock libre del mismo KNOWN_ITEM resuelve el Encargo al validar la NE; propuesta para anulación de NE
+- [ ] T14 Nota de Entrega: solo cantidad reservada; unidades de compras PENDING_APPROVAL / REJECTED no entregables; ENCARGO-PENDIENTE sigue bloqueado
+- [ ] T15 Stock disponible no se entrega sin reservar antes con "Asignar stock a demanda" (decisión A de Miguel; reemplaza el "resuelto por stock" al validar la NE)
 
 ## E7 — Cierre
 
-- [ ] T16 Piloto completo, README (bitácora y Spec vigente), cierre de tasks
+- [ ] T16 Matriz de las 50 pruebas de §17 con evidencia, README (bitácora y Spec vigente), cierre de tasks

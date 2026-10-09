@@ -229,6 +229,9 @@ override_whitelisted_methods = {
 	"erpnext.accounts.doctype.bank_statement_import.bank_statement_import.form_start_import": (
 		"erpn_custom.integrations.banco_chile_import.form_start_import"
 	),
+	"erpnext.controllers.accounts_controller.update_child_qty_rate": (
+		"erpn_custom.encargo.quantity_adjust.update_child_qty_rate"
+	),
 }
 #
 # each overriding function accepts a `data` argument;
