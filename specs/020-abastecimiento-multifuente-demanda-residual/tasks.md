@@ -1,6 +1,6 @@
 # Tasks - Spec 020 Abastecimiento multifuente y demanda residual
 
-Estado: IMPLEMENTADA (16.0.109); pendiente solo verificación de Delivery Note
+Estado: CERRADA (16.0.109, 2026-10-09)
 Fecha: 2026-10-07
 
 ## Modelo
@@ -63,7 +63,7 @@ Fecha: 2026-10-07
 - [x] Adaptar Spec 017 a excepción por evento.
 - [x] Adaptar Spec 018 a demanda sin compra previa.
 - [x] Confirmar Spec 019 solo materializa UNKNOWN_ITEM.
-- [ ] Revisar Delivery Note.
+- [x] Revisar Delivery Note. (2026-10-09: NE-2026-00003 enviada descontó FRA-00001 desde `Recepcion Encargos - FRAG` contra OV-2026-00326 / línea neou35fdo0.)
 
 ## Pruebas
 - [x] Ejecutar los 30 casos de spec.md §23. (ver `checklists/acceptance.md`, 2026-10-09)

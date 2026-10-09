@@ -37,6 +37,6 @@ Archivos de prueba en `erpn_custom/encargo/`. `acc` = `test_spec020_acceptance.p
 - 4 Shoppers 1+1+1+1, cola 4 a 0: `acc` TestFourShoppers.
 - 4 recepciones directas sin compra, cola 4 a 0: `acc` TestFourDirectReceptions; en producción, ENC-403 y ENC-405.
 
-## Pendiente
+## Delivery Note
 
-- Delivery Note de una línea con SRE en `Recepcion Encargos - FRAG` y línea OV en `Matriz - FRAG`: PENDIENTE DE VERIFICACIÓN. Evidencia parcial: NE-2026-00003 descontó FRA-00001 de `Recepcion Encargos - FRAG`.
+- Verificado 2026-10-09: NE-2026-00003 (docstatus 1) entregó FRA-00001 desde `Recepcion Encargos - FRAG` contra OV-2026-00326 (línea neou35fdo0), la bodega donde estaba la unidad apartada.
