@@ -155,6 +155,7 @@
 					<div class="shp-code">${esc(row.name)}</div>
 				</div>
 				<div class="shp-thumbs">${thumb(row.product_image, "Producto")}${thumb(row.label_image, "Etiqueta")}</div>
+				${row.editable ? `<div class="shp-actions"><button type="button" data-edit="${esc(row.supply_event)}">Editar compra</button></div>` : ""}
 			</div>`;
 	}
 
@@ -182,6 +183,13 @@
 		body.innerHTML = `
 			<div class="shp-sum"><span>${data.count} ${data.count === 1 ? "compra" : "compras"}</span><span>Total ${esc((data.totals || []).map((t) => money(t.total, t.label)).join(" · ") || money(0))}</span></div>
 			${data.rows.length ? data.rows.map(mineCard).join("") : `<div class="shp-empty">Sin compras en este período.</div>`}`;
+		const byEvent = {};
+		data.rows.forEach((row) => {
+			byEvent[row.supply_event] = row;
+		});
+		body.querySelectorAll("[data-edit]").forEach((btn) =>
+			btn.addEventListener("click", () => openEdit(byEvent[btn.dataset.edit]))
+		);
 	}
 
 	function renderMore() {
@@ -573,6 +581,125 @@
 			box.innerHTML = "";
 			toast(cameraError(e));
 		}
+	}
+
+	function openEdit(row) {
+		const draft = {
+			barcode: row.purchase_barcode || "",
+			price: row.purchase_price == null ? "" : String(row.purchase_price),
+			product: null,
+			label: null,
+			place: row.supplier
+				? { supplier: row.supplier, label: row.place }
+				: row.proposed_supplier_name
+					? { proposed: row.proposed_supplier_name, label: row.proposed_supplier_name }
+					: null,
+		};
+		const panel = openPanel(`
+			<div class="shp-bar"><strong>Editar compra</strong><button data-close>Cancelar</button></div>
+			<div class="shp-meta">${esc(row.description || "")}</div>
+			<div class="shp-step">Precio en ${esc(row.currency_label)}</div>
+			<input id="edit-price" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(draft.price)}">
+			<div class="shp-meta" id="edit-money"></div>
+			<div class="shp-step">Lugar de compra</div>
+			${placeFields("edit", false)}
+			<div class="shp-step">Barcode o QR</div>
+			<input id="edit-code" inputmode="numeric" autocomplete="off" value="${esc(draft.barcode)}">
+			<div class="shp-nav"><button type="button" id="edit-scan">Escanear con la cámara</button></div>
+			<div id="edit-video"></div>
+			<div class="shp-step">Foto del producto</div>
+			<input type="file" accept="image/*" capture="environment" id="edit-product">
+			<img class="shp-preview" id="edit-product-preview" src="${esc(row.product_image || "")}" ${row.product_image ? "" : "style=\"display:none\""}>
+			<div class="shp-step">Foto de etiqueta</div>
+			<input type="file" accept="image/*" capture="environment" id="edit-label">
+			<img class="shp-preview" id="edit-label-preview" src="${esc(row.label_image || "")}" ${row.label_image ? "" : "style=\"display:none\""}>
+			<div class="shp-nav">
+				<button type="button" id="edit-cancel">Cancelar</button>
+				<button class="primary" type="button" id="edit-save">Guardar cambios</button>
+			</div>`);
+		const price = panel.querySelector("#edit-price");
+		const moneyLine = panel.querySelector("#edit-money");
+		const code = panel.querySelector("#edit-code");
+		const save = panel.querySelector("#edit-save");
+		const showMoney = () => {
+			moneyLine.textContent = money(price.value, row.currency_label);
+		};
+		const ready = () => draft.barcode.trim() && parseFloat(draft.price) > 0 && draft.place;
+		const refresh = () => {
+			save.disabled = !ready();
+		};
+		showMoney();
+		price.addEventListener("input", () => {
+			draft.price = price.value;
+			showMoney();
+			refresh();
+		});
+		code.addEventListener("input", () => {
+			draft.barcode = code.value;
+			refresh();
+		});
+		panel.querySelector("#edit-scan").addEventListener("click", () => scanBarcode(code, panel.querySelector("#edit-video")));
+		bindPlaceFields("edit", (value) => {
+			draft.place = value;
+			refresh();
+		});
+		const sel = panel.querySelector("#edit-sel");
+		const proposed = panel.querySelector("#edit-new");
+		if (draft.place && draft.place.supplier && state.places.some((p) => p.name === draft.place.supplier)) {
+			sel.value = draft.place.supplier;
+		} else if (draft.place && draft.place.proposed) {
+			sel.value = "__new";
+			proposed.style.display = "block";
+			proposed.value = draft.place.proposed;
+		}
+		const bindPhoto = (inputId, previewId, key) => {
+			panel.querySelector(inputId).addEventListener("change", async (ev) => {
+				const file = ev.target.files[0];
+				if (!file) return;
+				try {
+					draft[key] = await compress(file);
+					const preview = panel.querySelector(previewId);
+					preview.src = draft[key];
+					preview.style.display = "block";
+				} catch (e) {
+					toast(e.message);
+				}
+			});
+		};
+		bindPhoto("#edit-product", "#edit-product-preview", "product");
+		bindPhoto("#edit-label", "#edit-label-preview", "label");
+		const close = () => {
+			stopScanner();
+			closePanel(panel);
+		};
+		panel.querySelector("[data-close]").addEventListener("click", close);
+		panel.querySelector("#edit-cancel").addEventListener("click", close);
+		save.addEventListener("click", async () => {
+			if (!ready()) return;
+			save.disabled = true;
+			save.textContent = "Guardando…";
+			try {
+				const payload = {
+					supply_event: row.supply_event,
+					modified: row.modified,
+					price: draft.price,
+					barcode: draft.barcode.trim(),
+					supplier: draft.place.supplier || null,
+					proposed_supplier_name: draft.place.proposed || null,
+				};
+				if (draft.product) payload.product_image = draft.product;
+				if (draft.label) payload.label_image = draft.label;
+				const result = await api("erpn_custom.encargo.shopper.update_purchase", payload, true);
+				close();
+				if (result && result.message) alert(result.message);
+				enterMine();
+			} catch (e) {
+				toast(e.message);
+				save.disabled = false;
+				save.textContent = "Guardar cambios";
+			}
+		});
+		refresh();
 	}
 
 	function openPurchase(row) {

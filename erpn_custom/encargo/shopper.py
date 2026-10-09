@@ -68,6 +68,7 @@ EVENT_FIELDS = [
 	"purchase_product_image",
 	"purchase_label_image",
 	"barcode_exception_status",
+	"modified",
 ]
 IMAGE_FIELDS = {
 	"reference": "reference_image",
@@ -314,7 +315,7 @@ def list_pending(supplier=None):
 	return [_card(row, own_host) for row in rows]
 
 
-def _purchase_card(row, event, place_labels, own_host):
+def _purchase_card(row, event, place_labels, own_host, arrived=0):
 	card = _card(row, own_host)
 	currency = event.purchase_currency or inventory.PURCHASE_CURRENCY
 	card.update(
@@ -331,8 +332,12 @@ def _purchase_card(row, event, place_labels, own_host):
 			"purchase_total": flt(flt(event.purchase_price) * flt(event.qty), 2),
 			"purchase_barcode": event.purchase_barcode,
 			"place": place_labels.get(event.supplier) or event.supplier or event.proposed_supplier_name,
+			"supplier": event.supplier,
+			"proposed_supplier_name": event.proposed_supplier_name,
 			"product_image": _image_url(row.name, event.purchase_product_image, "product", event.name),
 			"label_image": _image_url(row.name, event.purchase_label_image, "label", event.name),
+			"editable": int(purchase_editable(event.status, arrived)),
+			"modified": str(event.modified or ""),
 		}
 	)
 	return card
@@ -359,8 +364,9 @@ def list_purchased(period="today"):
 		else {}
 	)
 	own_host = _own_host()
+	arrived = _arrived_counts([event.parent for event in events])
 	rows = [
-		_purchase_card(encargos[event.parent], event, place_labels, own_host)
+		_purchase_card(encargos[event.parent], event, place_labels, own_host, arrived.get(event.name, 0))
 		for event in events
 		if event.parent in encargos
 	]
@@ -484,6 +490,239 @@ def confirm_purchase(
 	status = barcode_exception.on_purchase(encargo, event, barcode)
 	totals = demand.reconcile_encargo_supply(encargo)
 	return purchase_result(encargo, status, event, totals.pending_supply_qty)
+
+
+RECEIVED_MESSAGE = "Esta unidad ya fue recibida en Chile. No se pueden modificar los datos de compra."
+BARCODE_LINKED_MESSAGE = "No se puede cambiar el código porque está vinculado a otra operación. No se guardaron cambios."
+STALE_MESSAGE = "Esta compra cambió mientras la editabas. Actualiza los datos y vuelve a intentar. No se guardaron cambios."
+CLOSED_MESSAGE = "Esta compra ya no se puede editar. No se guardaron cambios."
+FORBIDDEN_MESSAGE = "No se pueden modificar esos datos de la compra."
+# Shopper-captured evidence only. Currency, quantity and structure stay as stored (Spec 021 §3, §7).
+FORBIDDEN_EDIT_KEYS = frozenset(
+	{
+		"qty",
+		"purchase_currency",
+		"currency",
+		"status",
+		"source_type",
+		"shopper_user",
+		"encargo",
+		"sales_order",
+		"owner",
+		"received_qty",
+		"released_qty",
+		"purchased_on",
+		"user",
+	}
+)
+EDIT_EVENT_FIELDS = [
+	"name",
+	"parent",
+	"idx",
+	"source_type",
+	"status",
+	"qty",
+	"shopper_user",
+	"supplier",
+	"proposed_supplier_name",
+	"purchase_barcode",
+	"purchase_price",
+	"purchase_currency",
+	"purchase_product_image",
+	"purchase_label_image",
+	"barcode_exception_status",
+	"reception_unit",
+	"modified",
+]
+
+
+def purchase_editable(status, arrived):
+	"""A shopper purchase can be corrected only while none of its units is in Chile."""
+	return status == demand.COMMITTED and flt(arrived) <= 0
+
+
+def edit_refusal(status, arrived, linked, barcode_changed):
+	"""Shopper message when the purchase must not be saved; None when it may."""
+	physical = flt(arrived) > 0 or linked or status == demand.RECEIVED
+	if physical and barcode_changed:
+		return BARCODE_LINKED_MESSAGE
+	if physical:
+		return RECEIVED_MESSAGE
+	if status != demand.COMMITTED:
+		return CLOSED_MESSAGE
+	return None
+
+
+def same_revision(stored, seen):
+	"""The form is still the purchase the shopper opened. Second precision matches Frappe JSON."""
+	left = str(stored or "").strip().replace("T", " ")
+	right = str(seen or "").strip().replace("T", " ")
+	return len(left) >= 19 and len(right) >= 19 and left[:19] == right[:19]
+
+
+def forbidden_edit_keys(keys):
+	return sorted(FORBIDDEN_EDIT_KEYS & {str(key) for key in keys})
+
+
+def _form_keys():
+	for source in (
+		getattr(getattr(frappe, "local", None), "form_dict", None),
+		getattr(frappe, "form_dict", None),
+	):
+		if isinstance(source, dict):
+			return list(source.keys())
+	return []
+
+
+def _owns_purchase(event, user):
+	return bool(event) and event.get("source_type") == demand.SHOPPER and event.get("shopper_user") == user
+
+
+def _arrived_counts(encargos):
+	"""Live Chile units per supply event. Returned-to-stock units no longer block anything."""
+	names = list({name for name in encargos if name})
+	if not names:
+		return {}
+	counts = {}
+	for unit in frappe.get_all(
+		demand.UNIT,
+		filters={
+			"encargo": ("in", names),
+			"destination": demand.ENCARGO_DESTINATION,
+			"status": ("!=", demand.RETURNED),
+		},
+		fields=["supply_event"],
+	):
+		if unit.supply_event:
+			counts[unit.supply_event] = counts.get(unit.supply_event, 0) + 1
+	return counts
+
+
+def _field_changed(old, new):
+	if isinstance(old, (int, float)) or isinstance(new, (int, float)):
+		return flt(old) != flt(new)
+	return (old or None) != (new or None)
+
+
+def _remember(changes, values, field, old, new):
+	if _field_changed(old, new):
+		values[field] = new
+		changes.append([field, old, new])
+
+
+def _clean_edit_image(data_url):
+	"""None keeps the stored photo. A non-empty value must be a real image."""
+	if data_url is None or not str(data_url).strip():
+		return None
+	decoded = decode_image(data_url)
+	if not decoded:
+		frappe.throw(_("La imagen no es válida."))
+	return decoded
+
+
+def _record_version(encargo, event_name, idx, changes):
+	"""Standard Version on the Encargo. Saving the Encargo itself would rewrite the sales order."""
+	frappe.get_doc(
+		{
+			"doctype": "Version",
+			"ref_doctype": "Encargo",
+			"docname": encargo,
+			"data": frappe.as_json(
+				{
+					"changed": [],
+					"added": [],
+					"removed": [],
+					"row_changed": [["supply_events", max(cint(idx) - 1, 0), event_name, changes]],
+				}
+			),
+		}
+	).insert(ignore_permissions=True)
+
+
+def _locked_purchase(supply_event, user):
+	event = frappe.db.get_value(demand.EVENT, supply_event, EDIT_EVENT_FIELDS, as_dict=True)
+	if not _owns_purchase(event, user):
+		frappe.throw(_("No autorizado"), frappe.PermissionError)
+	demand.lock_encargo(event.get("parent"), ["name"])
+	fresh = frappe.db.get_value(demand.EVENT, supply_event, EDIT_EVENT_FIELDS, as_dict=True, for_update=True)
+	if not _owns_purchase(fresh, user):
+		frappe.throw(_("No autorizado"), frappe.PermissionError)
+	return fresh
+
+
+@frappe.whitelist(methods=["POST"])
+def update_purchase(
+	supply_event,
+	modified=None,
+	price=None,
+	barcode=None,
+	product_image=None,
+	label_image=None,
+	supplier=None,
+	proposed_supplier_name=None,
+):
+	"""Correct this shopper's own purchase before any of its units is received in Chile (Spec 021)."""
+	_require_shopper()
+	if forbidden_edit_keys(_form_keys()):
+		frappe.throw(_(FORBIDDEN_MESSAGE), frappe.PermissionError)
+	user = frappe.session.user
+	fresh = _locked_purchase(supply_event, user)
+	if not same_revision(fresh.get("modified"), modified):
+		frappe.throw(_(STALE_MESSAGE), title=_("Datos desactualizados"))
+
+	barcode_clean = (barcode if barcode is not None else fresh.get("purchase_barcode") or "")
+	barcode_clean = str(barcode_clean).strip()[:140]
+	barcode_changed = barcode_clean != (fresh.get("purchase_barcode") or "")
+	units = demand.locked_units(fresh.get("parent"))
+	arrived = sum(1 for unit in units if unit.get("supply_event") == fresh.get("name") and demand.is_live_unit(unit))
+	refusal = edit_refusal(fresh.get("status"), arrived, bool(fresh.get("reception_unit")), barcode_changed)
+	if refusal:
+		frappe.throw(_(refusal), title=_("Compra no editable"))
+
+	product = _clean_edit_image(product_image)
+	label = _clean_edit_image(label_image)
+	missing = missing_evidence(barcode_clean, product or True, label or True, price)
+	if missing:
+		frappe.throw(_("Falta: {0}.").format(", ".join(missing)), title=_("Compra incompleta"))
+	place_supplier, place_proposed = resolve_place(supplier, proposed_supplier_name)
+
+	values = {}
+	changes = []
+	_remember(changes, values, "purchase_price", fresh.get("purchase_price"), flt(price, 2))
+	_remember(changes, values, "supplier", fresh.get("supplier"), place_supplier)
+	_remember(changes, values, "proposed_supplier_name", fresh.get("proposed_supplier_name"), place_proposed)
+	_remember(changes, values, "purchase_barcode", fresh.get("purchase_barcode"), barcode_clean)
+	if product:
+		_remember(
+			changes,
+			values,
+			"purchase_product_image",
+			fresh.get("purchase_product_image"),
+			_save_evidence(fresh.get("parent"), "purchase_product_image", *product),
+		)
+	if label:
+		_remember(
+			changes,
+			values,
+			"purchase_label_image",
+			fresh.get("purchase_label_image"),
+			_save_evidence(fresh.get("parent"), "purchase_label_image", *label),
+		)
+	if values:
+		frappe.db.set_value(demand.EVENT, fresh.get("name"), values)
+	status = fresh.get("barcode_exception_status")
+	if barcode_changed:
+		status = barcode_exception.on_purchase(fresh.get("parent"), fresh.get("name"), barcode_clean)
+		if status != fresh.get("barcode_exception_status"):
+			changes.append(["barcode_exception_status", fresh.get("barcode_exception_status"), status])
+		if status != barcode_exception.PENDING_APPROVAL:
+			barcode_exception._close_if_none_pending(
+				fresh.get("parent"), demand.locked_events(fresh.get("parent")), fresh.get("name")
+			)
+		demand.reconcile_encargo_supply(fresh.get("parent"))
+	if changes:
+		_record_version(fresh.get("parent"), fresh.get("name"), fresh.get("idx"), changes)
+	return purchase_result(fresh.get("parent"), status, fresh.get("name"))
 
 
 def purchase_result(encargo, barcode_status, supply_event=None, pending_supply_qty=0):
