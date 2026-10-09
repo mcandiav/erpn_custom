@@ -1,5 +1,5 @@
 # Plan — Spec 021 Edición de compras del Shopper
-**Estado:** PROGRAMADO en 16.0.113. Piloto en sandbox pendiente. No cerrado.
+**Estado:** CERRADA (aceptación de Miguel 2026-10-09; implementación `16.0.113`; cierre documental `16.0.114`)
 **Fecha:** 2026-10-09
 **Fuente normativa:** `spec.md` y decisión vigente sobre moneda Shopper (configuración del usuario; fallback USD).
 
@@ -19,9 +19,15 @@
 - Guardar/Cancelar; mensajes de conflicto/recepción; refresco de tarjeta y totales.
 
 ## E4 — Pruebas y aceptación
-- Ejecutar los 15 criterios de aceptación de `spec.md` §8, incluyendo unidad parcialmente recibida y comprador con moneda no configurada (USD).
-- Evidencia para aprobar piloto de edición real antes de recepción y rechazo después.
-- Documentar resultado y versión desplegada; cierre solo tras aceptación.
+Estado: CERRADA. Los 15 criterios de `spec.md` §8 están en `TestPurchaseEdit` y en la prueba de moneda USD. Miguel aceptó el cierre el 2026-10-09.
+- [x] Ejecutar los 15 criterios de aceptación de `spec.md` §8, incluyendo unidad parcialmente recibida y comprador con moneda no configurada (USD).
+- [x] Evidencia de aceptación: `tasks.md` y `erpn_custom/encargo/test_shopper.py`. Sin número de compra de piloto en este cierre.
+- [x] Documentar resultado y versión. Implementación `16.0.113`. Cierre documental `16.0.114`.
+
+## Cierre (2026-10-09)
+- Decisión de Miguel: «perfecto puedes cerrar».
+- `tasks.md` sin pendientes.
+- Spec vigente del Programador queda sin definir.
 
 ## Fuera de alcance
 - No modificar moneda por usuario ni fallback USD.

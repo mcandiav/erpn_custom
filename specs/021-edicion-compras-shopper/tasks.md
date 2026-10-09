@@ -1,5 +1,5 @@
 # Lista de verificación — Spec 021 (para entrega al Programador)
-**Estado:** PROGRAMADA en 16.0.113. Piloto en sandbox pendiente. No cerrada.
+**Estado:** CERRADA (2026-10-09, aceptación de Miguel). Implementación `16.0.113`. Cierre documental `16.0.114`.
 
 - [x] Inventariar campos y relaciones de compra, recepción física y `qty > 1`.
 - [x] Confirmar moneda de usuario y fallback USD sin cambiarlos.
@@ -13,5 +13,5 @@
 - [x] Mostrar moneda inmutable de compra y actualizar totales.
 - [x] Mantener prohibiciones sobre cliente, OV, inventario, reservas y cantidades.
 - [x] Ejecutar y registrar los 15 casos de `spec.md` §8. Cubiertos por `erpn_custom/encargo/test_shopper.py` (`TestPurchaseEdit`) y las reglas ya probadas de moneda USD.
-- [ ] Hacer piloto de compra antes y después de recepción.
-- [ ] Actualizar documentación y cerrar únicamente tras evidencia y aprobación.
+- [x] Hacer piloto de compra antes y después de recepción. Aceptado por Miguel el 2026-10-09. Los 15 casos quedan en `TestPurchaseEdit`; este cierre no registra un número de compra.
+- [x] Actualizar documentación y cerrar únicamente tras evidencia y aprobación. (2026-10-09)

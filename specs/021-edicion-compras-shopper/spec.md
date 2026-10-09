@@ -1,12 +1,12 @@
 # Spec 021 — Edición de compras del Shopper
 
-**Estado:** DEFINITIVA PARA REVISIÓN; PENDIENTE DE AUTORIZACIÓN DE PROGRAMACIÓN  
+**Estado:** CERRADA (2026-10-09, aceptación de Miguel; implementación `16.0.113`, cierre documental `16.0.114`)  
 **Fecha:** 2026-10-09  
 **Autor:** Arquitecto  
 **Proyecto:** ERPNext Custom / FRAgallardo  
 **Repositorio documental:** ACER / ERPnext-custom  
 **Dependencias:** Specs 013, 017, 018 y 020 (esta última cerrada).  
-**Versión desplegada confirmada por Miguel:** 16.0.112. Esta Spec todavía no está implementada.
+**Evidencia de cierre:** `tasks.md` sin pendientes. Los 15 casos de §8 están en `erpn_custom/encargo/test_shopper.py` (`TestPurchaseEdit`) y en la regla ya probada de moneda USD. Miguel aceptó el cierre el 2026-10-09. No hay un número de compra de piloto registrado en este cierre.
 
 ## 1. Objetivo
 
@@ -102,4 +102,4 @@ No permitir edición después de recepción; no habilitar cambio de moneda; no c
 
 **Estado de activación:** se propone como siguiente Spec 021. Declararla vigente en el README del repositorio de programación requiere autorización expresa de Miguel y handoff; no activar ni modificar el README del Programador implícitamente.
 
-**Cierre:** todos los casos de §8 deben estar verificados; no declarar cerrada la Spec por solo tener UI visible.
+**Cierre:** todos los casos de §8 deben estar verificados; no declarar cerrada la Spec por solo tener UI visible. Cerrada el 2026-10-09 por aceptación de Miguel, con los 15 casos cubiertos por `TestPurchaseEdit` (implementación `16.0.113`).
