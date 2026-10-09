@@ -1,6 +1,8 @@
 # Spec 020 - Abastecimiento multifuente y demanda residual
 
-Estado: DEFINITIVA PARA IMPLEMENTACION
+Estado: CERRADA (2026-10-09, aceptación documental del Arquitecto; implementación 16.0.109)
+Evidencia de cierre: `tasks.md` y `checklists/acceptance.md` (30 criterios §23), piloto E4 OV-2026-00330 / ENC-2026-00405, reconciliación E5 y Nota de Entrega NE-2026-00003.
+Alcance: la edición de compras Shopper es una mejora independiente posterior (ver `ERPnext-custom/shopper-edicion-compras.md`), no parte de los criterios de cierre originales de 020.
 Fecha: 2026-10-07
 Rol solicitante: Arquitecto
 Proyecto: ERPNext Custom / FRAgallardo
