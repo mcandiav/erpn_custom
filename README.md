@@ -133,7 +133,7 @@ Series cortas en español, contador de 5 dígitos que reinicia cada año (`OV-20
 
 ### Spec vigente del Programador
 
-**Spec activa:** ninguna. La próxima la define Miguel.
+**Spec activa:** `021-edicion-compras-shopper` — **VIGENTE PARA PLANIFICACIÓN DEL PROGRAMADOR**, 2026-10-09. Fuente arquitectónica oficial en ACER: `ERPnext-custom/specs/021-edicion-compras-shopper/spec.md` (plan y tareas en la misma carpeta). El Programador debe revisar la definición, presentar plan técnico y pruebas antes de cambiar código. Moneda Shopper: atributo de usuario; si no configurada, **USD**; no editable en compra. La edición solo se permite sobre datos propios y hasta antes de recibir físicamente la unidad en Chile. No reabrir Spec 020.
 
 **Anterior:** `017-demanda-abastecimiento-desde-ov` (CERRADA el 2026-10-09, `16.0.112`). E1–E4 en `16.0.102`, E5 en `16.0.110`, E6 en `16.0.111`, cierre en `16.0.112` con la matriz `specs/017-demanda-abastecimiento-desde-ov/checklists/acceptance.md`. Donde 017 y 020 difieren manda la 020 (ver `plan.md`).
 
