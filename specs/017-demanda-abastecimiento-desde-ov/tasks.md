@@ -1,6 +1,6 @@
 # Tasks — Spec 017
 
-Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102 (revalidadas por Spec 020), E5 en 16.0.110, E6 en 16.0.111.
+Estado: CERRADA 2026-10-09. E1–E4 en 16.0.102 (revalidadas por Spec 020), E5 en 16.0.110, E6 en 16.0.111, E7 en 16.0.112.
 
 ## E1–E4 (16.0.102)
 
@@ -28,4 +28,4 @@ Estado: EN CURSO (retomada 2026-10-09 tras cerrar Spec 020). E1–E4 en 16.0.102
 
 ## E7 — Cierre
 
-- [ ] T16 Matriz de las 50 pruebas de §17 con evidencia, README (bitácora y Spec vigente), cierre de tasks
+- [x] T16 Matriz de las 50 pruebas de §17 con evidencia (`checklists/acceptance.md`, 7 tests nuevos para los huecos), README (bitácora y Spec vigente), cierre de tasks

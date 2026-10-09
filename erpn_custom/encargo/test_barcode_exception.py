@@ -11,6 +11,7 @@ _frappe.utils.cint = lambda v: int(v or 0)
 sys.modules.setdefault("frappe", _frappe)
 sys.modules.setdefault("frappe.utils", _frappe.utils)
 sys.modules.setdefault("frappe.utils.file_manager", MagicMock())
+sys.modules.setdefault("frappe.custom.doctype.custom_field.custom_field", MagicMock())
 
 from erpn_custom.encargo import barcode_exception as be  # noqa: E402
 from erpn_custom.encargo import reception  # noqa: E402
@@ -227,6 +228,105 @@ class TestRejectedUnit(unittest.TestCase):
 		self.assertIsNone(unit["sales_order"])
 		self.assertEqual(unit["destination"], reception.STOCK)
 		log.assert_called_once_with("ENC-1", "BARCODE_REJECTED", "vendedor@fra.cl", scanned_code="999", notes="RCU-1")
+
+
+class TestOnPurchase(unittest.TestCase):
+	def setUp(self):
+		self.frappe = MagicMock()
+		self.frappe.db.get_value.return_value = D(source_type="KNOWN_ITEM", expected_item="ITEM-A")
+		for target, name, value in (
+			(be, "frappe", self.frappe),
+			(be, "expected_barcode_text", MagicMock(return_value="111")),
+			(be, "open_exception", MagicMock()),
+			(be.inventory, "items_for_barcode", MagicMock(return_value=[])),
+			(be.inventory, "add_barcode", MagicMock()),
+		):
+			patcher = patch.object(target, name, value)
+			patcher.start()
+			self.addCleanup(patcher.stop)
+
+	def test_different_code_opens_the_exception(self):
+		self.assertEqual(be.on_purchase("ENC-1", "EV-1", "999"), be.PENDING_APPROVAL)
+		be.open_exception.assert_called_once_with("ENC-1", "EV-1")
+		be.inventory.add_barcode.assert_not_called()
+
+	def test_matching_code_has_no_exception(self):
+		be.inventory.items_for_barcode.return_value = ["ITEM-A"]
+		self.assertEqual(be.on_purchase("ENC-1", "EV-1", "111"), be.MATCH)
+		be.open_exception.assert_not_called()
+
+	def test_shopper_message_has_no_commercial_data(self):
+		message = be.SHOPPER_MESSAGE.lower()
+		self.assertIn("pendiente de aprobaci", message)
+		for word in ("cliente", "precio", "ov-", "vendedor"):
+			self.assertNotIn(word, message)
+
+
+class TestOpenTodos(unittest.TestCase):
+	def test_one_open_todo_per_user(self):
+		frappe = MagicMock()
+		frappe.db.exists.side_effect = lambda doctype, filters: filters["allocated_to"] == "a@fra.cl"
+		with patch.object(be, "frappe", frappe):
+			be._open_todos("ENC-1", be.TODO_EXCEPTION, ["a@fra.cl", "b@fra.cl"], "revisar")
+		self.assertEqual(frappe.get_doc.call_count, 1)
+		self.assertEqual(frappe.get_doc.call_args[0][0]["allocated_to"], "b@fra.cl")
+
+
+class TestResumeAfterDecision(unittest.TestCase):
+	def setUp(self):
+		self.frappe = MagicMock()
+		self.frappe.session.user = SELLER
+		self.frappe.get_all.return_value = ["RCU-1"]
+		self.unit = D(name="RCU-1", encargo="ENC-1")
+		self.unit.save = MagicMock()
+		self.frappe.get_doc.return_value = self.unit
+		for name, value in (
+			("frappe", self.frappe),
+			("administrator_context", MagicMock()),
+			("now_datetime", lambda: "2026-10-09 10:00:00"),
+			("_advance", MagicMock()),
+			("detach_rejected", MagicMock()),
+			("unit_result", MagicMock(return_value={"screen": "OK", "message": ""})),
+		):
+			patcher = patch.object(reception, name, value)
+			patcher.start()
+			self.addCleanup(patcher.stop)
+		patcher = patch.object(reception.demand, "reconcile_encargo_supply", MagicMock())
+		patcher.start()
+		self.addCleanup(patcher.stop)
+
+	def test_approval_retries_the_same_unit_without_scan(self):
+		result = reception.resume_after_barcode_decision("ENC-1", True, "EV-1")
+		filters = self.frappe.get_all.call_args[1]["filters"]
+		self.assertEqual(filters, {"encargo": "ENC-1", "status": reception.PENDING_BARCODE_APPROVAL, "supply_event": "EV-1"})
+		reception.detach_rejected.assert_not_called()
+		reception._advance.assert_called_once_with(self.unit)
+		self.unit.save.assert_called_once()
+		self.assertEqual(result, [{"unit": "RCU-1", "screen": "OK", "message": ""}])
+		reception.demand.reconcile_encargo_supply.assert_called_once_with("ENC-1")
+
+	def test_rejection_sends_the_unit_to_stock_or_classification(self):
+		reception.resume_after_barcode_decision("ENC-1", False, "EV-1")
+		reception.detach_rejected.assert_called_once_with(self.unit, SELLER)
+		reception._advance.assert_called_once_with(self.unit)
+
+
+class TestWaitingUnitsMigration(unittest.TestCase):
+	def test_waiting_units_become_pending_approval(self):
+		from erpn_custom.patches import v0_0_42_barcode_exception as patch_42
+
+		frappe = MagicMock()
+		frappe.db.sql_list.return_value = ["ENC-1", "ENC-2"]
+		with patch.object(patch_42, "frappe", frappe):
+			patch_42.map_waiting_units()
+		query = frappe.db.sql_list.call_args[0][0]
+		self.assertIn("PENDING_BARCODE_APPROVAL", query)
+		self.assertIn("KNOWN_ITEM", query)
+		calls = [c[0][:4] for c in frappe.db.set_value.call_args_list]
+		self.assertEqual(
+			calls,
+			[("Encargo", "ENC-1", "barcode_exception_status", "PENDING_APPROVAL"), ("Encargo", "ENC-2", "barcode_exception_status", "PENDING_APPROVAL")],
+		)
 
 
 if __name__ == "__main__":

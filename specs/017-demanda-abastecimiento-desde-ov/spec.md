@@ -1,6 +1,6 @@
 # Spec 017 - Excepciones de abastecimiento y trazabilidad desde OV
 
-Estado: DEFINITIVA PARA IMPLEMENTACION
+Estado: CERRADA 2026-10-09 (16.0.112). Matriz de aceptación en `checklists/acceptance.md`.
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
 Proyecto: ERPNext Custom / FRAgallardo

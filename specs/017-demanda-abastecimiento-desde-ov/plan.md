@@ -1,6 +1,6 @@
 # Plan — Spec 017 Excepciones de abastecimiento y trazabilidad desde OV
 
-Estado: EN CURSO desde 2026-10-09 (estuvo pausada por Spec 020 entre 2026-10-07 y 2026-10-09).
+Estado: CERRADA 2026-10-09 (16.0.112). Estuvo pausada por Spec 020 entre 2026-10-07 y 2026-10-09.
 
 Fuente: `spec.md` de esta carpeta.
 
@@ -38,7 +38,7 @@ Spec 020 reemplaza cualquier supuesto de compra monolítica, `purchase_status` c
 | E4 | Estado por línea (cantidades que reconcilian) y modal Validar con recálculo en servidor | Hecho 16.0.102 |
 | E5 | Bloqueo de "Actualizar artículos" con Encargo y acción "Ajustar cantidad" | Hecho 16.0.110 |
 | E6 | Entrega: solo lo reservado; unidades de compras en excepción no entregables | Hecho 16.0.111 |
-| E7 | Cierre: piloto, README, tasks | Pendiente |
+| E7 | Cierre: matriz de aceptación con pruebas automáticas (sin piloto, decisión de Miguel), README, tasks | Hecho 16.0.112 |
 
 ## Interpretaciones y límites conocidos
 
