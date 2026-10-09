@@ -1,32 +1,32 @@
 # Tasks - Spec 020 Abastecimiento multifuente y demanda residual
 
-Estado: LISTA PARA EJECUCION
+Estado: IMPLEMENTADA (16.0.109); pendiente solo verificación de Delivery Note
 Fecha: 2026-10-07
 
 ## Modelo
-- [ ] Crear Encargo Supply Event.
-- [ ] Agregar/derivar sourced_qty.
-- [ ] Agregar/derivar pending_supply_qty.
-- [ ] Definir covered_qty.
-- [ ] Mantener received_qty físico separado.
-- [ ] Agregar constraints de no sobreasignación.
+- [x] Crear Encargo Supply Event.
+- [x] Agregar/derivar sourced_qty.
+- [x] Agregar/derivar pending_supply_qty.
+- [x] Definir covered_qty.
+- [x] Mantener received_qty físico separado.
+- [x] Agregar constraints de no sobreasignación.
 
 ## Migración
-- [ ] Migrar Encargos PENDING.
-- [ ] Migrar PURCHASED a evento legacy.
-- [ ] Relacionar Recepcion Unidad determinística.
-- [ ] Patch idempotente.
-- [ ] Regularizador con preview para OV-328/ENC-403.
+- [x] Migrar Encargos PENDING.
+- [x] Migrar PURCHASED a evento legacy.
+- [x] Relacionar Recepcion Unidad determinística.
+- [x] Patch idempotente.
+- [x] Regularizador con preview para OV-328/ENC-403.
 
 ## Shopper
-- [ ] list_pending filtra pending_supply_qty > 0.
-- [ ] Tarjeta muestra cantidad residual.
-- [ ] Permitir compra parcial.
-- [ ] Registrar un evento por compra.
-- [ ] Preservar evidencia por Shopper/tienda.
-- [ ] Evitar carreras entre Shoppers.
-- [ ] Refrescar 4->3->2->1->0.
-- [ ] Ocultar Encargo al llegar a 0.
+- [x] list_pending filtra pending_supply_qty > 0.
+- [x] Tarjeta muestra cantidad residual.
+- [x] Permitir compra parcial.
+- [x] Registrar un evento por compra.
+- [x] Preservar evidencia por Shopper/tienda.
+- [x] Evitar carreras entre Shoppers.
+- [x] Refrescar 4->3->2->1->0.
+- [x] Ocultar Encargo al llegar a 0.
 
 ## Recepción — E4
 - [x] Quitar PURCHASED como requisito de candidato.
@@ -52,18 +52,18 @@ Fecha: 2026-10-07
 - [x] No duplicar ni recrear SRE globalmente. (La corrección toca solo las SRE propias del flujo.)
 
 ## UI ComercialFRA
-- [ ] Sección Abastecimiento en Encargo.
-- [ ] Acción `Asignar stock a demanda` para demanda sin fuente; FIFO automático/propuesto.
-- [ ] Acción `Liberar compromiso` sobre Supply Event Shopper ya comprometido; motivo obligatorio.
-- [ ] Mostrar solicitado/abastecido/pendiente/recibido/cubierto.
-- [ ] Tabla cronológica de eventos y fuentes.
-- [ ] Links a Recepcion Unidad y evidencia Shopper.
+- [x] Sección Abastecimiento en Encargo.
+- [x] Acción `Asignar stock a demanda` para demanda sin fuente; FIFO automático/propuesto.
+- [x] Acción `Liberar compromiso` sobre Supply Event Shopper ya comprometido; motivo obligatorio.
+- [x] Mostrar solicitado/abastecido/pendiente/recibido/cubierto.
+- [x] Tabla cronológica de eventos y fuentes.
+- [x] Links a Recepcion Unidad y evidencia Shopper.
 
 ## Integración
-- [ ] Adaptar Spec 017 a excepción por evento.
-- [ ] Adaptar Spec 018 a demanda sin compra previa.
-- [ ] Confirmar Spec 019 solo materializa UNKNOWN_ITEM.
+- [x] Adaptar Spec 017 a excepción por evento.
+- [x] Adaptar Spec 018 a demanda sin compra previa.
+- [x] Confirmar Spec 019 solo materializa UNKNOWN_ITEM.
 - [ ] Revisar Delivery Note.
 
 ## Pruebas
-- [ ] Ejecutar los 30 casos de spec.md §23.
+- [x] Ejecutar los 30 casos de spec.md §23. (ver `checklists/acceptance.md`, 2026-10-09)
