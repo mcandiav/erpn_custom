@@ -58,3 +58,55 @@ class TestChilexpressHelpers(unittest.TestCase):
 		fields = [e.get("field") for e in result["errors"]]
 		self.assertIn("weight", fields)
 		self.assertTrue(any(e.get("section") == "origin" for e in result["errors"]))
+
+	def test_provider_messages_from_rejected_details(self):
+		from erpn_custom.chile.couriers.chilexpress import ChilexpressAdapter
+
+		payload = {
+			"header": {"certificateNumber": 0},
+			"detail": [
+				{"transportOrderNumber": 0, "statusCode": -1, "statusDescription": "Numero de calle invalido"},
+				{"statusCode": 0, "statusDescription": "OK"},
+				{"errors": ["Telefono de contacto requerido", "Telefono de contacto requerido"]},
+				{"labelData": "x" * 500},
+			],
+		}
+		self.assertEqual(
+			ChilexpressAdapter._provider_messages(payload),
+			["[-1] Numero de calle invalido", "Telefono de contacto requerido"],
+		)
+		self.assertEqual(ChilexpressAdapter._provider_messages(None), [])
+		self.assertEqual(ChilexpressAdapter._provider_messages("texto"), [])
+
+	def test_request_surfaces_detail_reasons(self):
+		import json
+
+		from erpn_custom.chile.couriers import chilexpress as module
+		from erpn_custom.chile.couriers.chilexpress import ChilexpressAdapter
+
+		body = {
+			"statusCode": -1,
+			"statusDescription": "Ninguno de los detalles de generación de OT fue exitoso",
+			"data": {"detail": [{"statusCode": 99, "statusDescription": "Contacto sin telefono"}]},
+		}
+		response = MagicMock(status_code=200, text=json.dumps(body))
+		response.json.return_value = body
+		thrown = []
+
+		def fake_throw(msg, *args, **kwargs):
+			thrown.append(msg)
+			raise RuntimeError(msg)
+
+		adapter = ChilexpressAdapter()
+		with patch.object(adapter, "_api_key", return_value="k"), patch.object(
+			adapter, "_endpoint", return_value="https://example.test/api"
+		), patch.object(module.requests, "post", return_value=response), patch.object(
+			module.frappe, "throw", side_effect=fake_throw
+		), patch.object(module, "_", side_effect=lambda s: s), patch.object(
+			module.frappe, "log_error"
+		) as log_error:
+			with self.assertRaises(RuntimeError):
+				adapter._request(MagicMock(), "shipping", "POST", "/transport-orders", json_body={"a": 1})
+		self.assertIn("Ninguno de los detalles", thrown[0])
+		self.assertIn("[99] Contacto sin telefono", thrown[0])
+		log_error.assert_called_once()

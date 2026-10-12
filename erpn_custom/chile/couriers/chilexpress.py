@@ -13,6 +13,9 @@ from erpn_custom.chile.couriers.base import CourierAdapter
 TEST_MARKETPLACE_RUT = "96756430"
 TEST_SELLER_RUT = "DEFAULT"
 CREATING_STALE_MINUTES = 2
+PROVIDER_MESSAGE_KEYS = ("statusDescription", "errorMessage", "errorDescription", "message")
+PROVIDER_MESSAGE_LIMIT = 6
+PROVIDER_MESSAGE_CHARS = 200
 
 _TRACKING_MAP = {
 	"ENTREGADO": "Delivered",
@@ -520,8 +523,17 @@ class ChilexpressAdapter(CourierAdapter):
 		if response.status_code in (401, 403):
 			frappe.throw(_("Chilexpress rechazó la API key de {0} (HTTP {1})").format(service, response.status_code))
 		if response.status_code >= 400:
-			snippet = text[:220]
-			frappe.throw(_("Chilexpress {0} HTTP {1}: {2}").format(service, response.status_code, snippet))
+			try:
+				error_payload = json.loads(text)
+			except Exception:
+				error_payload = None
+			reasons = self._provider_messages(error_payload)
+			self._log_rejection(service, path, response.status_code, json_body, text)
+			frappe.throw(
+				_("Chilexpress {0} HTTP {1}: {2}").format(
+					service, response.status_code, "; ".join(reasons) if reasons else text[:220]
+				)
+			)
 		if not text:
 			return {}
 		try:
@@ -531,8 +543,67 @@ class ChilexpressAdapter(CourierAdapter):
 		status_code = payload.get("statusCode") if isinstance(payload, dict) else None
 		if status_code not in (None, 0, "0"):
 			desc = payload.get("statusDescription") or payload.get("message") or str(payload)[:180]
+			reasons = [r for r in self._provider_messages(payload.get("data")) if r != desc]
+			self._log_rejection(service, path, response.status_code, json_body, text)
+			if reasons:
+				frappe.throw(_("Chilexpress {0}: {1}. Detalle: {2}").format(service, desc, "; ".join(reasons)))
 			frappe.throw(_("Chilexpress {0}: {1}").format(service, desc))
 		return payload
+
+	@staticmethod
+	def _provider_messages(node, _depth=0, _found=None):
+		"""Collect rejection reasons nested in a Chilexpress response (e.g. data.detail[])."""
+		found = [] if _found is None else _found
+		if _depth > 8 or node is None or len(found) >= PROVIDER_MESSAGE_LIMIT:
+			return found
+		if isinstance(node, list):
+			for item in node:
+				if isinstance(item, str) and item.strip():
+					text = item.strip()[:PROVIDER_MESSAGE_CHARS]
+					if text not in found:
+						found.append(text)
+				else:
+					ChilexpressAdapter._provider_messages(item, _depth + 1, found)
+			return found
+		if not isinstance(node, dict):
+			return found
+		code = node.get("statusCode")
+		for key in PROVIDER_MESSAGE_KEYS:
+			val = node.get(key)
+			if not isinstance(val, str) or not val.strip():
+				continue
+			if key == "statusDescription" and code in (0, "0"):
+				continue
+			text = val.strip()[:PROVIDER_MESSAGE_CHARS]
+			if key == "statusDescription" and code not in (None, ""):
+				text = f"[{code}] {text}"
+			if text not in found and len(found) < PROVIDER_MESSAGE_LIMIT:
+				found.append(text)
+		for key, val in node.items():
+			if key in PROVIDER_MESSAGE_KEYS or not isinstance(val, (dict, list)):
+				continue
+			ChilexpressAdapter._provider_messages(val, _depth + 1, found)
+		return found
+
+	@staticmethod
+	def _log_rejection(service, path, http_status, request_body, response_text):
+		try:
+			frappe.log_error(
+				title=f"Chilexpress {service} rechazo",
+				message=json.dumps(
+					{
+						"path": path,
+						"http_status": http_status,
+						"request": request_body,
+						"response": response_text[:20000],
+					},
+					ensure_ascii=False,
+					indent=1,
+					default=str,
+				),
+			)
+		except Exception:
+			pass
 
 	def _api_key(self, config, service):
 		from erpn_custom.chile.courier_endpoints import get_config_api_key
