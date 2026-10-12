@@ -53,3 +53,4 @@ erpn_custom.patches.v0_0_41_encargo_materialization
 erpn_custom.patches.v0_0_42_barcode_exception
 erpn_custom.patches.v0_0_43_supply_events
 erpn_custom.patches.v0_0_44_shopper_currency
+erpn_custom.patches.v0_0_45_restore_standard_perms
