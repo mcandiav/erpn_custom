@@ -9,6 +9,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from erpn_custom.chile.couriers.base import CourierAdapter
+from erpn_custom.phone import normalize_phone
 
 TEST_MARKETPLACE_RUT = "96756430"
 TEST_SELLER_RUT = "DEFAULT"
@@ -683,7 +684,7 @@ class ChilexpressAdapter(CourierAdapter):
 			phone = frappe.db.get_value("Address", shipment.delivery_address_name, "phone") or ""
 		return {
 			"name": (full_name or "Contacto")[:80],
-			"phoneNumber": (phone or "912345678")[:20],
+			"phoneNumber": (normalize_phone(phone) or "912345678")[:20],
 			"mail": (mail or "noreply@example.com")[:80],
 			"contactType": contact_type,
 		}

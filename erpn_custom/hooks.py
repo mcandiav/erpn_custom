@@ -162,9 +162,18 @@ doc_events = {
 		"validate": "erpn_custom.chile.ingest.validate_ingest",
 	},
 	"Customer": {
-		"validate": "erpn_custom.identity.customer.validate_customer_identity",
+		"validate": [
+			"erpn_custom.identity.customer.validate_customer_identity",
+			"erpn_custom.phone.normalize_customer_mobile",
+		],
 		"after_insert": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
 		"on_update": "erpn_custom.customer_contact_mirror.service.ensure_customer_contact_mirror",
+	},
+	"Contact": {
+		"validate": "erpn_custom.phone.normalize_contact_phones",
+	},
+	"Address": {
+		"validate": "erpn_custom.phone.normalize_address_phone",
 	},
 	"Sales Order": {
 		"before_validate": [

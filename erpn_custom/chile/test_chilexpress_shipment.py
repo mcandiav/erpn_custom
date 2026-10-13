@@ -110,3 +110,27 @@ class TestChilexpressHelpers(unittest.TestCase):
 		self.assertIn("Ninguno de los detalles", thrown[0])
 		self.assertIn("[99] Contacto sin telefono", thrown[0])
 		log_error.assert_called_once()
+
+	def test_contact_payload_sends_phone_without_spaces(self):
+		from erpn_custom.chile.couriers import chilexpress as module
+		from erpn_custom.chile.couriers.chilexpress import ChilexpressAdapter
+
+		shipment = MagicMock(
+			delivery_contact_name="Camila",
+			delivery_contact_email="",
+			delivery_to="Camila",
+			delivery_address_name="Camila-Facturación",
+		)
+		contact = MagicMock(full_name="Camila Escobar", email_id="c@x.cl", mobile_no="+56 9 4532 2217", phone="")
+		fake = MagicMock()
+		fake.db.exists.return_value = True
+		fake.get_doc.return_value = contact
+		with patch.object(module, "frappe", fake):
+			payload = ChilexpressAdapter()._contact_payload(shipment, "delivery")
+		self.assertEqual(payload["phoneNumber"], "+56945322217")
+
+		fake.db.exists.return_value = False
+		fake.db.get_value.return_value = "+56 9 9092 8026"
+		with patch.object(module, "frappe", fake):
+			payload = ChilexpressAdapter()._contact_payload(shipment, "delivery")
+		self.assertEqual(payload["phoneNumber"], "+56990928026")

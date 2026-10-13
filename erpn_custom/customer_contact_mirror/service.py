@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import cstr
 
+from erpn_custom.phone import normalize_phone
+
 
 MIRROR_FIELD = "custom_is_customer_mirror"
 
@@ -24,7 +26,7 @@ def mirror_payload_from_customer(doc):
 		"first_name": first_name,
 		"last_name": last_name,
 		"email_id": cstr(doc.get("email_id")).strip(),
-		"mobile_no": cstr(doc.get("mobile_no")).strip(),
+		"mobile_no": normalize_phone(doc.get("mobile_no")),
 	}
 
 
@@ -88,10 +90,11 @@ def _apply_payload(contact, payload):
 		contact.mobile_no = mobile
 		existing = None
 		for row in contact.get("phone_nos") or []:
-			if cstr(row.phone).strip() == mobile:
+			if normalize_phone(row.phone) == mobile:
 				existing = row
 				break
 		if existing:
+			existing.phone = mobile
 			existing.is_primary_mobile_no = 1
 		else:
 			contact.set("phone_nos", [])
@@ -114,13 +117,16 @@ def _ensure_customer_link(contact, customer_name):
 	contact.append("links", {"link_doctype": "Customer", "link_name": customer_name})
 
 
-def _set_customer_primary(customer_name, contact_name):
-	current = frappe.db.get_value("Customer", customer_name, "customer_primary_contact")
+def _set_customer_primary(doc, contact_name):
+	# ERPNext's Customer.on_update creates its own primary Contact when the
+	# in-memory field is empty, so it must be set on doc and not only in DB.
+	doc.customer_primary_contact = contact_name
+	current = frappe.db.get_value("Customer", doc.name, "customer_primary_contact")
 	if current == contact_name:
 		return
 	frappe.db.set_value(
 		"Customer",
-		customer_name,
+		doc.name,
 		"customer_primary_contact",
 		contact_name,
 		update_modified=False,
@@ -133,7 +139,7 @@ def create_mirror_contact(doc):
 	_apply_payload(contact, payload)
 	_ensure_customer_link(contact, doc.name)
 	contact.insert(ignore_permissions=True)
-	_set_customer_primary(doc.name, contact.name)
+	_set_customer_primary(doc, contact.name)
 	return contact.name
 
 
@@ -143,7 +149,7 @@ def sync_mirror_contact(contact_name, doc):
 	_ensure_customer_link(contact, doc.name)
 	contact.flags.ignore_permissions = True
 	contact.save()
-	_set_customer_primary(doc.name, contact.name)
+	_set_customer_primary(doc, contact.name)
 	return contact.name
 
 
