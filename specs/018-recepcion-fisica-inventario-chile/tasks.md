@@ -1,7 +1,7 @@
 # Tasks - Spec 018 Recepción física e inventario Chile
 
-Estado: EN CIERRE (16.0.98 etapas 1-3; 16.0.99 etapas 4-5 y ajustes del piloto). Falta: deploy 16.0.99, ícono como ComercialFRA y escaneo real en celular
-Fecha: 2026-10-06
+Estado: CIERRE OPERATIVO EN VALIDACION (implementación 16.0.119; cierre documental 16.0.120). Los 12 casos de §23.6 tienen cobertura unitaria local desde el 2026-10-15. Falta la aceptación operativa exigida por §23.7: migrate del sitio, workers/scheduler, pruebas de navegador/celular y piloto físico BOX.
+Fecha: 2026-10-15
 
 ## Etapa 1 - Modelo y configuración
 
@@ -24,7 +24,7 @@ Fecha: 2026-10-06
 - [x] Implementar receive_scan(code, scan_event_id).
 - [x] Implementar idempotencia transaccional.
 - [x] Resolver FIFO de Encargos comprados con recepción pendiente (implementación legacy 16.0.98/99).
-- [ ] CORRECCIÓN SPEC 020: ampliar FIFO a demanda compatible aunque `purchase_status != PURCHASED`; vincular, mostrar APARTAR y reconciliar cantidad residual.
+- [x] CORRECCIÓN SPEC 020: ampliar FIFO a demanda compatible aunque `purchase_status != PURCHASED`; vincular, mostrar APARTAR y reconciliar cantidad residual.
 - [x] Implementar contador unitario received_qty.
 - [x] Implementar creación automática de UNKNOWN_ITEM.
 - [x] Implementar regla de item_code limpio <= 40.
@@ -106,7 +106,7 @@ Fecha: 2026-10-06
 - [x] Procesamiento individual después de confirmación física, con excepciones pendientes por unidad, reintento seguro y estado FINALIZED_WITH_EXCEPTIONS.
 - [x] Vincular Recepción Unidad al BOX y conservar búsqueda inversa desde Item/ENC/OV, sin agregar caja al maestro Item; legado sin cajas inventadas.
 - [x] Revisar permisos ReceptorFRA, ComercialFRA y System Manager y bloquear edición de cajas cerradas.
-- [ ] Ejecutar 12 casos obligatorios de §23.6 (unittests hechos para 1, 2, 4, 5, 8, 9 y 11; resto y piloto real en celular pendientes) y aportar evidencia.
+- [ ] Ejecutar 12 casos obligatorios de §23.6 y aportar evidencia operativa. Cobertura unitaria local 12/12 completada el 2026-10-15; validación real en navegador/celular y piloto físico pendientes.
 - [x] Actualizar README / especificaciones de UI y verificar no regresión de Etapas 1-5 (suite local).
 ### Desglose operativo E1-E6 autorizado (2026-10-14)
 
@@ -133,6 +133,8 @@ Fecha: 2026-10-06
 
 - `test_box_reception.py` nuevo + `test_reception.py` / `test_shopper.py` ajustados: 95 tests OK.
 - Suite completa: 481 tests, sin fallas nuevas (9 fallas y 1 error previos, ajenos: contact mirror, brand supplier, sales person, sales order encargo).
+- Cobertura unitaria adicional de §23.6 casos 3, 6, 7, 10 y 12: `test_box_reception.py` + `test_reception.py`, 71 tests focalizados OK. El caso 7 simula secuencialmente la relectura bajo lock; la concurrencia real queda para el piloto.
+- Regresión local posterior: 486 tests; mismas 9 fallas y 1 error preexistentes, sin fallas nuevas.
 - JS `recepcion_chile.js` y `recepcion_comercial.js` verificados con `node --check`; JSON de DocTypes válidos.
 - Decisión de implementación: el bloqueo Shopper considera también líneas ERROR (aún no consumadas) de cajas FINALIZING; se libera al pasar la caja a FINALIZED/FINALIZED_WITH_EXCEPTIONS.
 - Pendiente E6: migrate en el sitio, confirmar RQ workers (cola `long`) y scheduler activos, piloto en celular (duplicado, desconexión, dos cajas simultáneas, excepción parcial, cierre repetido, worker interrumpido).

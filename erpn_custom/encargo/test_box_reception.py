@@ -199,6 +199,18 @@ class TestDraft(BoxCase):
 		event.assert_not_called()
 		self.db.set_value.assert_not_called()
 
+	def test_open_box_does_not_require_an_external_label(self):
+		"""§23.6 #12: the carrier label is optional and opening a box creates no Shopper task."""
+		doc = MagicMock()
+		doc.name = "BOX-2026-00002"
+		self.frappe.get_doc = MagicMock(return_value=doc)
+		result = box.open_box()
+		payload = self.frappe.get_doc.call_args.args[0]
+		self.assertEqual((payload["doctype"], payload["external_ref"], result["name"]), (box.BOX, "", "BOX-2026-00002"))
+		self.frappe.get_doc.assert_called_once()
+		doc.insert.assert_called_once_with(ignore_permissions=True)
+		self.frappe.enqueue.assert_not_called()
+
 	def test_repeated_read_id_is_not_a_second_line(self):
 		"""§23.6 #4: the same scan_event_id answers DUPLICADO without locking or inserting."""
 		self.existing = line()
@@ -370,6 +382,27 @@ class TestCloseJob(BoxCase):
 		box.refresh_finished_box("BOX-2026-00001")
 		self.db.set_value.assert_not_called()
 
+	def test_partial_exception_resolves_without_rescanning(self):
+		"""§23.6 #6: valid units finish and a pending unit is resolved later without another scan."""
+		self.db.get_value = MagicMock(return_value=head(box.FINALIZING))
+		processed = [line(name="L1", status=box.PROCESSED), line(name="L2", status=box.PROCESSED)]
+		posted = D(status=reception.POSTED)
+		pending = D(status=reception.PENDING_CLASSIFICATION)
+		with patch.object(box, "_lines", return_value=processed), patch.object(
+			box, "_box_units", return_value=[posted, pending]
+		), patch.object(reception, "process_scan") as process:
+			self.assertEqual(box.finish_box("BOX-2026-00001"), box.FINALIZED_WITH_EXCEPTIONS)
+			process.assert_not_called()
+		values = self.db.set_value.call_args.args[2]
+		self.assertEqual((values["processed_lines"], values["exception_lines"]), (2, 1))
+		self.db.get_value = MagicMock(return_value=box.FINALIZED_WITH_EXCEPTIONS)
+		with patch.object(box, "_box_units", return_value=[posted, posted]), patch.object(
+			reception, "process_scan"
+		) as process:
+			box.refresh_finished_box("BOX-2026-00001")
+			process.assert_not_called()
+		self.assertEqual(self.db.set_value.call_args.args[2]["status"], box.FINALIZED)
+
 
 class TestRecovery(BoxCase):
 	def test_scheduler_resumes_an_interrupted_job(self):
@@ -401,6 +434,19 @@ class TestRecovery(BoxCase):
 
 
 class TestHistoryAndShopper(BoxCase):
+	def test_draft_box_can_be_loaded_after_reconnect(self):
+		"""§23.6 #3: a DRAFT box and its lines are read back from server persistence."""
+		saved_lines = [line(), line(name="L2", status=box.DISCARDED, discarded_by="r1@fragallardo.com", discarded_on=NOW)]
+		self.db.get_value = MagicMock(return_value=head())
+		self.frappe.get_all = MagicMock(
+			side_effect=lambda doctype, **kwargs: saved_lines if doctype == box.LINE else []
+		)
+		result = box.get_box("BOX-2026-00001")
+		self.assertEqual(result["status"], box.DRAFT)
+		self.assertEqual([row["status"] for row in result["lines"]], [box.ACTIVE, box.DISCARDED])
+		self.assertEqual(result["lines"][1]["discarded_by"], "r1@fragallardo.com")
+		self.db.set_value.assert_not_called()
+
 	def test_history_by_reader(self):
 		calls = []
 
@@ -416,6 +462,24 @@ class TestHistoryAndShopper(BoxCase):
 		box.list_boxes(view="history", user="r2@fragallardo.com")
 		self.assertEqual(calls[0][1]["filters"], {"scanned_by": "r2@fragallardo.com"})
 		self.assertEqual(set(calls[-1][1]["filters"]["name"][1]), {"BOX-1", "BOX-2"})
+
+	def test_search_reconstructs_box_from_barcode_item_encargo_order_or_customer(self):
+		"""§23.6 #10: BOX history is discoverable through lines and received-unit links."""
+		def get_all(doctype, **kwargs):
+			if doctype == box.BOX:
+				return ["BOX-BY-NAME"]
+			if doctype == box.LINE:
+				return ["BOX-BY-BARCODE"]
+			return ["BOX-BY-UNIT"]
+
+		self.frappe.get_all = MagicMock(side_effect=get_all)
+		self.assertEqual(
+			box._boxes_matching("needle"),
+			{"BOX-BY-NAME", "BOX-BY-BARCODE", "BOX-BY-UNIT"},
+		)
+		unit_call = self.frappe.get_all.call_args_list[2]
+		self.assertEqual(set(unit_call.kwargs["or_filters"]), {"encargo", "sales_order", "item", "customer"})
+		self.assertEqual(unit_call.kwargs["filters"], {"box": ("is", "set")})
 
 	def test_closing_box_code_is_exact(self):
 		self.frappe.get_all = MagicMock(side_effect=[["BOX-1"], ["ABC"]])

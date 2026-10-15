@@ -1,6 +1,6 @@
 # Spec 018 - Recepción física e inventario Chile
 
-Estado: ETAPA 6 APROBADA PARA PROGRAMACION (ampliación §23, 2026-10-13); etapas 1-5 implementadas
+Estado: PROGRAMADA EN 16.0.119; cierre documental 16.0.120; aceptación operativa pendiente por deuda de migrate, workers/scheduler y piloto físico BOX
 Prioridad: BASE DE RECEPCION; alineada por Spec 020 para demanda multifuente
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
@@ -576,7 +576,7 @@ La Spec 018 se considera terminada cuando un FRAreceptor puede abrir una caja y 
 
 ## 23. Recepción provisional por caja (decisión D, 2026-10-10)
 
-**Estado: DEFINICION ARQUITECTONICA PARA PROGRAMACION.** Esta sección sustituye íntegramente la propuesta previa de anulación inmediata de escaneos ya contabilizados. Donde las secciones 1, 4, 5, 7, 9, 12, 13, 15, 17, 20 y el plan hablen de contabilizar por cada lectura, léanse como comportamiento del **cierre**, no del escaneo provisional. La lógica transaccional existente de `receive_scan` se reutiliza/adapta en el cierre, no debe dispararse al agregar una línea al borrador.
+**Estado: PROGRAMADA; ACEPTACION OPERATIVA PENDIENTE.** Esta sección sustituye íntegramente la propuesta previa de anulación inmediata de escaneos ya contabilizados. Donde las secciones 1, 4, 5, 7, 9, 12, 13, 15, 17, 20 y el plan hablen de contabilizar por cada lectura, léanse como comportamiento del **cierre**, no del escaneo provisional. La lógica transaccional existente de `receive_scan` se reutiliza/adapta en el cierre, no debe dispararse al agregar una línea al borrador.
 
 ### 23.1 Alcance y límites
 

@@ -201,6 +201,23 @@ class TestPickSource(ReceptionCase):
 		self.assertEqual(reception.pick_source(row, [], {}, 0, "191267529486", ["ITEM-1"]), (None, None))
 		self.assertEqual(reception.pick_source(row, [], {}, 5, "191267529486", ["ITEM-2"]), (None, None))
 
+	def test_second_box_cannot_consume_the_last_demand_after_lock(self):
+		"""§23.6 #7: sequential simulation verifies capacity is recalculated after each lock."""
+		candidate = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
+		with patch.object(reception, "_candidates", return_value=[candidate]), patch.object(
+			reception, "_lock", return_value=candidate
+		), patch.object(reception.demand, "locked_events", return_value=[]), patch.object(
+			reception.demand, "locked_units", side_effect=[[], [unit(status=reception.POSTED)]]
+		), patch.object(reception.demand, "is_live_unit", return_value=True), patch.object(
+			reception.demand,
+			"summarize",
+			return_value=D(event_received={}, pending_supply_qty=1),
+		):
+			first = reception._assign_encargo(QR, ["ITEM-1"])
+			second = reception._assign_encargo(QR, ["ITEM-1"])
+		self.assertEqual(first, (candidate, "direct", None))
+		self.assertEqual(second, (None, None, None))
+
 	def test_other_barcode_of_the_same_item_uses_the_purchase(self):
 		row = purchased(source_type="KNOWN_ITEM", expected_item="ITEM-1")
 		event = shopper_event(barcode="OTRO")
