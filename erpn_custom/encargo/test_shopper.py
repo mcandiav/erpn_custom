@@ -368,6 +368,19 @@ class TestPurchaseEdit(unittest.TestCase):
 		self.assertEqual(str(caught.exception), shopper.STALE_MESSAGE)
 		self.assertIsNone(self.calls["values"])
 
+	def test_box_being_finalized_blocks_the_purchase_with_that_code(self):
+		"""Spec 018 §23.8 #9: from Finalizar until the line is processed, old or new code."""
+		with patch.object(shopper.box_reception, "closing_box_has_code", return_value=True) as closing:
+			with self.assertRaises(_Throw) as caught:
+				self._run(_purchase(), barcode="999")
+		self.assertEqual(str(caught.exception), shopper.CLOSING_BOX_MESSAGE)
+		self.assertIn("mismo código de producto", shopper.CLOSING_BOX_MESSAGE)
+		self.assertIsNone(self.calls["values"])
+		self.assertEqual(closing.call_args.args[0], {_purchase()["purchase_barcode"], "999"})
+		with patch.object(shopper.box_reception, "closing_box_has_code", return_value=False):
+			result = self._run(_purchase())[0]
+		self.assertEqual(result["supply_event"], "EV1")
+
 	def test_received_and_partial_block_the_whole_purchase(self):
 		live = [{"supply_event": "EV1", "status": "POSTED", "destination": "ENCARGO"}]
 		with self.assertRaises(_Throw) as caught:

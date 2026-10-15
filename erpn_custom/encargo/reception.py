@@ -94,7 +94,10 @@ UNIT_FIELDS = [
 	"materialization_status",
 	"materialized_row",
 	"materialization_message",
+	"box",
+	"box_line",
 ]
+LEGACY_BOX = "Sin caja (LEGACY)"
 COMMERCIAL_VIEWS = {
 	"apartados": {"status": POSTED, "destination": ENCARGO},
 	"clasificacion": {"status": PENDING_CLASSIFICATION},
@@ -331,7 +334,7 @@ def _assign_encargo(code, barcode_items):
 	return None, None, None
 
 
-def _new_unit(code, scan_event_id, user, received_on=None, is_migration=0):
+def _new_unit(code, scan_event_id, user, received_on=None, is_migration=0, box=None, box_line=None):
 	return frappe.get_doc(
 		{
 			"doctype": UNIT,
@@ -342,8 +345,14 @@ def _new_unit(code, scan_event_id, user, received_on=None, is_migration=0):
 			"received_on": received_on or now_datetime(),
 			"received_by": user,
 			"is_migration": is_migration,
+			"box": box,
+			"box_line": box_line,
 		}
 	)
+
+
+def box_label(box):
+	return box or LEGACY_BOX
 
 
 def _link_encargo(unit, row, destination=ENCARGO, event=None):
@@ -532,6 +541,8 @@ def unit_result(name, duplicate=False):
 		"item_name": unit.item_name,
 		"message": unit.message or unit.materialization_message,
 		"duplicate": int(bool(duplicate)),
+		"box": unit.box,
+		"box_label": box_label(unit.box),
 	}
 
 
@@ -540,9 +551,19 @@ def _unit_by_scan(scan_event_id):
 
 
 @frappe.whitelist(methods=["POST"])
-def receive_scan(code, scan_event_id=None):
-	"""One scan = one unit (Spec 018): Encargo FIFO, Item, Material Receipt; a repeated scan_event_id is a no-op."""
-	_require(is_receptor)
+def receive_scan(code=None, scan_event_id=None):
+	"""Retired direct posting (Spec 018 §23.8 #6): every read goes through a BOX draft first."""
+	frappe.throw(
+		_("La recepción directa ya no está disponible: abre o continúa una caja en Recepción Chile."),
+		frappe.PermissionError,
+	)
+
+
+def process_scan(code, scan_event_id, user, received_on=None, box=None, box_line=None):
+	"""One read = one unit (Spec 018): Encargo FIFO, Item, Material Receipt; a repeated scan_event_id is a no-op.
+
+	Internal only: called by the BOX close job. Callers check roles and commit.
+	"""
 	code = clean_code(code)
 	if not code:
 		frappe.throw(_("Escanea o escribe un código."))
@@ -551,8 +572,7 @@ def receive_scan(code, scan_event_id=None):
 	if existing:
 		return unit_result(existing, duplicate=True)
 	barcode_items = inventory.items_for_barcode(code)
-	user = frappe.session.user
-	unit = _new_unit(code, scan_event_id, user)
+	unit = _new_unit(code, scan_event_id, user, received_on, box=box, box_line=box_line)
 	row, kind, event = _assign_encargo(code, barcode_items)
 	if kind == "direct":
 		# Spec 020 §8: a compatible unit satisfies demand without a prior Shopper purchase.
@@ -582,6 +602,16 @@ def _save(unit, previous_encargo=None):
 	unit.save(ignore_permissions=True)
 	for encargo in {unit.encargo, previous_encargo} - {None, ""}:
 		demand.reconcile_encargo_supply(encargo)
+	refresh_box(unit.get("box"))
+
+
+def refresh_box(box):
+	"""A resolved exception may complete its BOX: FINALIZED_WITH_EXCEPTIONS -> FINALIZED."""
+	if not box:
+		return
+	from erpn_custom.encargo import box_reception
+
+	box_reception.refresh_finished_box(box)
 
 
 @frappe.whitelist()
@@ -654,6 +684,7 @@ def list_units(view="apartados", search=None, limit=200):
 			"sales_order": ("like", like),
 			"customer": ("like", like),
 			"item": ("like", like),
+			"box": ("like", like),
 		}
 	rows = frappe.get_all(
 		UNIT,
@@ -723,6 +754,7 @@ def retry_materialization(unit):
 		doc = frappe.get_doc(UNIT, unit)
 		materialization.materialize(doc, user)
 		doc.save(ignore_permissions=True)
+		refresh_box(doc.get("box"))
 	return unit_result(doc.name)
 
 
@@ -763,6 +795,7 @@ def resume_after_barcode_decision(encargo, approved, supply_event=None):
 			doc.resolved_on = now_datetime()
 			doc.resolved_by = user
 			doc.save(ignore_permissions=True)
+			refresh_box(doc.get("box"))
 		result = unit_result(doc.name)
 		results.append({"unit": doc.name, "screen": result["screen"], "message": result["message"]})
 	demand.reconcile_encargo_supply(encargo)

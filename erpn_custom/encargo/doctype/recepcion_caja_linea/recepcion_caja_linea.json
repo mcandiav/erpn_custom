@@ -1,0 +1,183 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-10-15 00:30:00",
+ "description": "Una lectura de la caja en borrador = una unidad (Spec 018 §23). Registro independiente, no tabla hija; lo graba solo el servicio de recepción por caja.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "box",
+  "ordinal",
+  "status",
+  "scanned_code",
+  "scan_event_id",
+  "preview",
+  "column_break_scan",
+  "scanned_on",
+  "scanned_by",
+  "discarded_on",
+  "discarded_by",
+  "section_process",
+  "reception_unit",
+  "processed_on",
+  "column_break_process",
+  "attempts",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "box",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Caja",
+   "options": "Recepcion Caja",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "ordinal",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "N°",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Estado",
+   "options": "ACTIVE\nDISCARDED\nPROCESSED\nERROR",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "scanned_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Código escaneado",
+   "length": 140,
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "scan_event_id",
+   "fieldtype": "Data",
+   "label": "Scan event id",
+   "length": 64,
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "Vista previa no comprometida al escanear: no reserva ni asigna nada.",
+   "fieldname": "preview",
+   "fieldtype": "Data",
+   "label": "Vista previa",
+   "length": 240,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_scan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scanned_on",
+   "fieldtype": "Datetime",
+   "label": "Escaneado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scanned_by",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Escaneado por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "discarded_on",
+   "fieldtype": "Datetime",
+   "label": "Quitado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "discarded_by",
+   "fieldtype": "Link",
+   "label": "Quitado por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_process",
+   "fieldtype": "Section Break",
+   "label": "Procesamiento al finalizar"
+  },
+  {
+   "fieldname": "reception_unit",
+   "fieldtype": "Link",
+   "label": "Unidad de recepción",
+   "options": "Recepcion Unidad",
+   "read_only": 1
+  },
+  {
+   "fieldname": "processed_on",
+   "fieldtype": "Datetime",
+   "label": "Procesado el",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_process",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "attempts",
+   "fieldtype": "Int",
+   "label": "Intentos fallidos",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Small Text",
+   "label": "Error técnico",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-15 00:30:00",
+ "modified_by": "Administrator",
+ "module": "Encargo",
+ "name": "Recepcion Caja Linea",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ComercialFRA"
+  },
+  {
+   "read": 1,
+   "role": "FRAreceptor"
+  }
+ ],
+ "search_fields": "scanned_code,box",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "scanned_code",
+ "track_changes": 0
+}

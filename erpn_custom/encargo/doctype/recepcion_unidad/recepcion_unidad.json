@@ -11,6 +11,8 @@
   "scanned_code",
   "scan_event_id",
   "is_migration",
+  "box",
+  "box_line",
   "column_break_header",
   "received_on",
   "received_by",
@@ -100,6 +102,24 @@
    "fieldname": "is_migration",
    "fieldtype": "Check",
    "label": "Regularización",
+   "read_only": 1
+  },
+  {
+   "description": "Caja de recepción de origen (Spec 018 §23). Vacío en unidades anteriores: Sin caja (LEGACY).",
+   "fieldname": "box",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Caja",
+   "options": "Recepcion Caja",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "box_line",
+   "fieldtype": "Link",
+   "label": "Lectura de origen",
+   "options": "Recepcion Caja Linea",
    "read_only": 1
   },
   {
@@ -381,7 +401,7 @@
  "in_create": 1,
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-07 11:00:00",
+ "modified": "2026-10-15 00:30:00",
  "modified_by": "Administrator",
  "module": "Encargo",
  "name": "Recepcion Unidad",
@@ -410,7 +430,7 @@
    "role": "Sales Manager"
   }
  ],
- "search_fields": "scanned_code,encargo,item",
+ "search_fields": "scanned_code,encargo,item,box",
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],

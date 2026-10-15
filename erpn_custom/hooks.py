@@ -214,6 +214,7 @@ scheduler_events = {
 	"all": [
 		"erpn_custom.chile.deposit_mapping.tick_from_scheduler",
 		"erpn_custom.chile.realize.tick_from_scheduler",
+		"erpn_custom.encargo.box_reception.tick_from_scheduler",
 	]
 }
 

@@ -1,4 +1,5 @@
 const RCC_METHOD = "erpn_custom.encargo.reception.";
+const RCC_BOX_METHOD = "erpn_custom.encargo.box_reception.";
 const RCC_BARCODE_METHOD = "erpn_custom.encargo.barcode_exception.";
 const RCC_BARCODE_VIEWS = [
 	{ view: "pending", label: __("Pendiente aprobación") },
@@ -10,6 +11,7 @@ const RCC_VIEWS = [
 	{ view: "barcode", label: __("Excepciones barcode") },
 	{ view: "valorizacion", label: __("Pendientes de valorización") },
 	{ view: "vincular", label: __("Pendientes de vincular a OV") },
+	{ view: "cajas", label: __("Cajas con incidencias") },
 ];
 
 const rcc_escape = (value) => frappe.utils.escape_html(value == null ? "" : String(value));
@@ -81,7 +83,9 @@ class CommercialReception {
 		this.$search.on("input", frappe.utils.debounce(() => this.load(), 300));
 		this.$list.on("click", "[data-action]", (e) => {
 			const $btn = $(e.currentTarget);
-			if ($btn.attr("data-encargo")) {
+			if ($btn.attr("data-box")) {
+				this.box_act($btn.attr("data-action"), $btn.attr("data-box"));
+			} else if ($btn.attr("data-encargo")) {
 				this.barcode_act(
 					$btn.attr("data-action"),
 					$btn.attr("data-encargo"),
@@ -120,6 +124,10 @@ class CommercialReception {
 			this.load_exceptions(request);
 			return;
 		}
+		if (this.view === "cajas") {
+			this.load_boxes(request);
+			return;
+		}
 		frappe.call({
 			method: RCC_METHOD + "list_units",
 			args: { view: this.view, search: this.$search.val() },
@@ -156,14 +164,109 @@ class CommercialReception {
 		});
 	}
 
+	load_boxes(request) {
+		this.$banner.html("");
+		frappe.call({
+			method: RCC_BOX_METHOD + "list_incidents",
+			callback: (r) => {
+				if (request !== this.request) {
+					return;
+				}
+				const text = (this.$search.val() || "").toLowerCase();
+				this.rows = (r.message || []).filter((row) => !text || String(row.name).toLowerCase().includes(text));
+				this.render();
+			},
+		});
+	}
+
 	render() {
 		if (!this.rows.length) {
-			const empty = this.view === "barcode" ? __("Sin excepciones") : __("Sin registros");
+			const empty = this.view === "barcode" ? __("Sin excepciones") : this.view === "cajas" ? __("Sin cajas con incidencias") : __("Sin registros");
 			this.$list.html(`<div class="text-muted" style="padding: 12px 0;">${rcc_escape(empty)}</div>`);
 			return;
 		}
-		const card = this.view === "barcode" ? (row) => this.exception_card(row) : (row) => this.card(row);
+		const card =
+			this.view === "barcode"
+				? (row) => this.exception_card(row)
+				: this.view === "cajas"
+				? (row) => this.box_card(row)
+				: (row) => this.card(row);
 		this.$list.html(this.rows.map(card).join(""));
+	}
+
+	box_card(row) {
+		const btn = (action, label, style) =>
+			`<button class="btn btn-xs ${style}" data-action="${action}" data-box="${rcc_escape(row.name)}">${rcc_escape(label)}</button>`;
+		return `
+			<div class="rcc-card">
+				<div class="rcc-card-head">
+					<div class="rcc-card-title">${rcc_escape(row.name)}${row.external_ref ? " · " + rcc_escape(row.external_ref) : ""}</div>
+					<div class="text-muted small">${__("Finalizar pulsado")} ${rcc_escape(
+						frappe.datetime.str_to_user(row.finalize_requested_on)
+					)} · ${rcc_escape(row.finalize_requested_by)}</div>
+				</div>
+				<div class="small">${__("Procesadas {0} de {1} · con error técnico {2}", [
+					rcc_escape(row.processed_lines || 0),
+					rcc_escape(row.active_lines || 0),
+					rcc_escape(row.error_lines || 0),
+				])}</div>
+				<div class="small text-muted">${__("Último avance")}: ${rcc_escape(frappe.datetime.str_to_user(row.job_heartbeat))}</div>
+				${row.last_error ? `<div class="rcc-message small rcc-code">${rcc_escape(String(row.last_error).slice(-300))}</div>` : ""}
+				<div class="rcc-actions">${btn("retry", __("Reintentar procesamiento"), "btn-primary")}${btn(
+					"detail",
+					__("Ver caja"),
+					"btn-default"
+				)}</div>
+			</div>
+		`;
+	}
+
+	box_act(action, box) {
+		if (action === "detail") {
+			this.show_box(box);
+			return;
+		}
+		frappe.call({
+			method: RCC_BOX_METHOD + "retry_box",
+			type: "POST",
+			args: { box },
+			freeze: true,
+			callback: () => {
+				frappe.show_alert({ message: __("Reintento en cola para {0}", [box]), indicator: "green" });
+				this.load();
+			},
+		});
+	}
+
+	show_box(box) {
+		frappe.call({
+			method: RCC_BOX_METHOD + "get_box",
+			args: { box },
+			callback: (r) => {
+				const data = r.message;
+				if (!data) {
+					return;
+				}
+				const rows = (data.lines || [])
+					.map((line) => {
+						const u = line.unit;
+						const result = u
+							? `${rcc_escape(__(u.screen))} · <a href="/app/recepcion-unidad/${encodeURIComponent(u.name)}">${rcc_escape(u.name)}</a>`
+							: rcc_escape(line.status) + (line.error_message ? ` · ${rcc_escape(String(line.error_message).slice(-160))}` : "");
+						return `<tr><td>${rcc_escape(line.ordinal)}</td><td class="rcc-code">${rcc_escape(line.scanned_code)}</td><td>${rcc_escape(
+							line.scanned_by
+						)}</td><td>${result}</td></tr>`;
+					})
+					.join("");
+				frappe.msgprint({
+					title: `${data.name} · ${data.status}`,
+					wide: true,
+					message: `<table class="table table-sm"><thead><tr><th>#</th><th>${__("Código")}</th><th>${__("Leída por")}</th><th>${__(
+						"Resultado"
+					)}</th></tr></thead><tbody>${rows}</tbody></table>`,
+				});
+			},
+		});
 	}
 
 	exception_card(row) {
@@ -251,6 +354,7 @@ class CommercialReception {
 				</div>
 				<div>${item}</div>
 				<div class="rcc-code small">${rcc_escape(row.scanned_code)}</div>
+				<div class="small">${__("Caja")}: ${row.box ? link("Recepcion Caja", row.box) : rcc_escape(__("Sin caja (LEGACY)"))}</div>
 				${extra ? `<div class="small">${extra}</div>` : ""}
 				${row.reservation_note ? `<div class="text-muted small">${rcc_escape(row.reservation_note)}</div>` : ""}
 				${row.message ? `<div class="rcc-message small">${rcc_escape(row.message)}</div>` : ""}

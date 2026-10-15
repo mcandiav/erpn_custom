@@ -363,18 +363,28 @@ class TestEndpoints(ReceptionCase):
 	def test_repeated_read_is_a_noop(self):
 		self.db.get_value = MagicMock(return_value="RCU-1")
 		with patch.object(reception, "unit_result", lambda name, duplicate=False: {"unit": name, "duplicate": duplicate}):
-			self.assertEqual(reception.receive_scan(QR, SCAN_ID), {"unit": "RCU-1", "duplicate": True})
+			self.assertEqual(reception.process_scan(QR, SCAN_ID, "r1@fragallardo.com"), {"unit": "RCU-1", "duplicate": True})
 		self.frappe.get_doc.assert_not_called()
 
 	def test_read_without_id_is_rejected(self):
 		with self.assertRaises(_Throw):
-			reception.receive_scan(QR)
+			reception.process_scan(QR, None, "r1@fragallardo.com")
 
-	def test_receptor_gate(self):
-		for roles in (["ShopperFRA"], ["ComercialFRA"]):
+	def test_direct_endpoint_is_closed_for_every_role(self):
+		"""Spec 018 §23.8 #6: no bypass of the BOX draft, not even for System Manager."""
+		for roles in (["FRAreceptor"], ["System Manager"], ["ComercialFRA"], ["ShopperFRA"]):
 			self.frappe.get_roles = lambda roles=roles: roles
-			with self.assertRaises(_Throw):
+			with self.subTest(roles=roles), self.assertRaises(_Throw):
 				reception.receive_scan(QR, SCAN_ID)
+		self.frappe.get_doc.assert_not_called()
+		self.db.get_value.assert_not_called()
+
+	def test_box_unit_keeps_its_box_and_line(self):
+		reception._new_unit(QR, SCAN_ID, "r1@fragallardo.com", NOW, box="BOX-2026-00001", box_line="L1")
+		payload = self.frappe.get_doc.call_args.args[0]
+		self.assertEqual((payload["box"], payload["box_line"], payload["received_on"]), ("BOX-2026-00001", "L1", NOW))
+		self.assertEqual(reception.box_label(None), "Sin caja (LEGACY)")
+		self.assertEqual(reception.box_label("BOX-2026-00001"), "BOX-2026-00001")
 
 	def test_return_requires_commercial_and_reason(self):
 		with self.assertRaises(_Throw):
@@ -466,7 +476,7 @@ class TestPermissions(ReceptionCase):
 		"regularize": lambda: reception.regularize_previous_receptions(),
 	}
 	DENIED = {
-		"FRAreceptor": ("list_units", "resolve_unit", "return_unit", "retry_materialization", "regularize"),
+		"FRAreceptor": ("receive_scan", "list_units", "resolve_unit", "return_unit", "retry_materialization", "regularize"),
 		"ComercialFRA": ("receive_scan", "list_reception", "regularize"),
 		"ShopperFRA": tuple(ENDPOINTS),
 	}

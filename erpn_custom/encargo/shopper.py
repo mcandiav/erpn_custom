@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, get_url, now_datetime
 
-from erpn_custom.encargo import barcode_exception, demand, inventory
+from erpn_custom.encargo import barcode_exception, box_reception, demand, inventory
 
 SHOPPER_ROLE = "ShopperFRA"
 ALLOWED_ROLES = (SHOPPER_ROLE, "System Manager")
@@ -493,6 +493,10 @@ def confirm_purchase(
 
 
 RECEIVED_MESSAGE = "Esta unidad ya fue recibida en Chile. No se pueden modificar los datos de compra."
+CLOSING_BOX_MESSAGE = (
+	"No se puede modificar esta compra mientras se procesa una recepción en Chile que contiene "
+	"el mismo código de producto. Inténtelo cuando finalice el procesamiento."
+)
 BARCODE_LINKED_MESSAGE = "No se puede cambiar el código porque está vinculado a otra operación. No se guardaron cambios."
 STALE_MESSAGE = "Esta compra cambió mientras la editabas. Actualiza los datos y vuelve a intentar. No se guardaron cambios."
 CLOSED_MESSAGE = "Esta compra ya no se puede editar. No se guardaron cambios."
@@ -676,6 +680,8 @@ def update_purchase(
 	units = demand.locked_units(fresh.get("parent"))
 	arrived = sum(1 for unit in units if unit.get("supply_event") == fresh.get("name") and demand.is_live_unit(unit))
 	refusal = edit_refusal(fresh.get("status"), arrived, bool(fresh.get("reception_unit")), barcode_changed)
+	if not refusal and box_reception.closing_box_has_code({fresh.get("purchase_barcode"), barcode_clean}):
+		refusal = CLOSING_BOX_MESSAGE
 	if refusal:
 		frappe.throw(_(refusal), title=_("Compra no editable"))
 

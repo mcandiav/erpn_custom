@@ -1,6 +1,6 @@
 # Spec 018 - Recepción física e inventario Chile
 
-Estado: DEFINITIVA PARA IMPLEMENTACION
+Estado: ETAPA 6 APROBADA PARA PROGRAMACION (ampliación §23, 2026-10-13); etapas 1-5 implementadas
 Prioridad: BASE DE RECEPCION; alineada por Spec 020 para demanda multifuente
 Fecha: 2026-10-06
 Rol solicitante: Arquitecto
@@ -573,3 +573,85 @@ La transformación de la Orden de Venta NO pertenece a esta Spec. Si una unidad 
 ## 22. Criterio de cierre
 
 La Spec 018 se considera terminada cuando un FRAreceptor puede abrir una caja y escanear cada unidad una sola vez, y el ERP deja esa unidad representada de manera determinística como inventario real apartado o stock normal, o como excepción explícita pendiente, sin decisiones manuales del receptor y sin perder trazabilidad contable u operativa.
+
+## 23. Recepción provisional por caja (decisión D, 2026-10-10)
+
+**Estado: DEFINICION ARQUITECTONICA PARA PROGRAMACION.** Esta sección sustituye íntegramente la propuesta previa de anulación inmediata de escaneos ya contabilizados. Donde las secciones 1, 4, 5, 7, 9, 12, 13, 15, 17, 20 y el plan hablen de contabilizar por cada lectura, léanse como comportamiento del **cierre**, no del escaneo provisional. La lógica transaccional existente de `receive_scan` se reutiliza/adapta en el cierre, no debe dispararse al agregar una línea al borrador.
+
+### 23.1 Alcance y límites
+
+Resolver errores de escaneo inmediatos sin reversas contables: una recepción provisional corresponde a **una caja física identificada por Chile**, sin exigir embalaje ni registro de cajas al Shopper. No construir ahora módulo de Aduana, gestión internacional de cajas, seguimiento, impresora de etiquetas ni DocType Caja independiente. La referencia de caja es permanente y servirá a su futura asociación con envíos/documentos aduaneros.
+
+No añadir `box_id` al maestro Item: un mismo Item puede venir en múltiples cajas. Conservar vínculo Caja/Recepción -> Recepción Unidad (por cada unidad) -> Item, Encargo y Stock Entry, cuando existan. El historial de un Item podrá consultarlo usando esos vínculos.
+
+### 23.2 Modelo mínimo
+
+- Usar una **cabecera persistente** `Recepcion Caja` (nombre técnico ajustable a convención, una recepción por caja) o extender un DocType de sesión si ya existe y soporta el contrato completo; decidir tras inspección técnica y documentar elección. No crear además una entidad `Caja` separada.
+- Cabecera: `name`/identificador interno `BOX-YYYY-NNNNN` único e inmutable, `status` DRAFT / FINALIZING / FINALIZED / FINALIZED_WITH_EXCEPTIONS, receptor, timestamps de apertura y cierre, fecha, referencia externa opcional (etiqueta de transportista tal como llegó), observaciones y totales.
+- Cada línea de borrador representa **una unidad**: `scan_event_id` único, ordinal, barcode bruto (incluye QR/URL), timestamp, receptor, estado de la línea y posterior vínculo a `Recepcion Unidad`; nunca usar barcode como clave única. Una relectura del mismo scan_event_id no inserta otra línea; escaneos separados de barcode idéntico sí pueden ser unidades legítimas.
+- Las líneas descartadas antes del cierre quedan excluidas del procesamiento; para auditoría conservar evento de descarte en la bitácora de borrador con usuario y fecha, sin crear `Recepcion Unidad` contabilizada.
+- `Recepcion Unidad` final debe referenciar `BOX-...` y su línea/evento de origen. La referencia nunca se modifica silenciosamente después de finalizar.
+- La cabecera y líneas se guardan en **servidor** después de cada lectura; el navegador/celular no es fuente única de verdad. Permitir reabrir una caja DRAFT tras desconexión.
+
+### 23.3 Flujo UI ReceptorFRA (mobile-first)
+
+Acceso: workspace/ícono **Recepción** -> **Abrir caja / Continuar caja**; listar solo borradores autorizados al usuario (con acceso de supervisión para System Manager). En **Abrir caja**, generar BOX automáticamente sin exigir código de origen; permitir anotar etiqueta externa opcional. Abrir lector con encabezado BOX, estado BORRADOR, contador y lista cronológica de escaneos. Mostrar barcode, Item/ENC/Cliente/OV solo como **vista preliminar no comprometida** cuando pueda inferirse, nunca prometer reserva ni ubicación definitiva.
+
+Acción **Quitar lectura** en cada fila borrador con confirmación ligera y recuperación de escaneo mediante nueva lectura. No pedir motivo para esta corrección operativa. Ofrecer aviso *posible doble lectura consecutiva* sin eliminar ni bloquear automáticamente barcodes repetidos. Acciones: **Continuar escaneando**, **Finalizar recepción**, **Volver a mis cajas abiertas**. Nunca elegir Item, bodega, OV o cliente. No exponer botón Quitar después del cierre.
+
+El botón **Finalizar recepción** muestra BOX, cantidad de líneas activas, descartadas y confirmación explícita. Una caja sin líneas activas no puede finalizarse como recepción. Tras confirmar, bloquear nuevos escaneos y presentar resultado por unidad: **APARTAR - ENC-...**, **STOCK NORMAL** o las excepciones existentes de §12; indicar totales y vínculos. La caja queda consultable en **Recepción > Historial de cajas**, con filtros BOX, fecha, receptor, barcode, ENC, OV, estado y enlaces a detalle de unidad/Item/Encargo.
+
+Permisos: FRAreceptor crea cajas DRAFT, puede continuar cajas DRAFT de otros usuarios FRAreceptor autorizados por cambio de turno, escanea, descarta lecturas y finaliza; se audita cada autor. No edita cajas cerradas ni Stock Entry. System Manager consulta todas y gestiona excepciones supervisadas. ComercialFRA conserva las colas de resolución de §16. Validaciones reales en backend.
+
+### 23.4 Confirmación y efectos (backend)
+
+- **Escaneo DRAFT:** solo persistir la línea, sin crear Item, Stock Entry, Stock Reservation Entry, Supply Event, contadores de Encargo ni movimientos contables; no marcar demanda como satisfecha.
+- **Finalizar:** bloquear cabecera y líneas de esa caja; usar clave idempotente del cierre y bloquear cada `scan_event_id` para evitar doble contabilización con reintentos/concurrencia. Recuperar el conjunto inmutable de líneas activas.
+- Procesar por unidad mediante los servicios actuales de la Spec 018, conciliando con Spec 020 y demanda FIFO **al momento del cierre**, no al escanear. Aplicar entonces clasificación, creación de Item, costo, Stock Entry, Encargo/reserva y resultados existentes.
+- **Fallo de una unidad** por clasificación, mismatch, costo o configuración: conservar evento final de esa unidad como pendiente según los estados ya definidos, sin inventar stock; no bloquear las demás unidades correctas. Fallos técnicos transitorios no deben duplicar movimientos: registrar progreso/errores y permitir **Reintentar procesamiento** únicamente de líneas no consumadas, de manera idempotente y bajo control backend; el receptor no altera el contenido de la caja cerrada.
+- `FINALIZED` significa todas las líneas con resultado definitivo, y `FINALIZED_WITH_EXCEPTIONS` significa recepción física confirmada con excepciones pendientes. Una caja cerrada nunca regresa a DRAFT.
+- Revalidar saldos y demanda bajo los mismos bloqueos/contratos de Spec 020 al procesar cada unidad; no ofrecer a dos cajas una misma cantidad demandada. Mantener la separación entre confirmación física y contabilización de unidades pendientes.
+- No exigir que finalicen todos los Encargos asociados para cerrar la caja. Registrar de forma auditable resultados y documento(s) generados por línea, con recuperación segura ante interrupciones.
+
+### 23.5 Fuera de alcance y migración
+
+- La anulacion **posterior al cierre** no se convierte en acción cotidiana del receptor; queda bajo regularización excepcional supervisada con reversión estándar si aplica. **No implementar el mecanismo de reversión completo propuesto anteriormente para el error de escaneo inmediato.**
+- No obligar al Shopper a registrar caja, envío ni contenido físico. Su compra, precio, barcode y fotos permanecen como evidencia comercial.
+- No cambiar ni recontabilizar automáticamente `Recepcion Unidad` históricas creadas antes de esta mejora: pueden quedar con caja no informada / referencia LEGACY y continúan consultables. Nunca inventar una caja histórica.
+- La asociación futura con envío internacional, documentación y costos aduaneros tendrá su propio diseño cuando se implemente Aduana. No asignar esos datos a Item maestro.
+
+### 23.6 Pruebas obligatorias de aceptación
+
+1. Abrir BOX sin etiqueta externa y registrar 3 lecturas del mismo barcode con scan_event_id diferentes; no crea Stock Entry ni altera Encargo antes de finalizar.
+2. Quitar solo la lectura duplicada elegida: quedan 2 unidades y 1 descarte auditado; no se requiere reversa contable.
+3. Cerrar navegador y reabrir BOX DRAFT: permanecen líneas y descartes.
+4. Enviar dos veces el mismo scan_event_id y luego repetir cierre: no aparecen nuevas líneas ni dobles Stock Entries.
+5. Finalizar con 2 unidades válidas: se generan solo 2 recepciones y sus efectos estándar; ambas conservan BOX y línea de origen.
+6. Una unidad requiere clasificación/costo/aprobación: las demás procesan, la pendiente queda identificada dentro de BOX en FINALIZED_WITH_EXCEPTIONS y se resuelve sin reescanear.
+7. Dos receptores/cajas compiten por el último ENC compatible: solo uno consume la demanda; otro se procesa según política de demanda residual/stock vigente.
+8. Intentar quitar una línea tras cierre: backend rechaza; no exponer edición de caja cerrada.
+9. Usuarios sin permiso no pueden editar cajas ajenas ni crear Stock Entry manual.
+10. Desde Item, Recepcion Unidad y ENC puede reconstruirse la caja de recepción (si el evento no es LEGACY); búsqueda por BOX/barcode/ENC funciona.
+11. Corte de conexión durante cierre y reintento: no hay movimientos huérfanos, dobles reservas ni doble incremento de received_qty.
+12. La ausencia de etiqueta de origen no impide operar; el Shopper continúa sin tareas de cajas.
+
+### 23.7 Criterio de cierre
+
+No dar por implementada esta ampliación hasta probar en celular recepción DRAFT por caja, eliminación de errores sin impacto contable, cierre idempotente, procesamiento parcial con excepciones y trazabilidad BOX -> unidad -> Item / ENC / Stock Entry. La ejecución corresponde al programador: el presente documento define contrato funcional, no afirma implementación.
+
+### 23.8 Decisiones aprobadas del Arquitecto (2026-10-13)
+
+Estas decisiones prevalecen sobre reglas incompatibles de §23.2-23.4:
+
+1. **Borradores:** sin vencimiento automático. Acción "Anular caja borrador" disponible incluso con cero lecturas; confirmación explícita, estado CANCELLED, usuario/fecha de anulación, sin efectos sobre stock o Encargos. No se borra físicamente ni se reabre.
+2. **Reintentos:** job automático ante fallos técnicos recuperables; ComercialFRA y System Manager pueden ejecutar "Reintentar procesamiento" solo sobre líneas no consumadas desde Recepción > Cajas con incidencias y desde el detalle BOX. ReceptorFRA solo visualiza. Las excepciones de negocio se resuelven por las colas vigentes, no mediante reintento indiscriminado.
+3. **Volumen:** sin límite arbitrario de unidades por caja. Finalizar en job en cola con avance persistente y commit por línea; cada línea conserva idempotencia scan_event_id. Un mecanismo recupera jobs interrumpidos, evitando FINALIZING perpetuo, y retoma solo líneas no procesadas. No bloquear el HTTP ni depender del celular conectado.
+4. **Cambio de turno:** otro usuario FRAreceptor autorizado puede continuar una caja DRAFT y finalizarla. Registrar creador, autor de cada lectura/descarte y usuario que finaliza. Validar permisos y concurrencia en backend; nadie modifica contenido FINALIZED.
+5. **Numeración:** BOX-YYYY-NNNNN, secuencia que reinicia cada año bajo la convención central FRA, sin renombrar cajas anteriores.
+6. **receive_scan:** retirar acceso público directo de FRAreceptor; autorizar solo llamadas internas protegidas para el cierre y regularizaciones vigentes, sin perder integraciones permitidas ni dejar un bypass.
+7. **DocTypes:** aprobar Recepcion Caja (cabecera) y Recepcion Caja Linea (registro independiente, no tabla hija), con scan_event_id único, vínculo BOX y descarte en la misma línea (DISCARDED, usuario y fecha). No crear un tercer maestro Caja.
+8. **Previsualización:** servicio separado exclusivamente de solo lectura. No invocar _resolve_item, ni crear barcode, Item, excepción, reserva o evento antes del cierre.
+9. **Spec 021 Shopper:** escaneo en DRAFT no bloquea edición de compra. Al pulsar "Finalizar", iniciar FINALIZING bajo protección de concurrencia. Durante FINALIZING, `update_purchase` rechaza una edición si **barcode actual o barcode nuevo** de esa compra coincide con una línea ACTIVA todavía no procesada de cualquier caja FINALIZING. Mensaje: "No se puede modificar esta compra mientras se procesa una recepción en Chile que contiene el mismo código de producto. Inténtelo cuando finalice el procesamiento." La coincidencia temporal por barcode no prueba que la unidad pertenezca a esa compra: al terminar el procesamiento, liberar el bloqueo preventivo y aplicar únicamente las restricciones definitivas de Spec 021 por vínculos reales de recepción, incluyendo unidades pendientes asociadas; jamás mantener bloqueo global por barcode después de terminar FINALIZING. La verificación del cierre y la edición deben serializarse respecto de los Encargos afectados, releyendo compra/barcode/costo bajo bloqueo para evitar una carrera entre FINALIZING y `update_purchase`. No cambiar moneda, propiedad ni reglas restantes de 021.
+10. **Legado:** mostrar "Sin caja (LEGACY)" cuando Recepcion Unidad histórica carece de BOX, sin reconstrucción inventada ni migración destructiva.
+
+**Agregar pruebas:** anular caja vacía y con lecturas; cambio de receptor/turno; reanudar job interrumpido; carrera con edición de compra Shopper; autorización backend del endpoint anterior; historial por autor de lectura. En §23.6 caso 9 "caja ajena" significa fuera del rol autorizado, no caja creada por un compañero del mismo rol.
