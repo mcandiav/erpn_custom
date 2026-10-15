@@ -91,7 +91,9 @@ Fecha: 2026-10-06
 - [x] Confirmar Currency Exchange USD->CLP operativo o cargar tasa de respaldo (frankfurter.dev - v2; respaldo 980).
 
 
-## Etapa 6 - Cambio arquitectónico: borrador por caja (PROGRAMADA EN 16.0.119; PENDIENTE MIGRATE Y PILOTO EN CELULAR)
+## Etapa 6 - Cambio arquitectónico: borrador por caja (CERRADA 2026-10-15 POR DECISIÓN DE MIGUEL; código 16.0.119)
+
+> **Cierre:** Miguel ordenó cerrar la Spec 018 el 2026-10-15 con la evidencia de pruebas automáticas. Desalineación registrada: la orden del Arquitecto (plan.md, 2026-10-14) pedía no declarar cierre sin piloto en celular. Al cierre **no hay evidencia** de migrate en el sitio, workers/scheduler activos ni piloto físico; las casillas abiertas abajo quedan como deuda operativa, no como pruebas realizadas.
 
 > Alcance nuevo definido el 2026-10-10, no incluido en la evidencia ni entregas 16.0.98/16.0.99. §23 de Spec sustituye la anulación inmediata poscontabilización. Las casillas históricas de Etapas 1-5 no acreditan esta mejora.
 
