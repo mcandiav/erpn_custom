@@ -1,6 +1,6 @@
 # Tasks - Spec 018 Recepción física e inventario Chile
 
-Estado: CIERRE OPERATIVO EN VALIDACION (implementación 16.0.119; cierre documental 16.0.120). Los 12 casos de §23.6 tienen cobertura unitaria local desde el 2026-10-15. Falta la aceptación operativa exigida por §23.7: migrate del sitio, workers/scheduler, pruebas de navegador/celular y piloto físico BOX.
+Estado: CERRADA POR MIGUEL EL 2026-10-15 (programación 16.0.119; cierre documental 16.0.120; cobertura unitaria 16.0.121; evidencia operativa parcial aceptada 16.0.122). Los 12 casos de §23.6 tienen cobertura unitaria local. El piloto web comprobó caja sin etiqueta, duplicados, descarte, persistencia, búsqueda y anulación; las limitaciones no ejecutadas quedan registradas abajo.
 Fecha: 2026-10-15
 
 ## Etapa 1 - Modelo y configuración
@@ -135,6 +135,8 @@ Fecha: 2026-10-15
 - Suite completa: 481 tests, sin fallas nuevas (9 fallas y 1 error previos, ajenos: contact mirror, brand supplier, sales person, sales order encargo).
 - Cobertura unitaria adicional de §23.6 casos 3, 6, 7, 10 y 12: `test_box_reception.py` + `test_reception.py`, 71 tests focalizados OK. El caso 7 simula secuencialmente la relectura bajo lock; la concurrencia real queda para el piloto.
 - Regresión local posterior: 486 tests; mismas 9 fallas y 1 error preexistentes, sin fallas nuevas.
+- Evidencia operativa 2026-10-15: deploy `16.0.121@80e90bd` SUCCESS; DocTypes presentes; workers `long`/`short`, scheduler y 2 workers online. `BOX-2026-00002` sin etiqueta: 3 lecturas de `TEST-BOX-20261015-001`, descarte auditado de #2, persistencia tras recarga, búsqueda por BOX/código y anulación sin finalizar.
+- Limitaciones aceptadas por Miguel al cerrar: sin compra pendiente disponible; no se ejecutaron cierre real, movimientos de inventario, excepción parcial, dos cajas simultáneas, interrupción del worker ni escaneo físico móvil.
 - JS `recepcion_chile.js` y `recepcion_comercial.js` verificados con `node --check`; JSON de DocTypes válidos.
 - Decisión de implementación: el bloqueo Shopper considera también líneas ERROR (aún no consumadas) de cajas FINALIZING; se libera al pasar la caja a FINALIZED/FINALIZED_WITH_EXCEPTIONS.
 - Pendiente E6: migrate en el sitio, confirmar RQ workers (cola `long`) y scheduler activos, piloto en celular (duplicado, desconexión, dos cajas simultáneas, excepción parcial, cierre repetido, worker interrumpido).

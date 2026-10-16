@@ -1,6 +1,6 @@
 # Plan - Spec 018 Recepción física e inventario Chile
 
-Estado: PROGRAMADO EN 16.0.119; CIERRE OPERATIVO EN VALIDACION
+Estado: CERRADO POR MIGUEL EL 2026-10-15; VALIDACION OPERATIVA PARCIAL ACEPTADA
 Fecha: 2026-10-15
 Dependencia: Specs 013/015 vigentes; alineación obligatoria con Spec 020
 Orden actual: la base 018 está implementada, pero la selección de demanda debe corregirse por Spec 020 antes de continuar 017
