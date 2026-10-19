@@ -66,6 +66,8 @@ LINE_FIELDS = [
 	"status",
 	"scanned_code",
 	"scan_event_id",
+	"preview_destination",
+	"preview_encargo",
 	"preview",
 	"scanned_on",
 	"scanned_by",
@@ -190,14 +192,27 @@ def preview_for(code):
 		candidates = reception._candidates(code, items)
 		if candidates:
 			enc = frappe.db.get_value("Encargo", candidates[0].name, ["name", "customer", "sales_order"], as_dict=True)
-			text = " · ".join(filter(None, [enc.name, enc.customer, enc.sales_order]))
+			return {
+				"destination": reception.ENCARGO,
+				"encargo": enc.name,
+				"screen": _("APARTAR - {0}").format(enc.name),
+				"detail": " · ".join(filter(None, [enc.customer, enc.sales_order])),
+			}
 		elif items:
-			text = " · ".join(filter(None, [items[0], frappe.db.get_value("Item", items[0], "item_name")]))
-		else:
-			text = _("Sin coincidencia: se resolverá al finalizar")
+			return {
+				"destination": reception.STOCK,
+				"encargo": None,
+				"screen": _("STOCK NORMAL"),
+				"detail": " · ".join(filter(None, [items[0], frappe.db.get_value("Item", items[0], "item_name")])),
+			}
 	except Exception:
-		text = ""
-	return (text or "")[:PREVIEW_MAX]
+		pass
+	return {
+		"destination": "UNRESOLVED",
+		"encargo": None,
+		"screen": _("SIN COINCIDENCIA"),
+		"detail": _("Se resolverá al finalizar"),
+	}
 
 
 def line_result(line, unit=None, duplicate=False, repeated=False):
@@ -281,6 +296,7 @@ def add_line(box, code, scan_event_id):
 		order_by="ordinal desc",
 		limit_page_length=1,
 	)
+	preview = preview_for(code)
 	line = frappe.get_doc(
 		{
 			"doctype": LINE,
@@ -289,7 +305,9 @@ def add_line(box, code, scan_event_id):
 			"status": ACTIVE,
 			"scanned_code": code,
 			"scan_event_id": scan_event_id,
-			"preview": preview_for(code),
+			"preview_destination": preview["destination"],
+			"preview_encargo": preview["encargo"],
+			"preview": (preview["detail"] or "")[:PREVIEW_MAX],
 			"scanned_on": now_datetime(),
 			"scanned_by": frappe.session.user,
 		}

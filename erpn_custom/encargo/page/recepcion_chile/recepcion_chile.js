@@ -66,6 +66,7 @@ class ReceptionStation {
 		this.poll = null;
 		this.scanner = null;
 		this.scanner_lib = null;
+		this.pending_preview = "";
 		this.page.main.html(`
 			<style>
 				.rc-wrap { max-width: 720px; margin: 0 auto; }
@@ -73,6 +74,12 @@ class ReceptionStation {
 				.rc-code { font-size: 20px; height: 56px; }
 				.rc-camera-btn { height: 56px; font-size: 18px; font-weight: 700; white-space: nowrap; }
 				.rc-reader { margin-top: 12px; border-radius: 8px; overflow: hidden; }
+				.rc-preview { margin-top: 12px; padding: 18px 14px; border-radius: 10px; text-align: center; border: 4px solid; }
+				.rc-preview-encargo { background: #fff3cd; border-color: #f0ad4e; color: #5c3c00; }
+				.rc-preview-stock { background: #e3f0ff; border-color: #2f80ed; color: #0b3b7a; }
+				.rc-preview-warning { background: #fde2e1; border-color: #d9534f; color: #6b1210; }
+				.rc-preview-title { font-size: 26px; font-weight: 800; }
+				.rc-preview-note { margin-top: 6px; font-weight: 600; }
 				.rc-big-btn { height: 52px; font-size: 18px; font-weight: 700; width: 100%; margin-bottom: 8px; }
 				.rc-box-head { padding: 12px; border-radius: 10px; background: var(--subtle-fg); margin-bottom: 12px; }
 				.rc-box-title { font-size: 26px; font-weight: 800; letter-spacing: 1px; }
@@ -295,6 +302,9 @@ class ReceptionStation {
 	// ------------------------------------------------------------ box
 
 	show_box(data) {
+		if (!this.box || this.box.name !== data.name) {
+			this.pending_preview = "";
+		}
 		this.mode = "box";
 		this.box = data;
 		localStorage.setItem(RC_LAST_BOX, data.name);
@@ -373,6 +383,7 @@ class ReceptionStation {
 						<button class="btn btn-primary rc-camera-btn">${__("ESCANEAR")}</button>
 					</div>
 					<div class="rc-reader"></div>
+					<div class="rc-preview-box">${this.pending_preview}</div>
 					<div class="rc-warn-box"></div>
 					<div class="text-muted small" style="margin-top: 6px;">${__(
 						"Vista previa no comprometida: la asignación, reserva y bodega se deciden al finalizar."
@@ -385,6 +396,7 @@ class ReceptionStation {
 		`);
 		this.$code = this.$boxview.find(".rc-code");
 		this.$reader = this.$boxview.find(".rc-reader");
+		this.$preview = this.$boxview.find(".rc-preview-box");
 		this.$warn = this.$boxview.find(".rc-warn-box");
 		this.$lines = this.$boxview.find(".rc-lines");
 		this.$code.on("keydown", (e) => {
@@ -482,6 +494,10 @@ class ReceptionStation {
 			if (u.message) {
 				detail += `<div class="text-danger small">${rc_escape(u.message)}</div>`;
 			}
+		} else if (draft && line.preview_destination) {
+			const preview = this.preview_data(line);
+			kind = preview.kind;
+			title += ` · <span class="rc-line-screen">${rc_escape(preview.title)}</span>`;
 		} else if (line.status === "ERROR") {
 			title += ` · <span class="rc-line-screen">${__("ERROR TÉCNICO - PENDIENTE DE REINTENTO")}</span>`;
 		} else if (line.status === "ACTIVE" && this.box.status === "FINALIZING") {
@@ -504,6 +520,29 @@ class ReceptionStation {
 				</div>
 				${discard}
 			</div>`;
+	}
+
+	preview_data(line) {
+		if (line.preview_destination === "ENCARGO") {
+			return { kind: "encargo", title: __("DESTINO PREVISTO: APARTAR - {0}", [line.preview_encargo]) };
+		}
+		if (line.preview_destination === "STOCK") {
+			return { kind: "stock", title: __("DESTINO PREVISTO: STOCK NORMAL") };
+		}
+		return { kind: "warning", title: __("DESTINO PREVISTO: SIN COINCIDENCIA") };
+	}
+
+	show_preview(line) {
+		const preview = this.preview_data(line);
+		this.pending_preview = `
+			<div class="rc-preview rc-preview-${rc_escape(preview.kind)}">
+				<div class="rc-preview-title">${rc_escape(preview.title)}</div>
+				${line.preview ? `<div>${rc_escape(line.preview)}</div>` : ""}
+				<div class="rc-preview-note">${__("Vista preliminar no comprometida; se confirma al finalizar la caja.")}</div>
+			</div>`;
+		if (this.$preview) {
+			this.$preview.html(this.pending_preview);
+		}
 	}
 
 	focus() {
@@ -562,6 +601,7 @@ class ReceptionStation {
 						lines.push(line);
 					}
 				}
+				this.show_preview(line);
 				this.warn(line);
 			},
 			always: () => {
@@ -585,9 +625,11 @@ class ReceptionStation {
 	render_box_counts() {
 		const scrolled = window.scrollY;
 		const code = this.$code ? this.$code.val() : "";
+		const preview = this.$preview ? this.$preview.html() : "";
 		const warn = this.$warn ? this.$warn.html() : "";
 		this.render_box();
 		this.$code.val(code);
+		this.$preview.html(preview);
 		this.$warn.html(warn);
 		window.scrollTo(0, scrolled);
 	}

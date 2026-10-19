@@ -102,6 +102,7 @@ Fecha: 2026-10-15
 - [x] Guardar cada escaneo como línea persistente de borrador con scan_event_id único y enlace a BOX; soporte de reanudación tras desconexión.
 - [x] Acción Quitar lectura antes de finalizar, sin motivo, conservando auditoría de descarte y sin revertir stock.
 - [x] Cambiar UI: Abrir caja / Continuar caja, historial, lectura, contador, advertencia no bloqueante de repetición, Quitar, Finalizar y resultado.
+- [x] Corrección 16.0.123: restaurar el aviso destacado de destino previsto al escanear en DRAFT, persistir tipo/ENC previsto y mantenerlo estrictamente no vinculante hasta Finalizar. Se documenta como error de implementación de requisitos simultáneos de §23.3 y §23.4.
 - [x] Implementar cierre idempotente y concurrente, sin efectos de inventario ni de Encargo hasta finalizar; verificar FIFO con Spec 020 al cierre.
 - [x] Procesamiento individual después de confirmación física, con excepciones pendientes por unidad, reintento seguro y estado FINALIZED_WITH_EXCEPTIONS.
 - [x] Vincular Recepción Unidad al BOX y conservar búsqueda inversa desde Item/ENC/OV, sin agregar caja al maestro Item; legado sin cajas inventadas.

@@ -11,6 +11,8 @@
   "status",
   "scanned_code",
   "scan_event_id",
+  "preview_destination",
+  "preview_encargo",
   "preview",
   "column_break_scan",
   "scanned_on",
@@ -71,6 +73,22 @@
    "read_only": 1,
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "description": "Destino estimado al leer. No asigna demanda, reserva ni inventario; se recalcula al finalizar.",
+   "fieldname": "preview_destination",
+   "fieldtype": "Select",
+   "label": "Destino previsto",
+   "options": "ENCARGO\nSTOCK\nUNRESOLVED",
+   "read_only": 1
+  },
+  {
+   "description": "Encargo previsto al leer. No queda asignado hasta finalizar la caja.",
+   "fieldname": "preview_encargo",
+   "fieldtype": "Link",
+   "label": "Encargo previsto",
+   "options": "Encargo",
+   "read_only": 1
   },
   {
    "description": "Vista previa no comprometida al escanear: no reserva ni asigna nada.",

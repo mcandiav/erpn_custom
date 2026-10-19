@@ -126,6 +126,44 @@ class TestRules(BoxCase):
 		self.assertEqual(len(box.clean_external_ref("Y" * 500)), box.EXTERNAL_REF_MAX)
 
 
+class TestPreview(BoxCase):
+	def test_encargo_preview_is_read_only_and_explicit(self):
+		self.db.get_value = MagicMock(return_value=D(name="ENC-2026-00405", customer="Cliente", sales_order="OV-1"))
+		with patch.object(inventory, "items_for_barcode", return_value=["ITEM-1"]), patch.object(
+			reception, "_candidates", return_value=[D(name="ENC-2026-00405")]
+		):
+			result = box.preview_for(QR)
+		self.assertEqual(
+			result,
+			{
+				"destination": reception.ENCARGO,
+				"encargo": "ENC-2026-00405",
+				"screen": "APARTAR - ENC-2026-00405",
+				"detail": "Cliente · OV-1",
+			},
+		)
+		self.db.set_value.assert_not_called()
+
+	def test_item_preview_reports_stock_without_writes(self):
+		self.db.get_value = MagicMock(return_value="Producto")
+		with patch.object(inventory, "items_for_barcode", return_value=["ITEM-1"]), patch.object(
+			reception, "_candidates", return_value=[]
+		):
+			result = box.preview_for(QR)
+		self.assertEqual(
+			(result["destination"], result["screen"], result["detail"]),
+			(reception.STOCK, "STOCK NORMAL", "ITEM-1 · Producto"),
+		)
+		self.db.set_value.assert_not_called()
+
+	def test_unknown_preview_defers_the_decision(self):
+		with patch.object(inventory, "items_for_barcode", return_value=[]), patch.object(
+			reception, "_candidates", return_value=[]
+		):
+			result = box.preview_for(QR)
+		self.assertEqual((result["destination"], result["screen"]), ("UNRESOLVED", "SIN COINCIDENCIA"))
+
+
 class TestPermissions(BoxCase):
 	ENDPOINTS = {
 		"open_box": lambda: box.open_box(),
@@ -165,7 +203,15 @@ class TestDraft(BoxCase):
 		self.existing = None
 		self.frappe.get_all = MagicMock(return_value=[])
 		for name, value in (
-			("preview_for", lambda code: "ENC-1 · Cliente · OV-1"),
+			(
+				"preview_for",
+				lambda code: {
+					"destination": reception.ENCARGO,
+					"encargo": "ENC-1",
+					"screen": "APARTAR - ENC-1",
+					"detail": "Cliente · OV-1",
+				},
+			),
 			("box_detail", lambda name: {"name": name}),
 			("_update_counts", MagicMock()),
 		):
@@ -194,6 +240,8 @@ class TestDraft(BoxCase):
 		self.assertEqual([d["scanned_code"] for d in docs], [QR, QR, QR])
 		self.assertEqual({d["status"] for d in docs}, {box.ACTIVE})
 		self.assertEqual({d["box"] for d in docs}, {"BOX-2026-00001"})
+		self.assertEqual({d["preview_destination"] for d in docs}, {reception.ENCARGO})
+		self.assertEqual({d["preview_encargo"] for d in docs}, {"ENC-1"})
 		process.assert_not_called()
 		receipt.assert_not_called()
 		event.assert_not_called()
